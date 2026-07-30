@@ -1,5 +1,10 @@
 import { getNotionClient, bookingsDataSourceId, type NotionWorkspace } from "./client";
-import { bookingToPageProperties, syncedFieldsToUpdateProperties, type PushOptions } from "./mappers";
+import {
+  bookingToPageProperties,
+  syncedFieldsToUpdateProperties,
+  releaseUpdateProperties,
+  type PushOptions,
+} from "./mappers";
 import { setNotionPageId, stampSynced } from "../db/bookings";
 import { pickSyncedFields, type Booking } from "../sync/types";
 import { logSync } from "../sync/log";
@@ -98,4 +103,41 @@ export async function pushBookingToWorkspaces(
   }
 
   return result;
+}
+
+/**
+ * Fully clear a booking's mirrored pages in BOTH workspaces on release/unclaim —
+ * sets Status → Unassigned and clears the name, type, and native Person. Unlike
+ * the claim mirror, this writes to both sides (including the origin) so an
+ * unclaim leaves no stale chips anywhere. `released` should be the post-release
+ * (unassigned) booking so the loop-prevention stamp matches.
+ */
+export async function clearBookingInWorkspaces(released: Booking): Promise<void> {
+  for (const workspace of ["dev", "ambassador"] as const) {
+    if (!isConfigured(workspace)) continue;
+    const pageId =
+      workspace === "dev" ? released.notion_dev_page_id : released.notion_ambassador_page_id;
+    if (!pageId) continue;
+    try {
+      const notion = getNotionClient(workspace);
+      await notion.pages.update({
+        page_id: pageId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        properties: releaseUpdateProperties() as any,
+      });
+    } catch (err) {
+      await logSync({
+        direction: workspace === "dev" ? "hub_to_dev" : "hub_to_amb",
+        result: "error",
+        bookingId: released.id,
+        action: "clear",
+        note: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  try {
+    await stampSynced(released.id, released);
+  } catch (err) {
+    console.error("[push] stampSynced (release) failed", err);
+  }
 }

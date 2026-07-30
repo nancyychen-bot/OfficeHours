@@ -85,6 +85,21 @@ export function syncedFieldsToUpdateProperties(fields: SyncedFields) {
   };
 }
 
+/**
+ * Properties to FULLY clear a booking on release — includes clearing the native
+ * `Booked by` Person (setting people to [] needs no user lookup, so it's safe
+ * for the hub to do in any workspace). Used so an unclaim cleans both sides
+ * completely, regardless of which workspace triggered it.
+ */
+export function releaseUpdateProperties() {
+  return {
+    [PROP.status]: select(statusToLabel("unassigned")),
+    [PROP.bookedByName]: richText(null),
+    [PROP.bookedByType]: select(null),
+    [PROP.bookedByPerson]: { people: [] as unknown[] },
+  };
+}
+
 // ---- Notion -> hub ----------------------------------------------------------
 
 /** Read a Notion select property's option name (from a fetched page). */

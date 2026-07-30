@@ -89,18 +89,23 @@ start+interval since slots are a contiguous equal-length run.
 200, and does nothing else. Unrelated events (dinners/talks) fall on the floor quietly;
 the sync log stays meaningful. (Today this path logs `error` — just a result/label change.)
 
-**Notion views (multi-city shared DB).** All cities share one database per workspace, so
-helpers browse via filtered views. Notion cannot create views via API, so this ships as
-an exact setup guide (`docs/NOTION_VIEWS.md`) covering the three filter dimensions the
-organizer confirmed — **city, date, status**:
-- **"Open slots"** — board grouped by **City** (Location), filtered `Status = Unassigned`
-  and event upcoming. Sort/secondary-filter by date. The main "what can I claim" view.
-- **"My claimed"** — filter `Booked by` (native Person) = me.
-- **"Today's check-ins"** — `event date = today`, `Status = Checked In`.
+**Notion views (organizer-created, per event).** The organizer creates a filtered
+linked view of the Bookings database on a page for each event — filtered to
+`Status = Unassigned`, `Location = <that city>`, and the event's date — and shares that
+page with the people who book. So the hub ships **no views guide**; its responsibility is
+to guarantee the filter properties are always present and correctly populated on every
+booking.
 
-New cities need no pre-config: the Location select option is auto-created when the hub
-first writes a booking for that city (integration has write access; Notion auto-adds
-select options).
+That requires **adding two properties** the hub pushes (today it only pushes `Location`
+and `Slot`, so two SF events in different months are indistinguishable):
+- **`Event`** — the event name (e.g. "Office Hours — SF — Aug 2026"); uniquely identifies
+  an event in one filter.
+- **`Event date`** — a Notion **date** property, so per-event views can filter by date.
+
+Both are added to the Bookings data-source schema in each workspace (extending the
+existing alignment step) and populated on every push from the booking's event. New cities
+need no pre-config — the `Location` select option is auto-created when the hub first
+writes a booking for that city (integration has write access; Notion auto-adds options).
 
 ---
 
@@ -136,7 +141,8 @@ cancelled → mark `cancelled`; its slots drop off active boards.
 | `app/api/cron/no-show/route.ts` (new) | protected endpoint calling the sweep |
 | `lib/db/bookings.ts` | no-show sweep honors 15-min grace after slot end |
 | `supabase/migrations/` | add `cancelled` to `event_status` enum |
-| `docs/NOTION_VIEWS.md` (new) | exact filtered-view setup guide |
+| `lib/notion/schema.ts` + alignment | add `Event` (rich_text) + `Event date` (date) properties to both Bookings data sources |
+| `lib/notion/mappers.ts` | populate `Event` (name) + `Event date` on the initial page push (`bookingToPageProperties`) |
 | `vercel.json` / config | Cron schedule for the no-show sweep |
 
 ## Testing

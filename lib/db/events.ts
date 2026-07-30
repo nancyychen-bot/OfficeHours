@@ -1,5 +1,6 @@
 import { getAdminClient } from "../supabase/admin";
 import type { EventRow } from "../sync/types";
+import type { Enums } from "../supabase/types";
 
 /**
  * Resolve an event from a Luma event id — the join key that lets a webhook
@@ -35,4 +36,32 @@ export async function listEvents(): Promise<EventRow[]> {
     .order("event_date", { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function upsertEvent(input: {
+  lumaEventId: string;
+  name: string;
+  city: string;
+  eventDate: string; // YYYY-MM-DD
+  timezone: string;
+  status?: Enums<"event_status">;
+}): Promise<EventRow> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("events")
+    .upsert(
+      {
+        luma_event_id: input.lumaEventId,
+        name: input.name,
+        city: input.city,
+        event_date: input.eventDate,
+        timezone: input.timezone,
+        status: input.status ?? "planned",
+      },
+      { onConflict: "luma_event_id" },
+    )
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
 }

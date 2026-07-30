@@ -40,6 +40,7 @@ const title = (v: string) => ({
   title: [{ type: "text" as const, text: { content: v.slice(0, 2000) } }],
 });
 const select = (name: string | null | undefined) => ({ select: name ? { name } : null });
+const dateProp = (v: string | null | undefined) => ({ date: v ? { start: v } : null });
 
 // ---- hub -> Notion ----------------------------------------------------------
 
@@ -48,6 +49,9 @@ export interface PushOptions {
   slotLabel?: string | null;
   /** City for the Location select. */
   location?: string | null;
+  /** Event name + date for per-event Notion views. */
+  eventName?: string | null;
+  eventDate?: string | null;
   /** Withhold sensitive fields from this workspace's mirror (PRD §12 / GDPR). */
   omitPhone?: boolean;
   omitChallenge?: boolean;
@@ -62,6 +66,8 @@ export function bookingToPageProperties(booking: Booking, opts: PushOptions = {}
     [PROP.company]: richText(booking.company),
     [PROP.slot]: richText(opts.slotLabel ?? null),
     [PROP.location]: select(opts.location ?? null),
+    [PROP.event]: richText(opts.eventName ?? null),
+    [PROP.eventDate]: dateProp(opts.eventDate ?? null),
     [PROP.status]: select(statusToLabel(booking.status)),
     [PROP.bookedByName]: richText(booking.booked_by_display_name),
     [PROP.bookedByType]: select(

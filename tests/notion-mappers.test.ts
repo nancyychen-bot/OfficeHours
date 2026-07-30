@@ -5,6 +5,7 @@ import {
   labelToBookedByType,
   syncedFieldsToUpdateProperties,
   pagePropertiesToSyncedFields,
+  bookingToPageProperties,
 } from "@/lib/notion/mappers";
 import { PROP } from "@/lib/notion/schema";
 import type { SyncedFields } from "@/lib/sync/types";
@@ -94,5 +95,31 @@ describe("pagePropertiesToSyncedFields (Notion -> hub)", () => {
     };
     const fields = pagePropertiesToSyncedFields(properties as any);
     expect(fields.booked_by_display_name).toBe("Text Mirror Name");
+  });
+});
+
+describe("bookingToPageProperties event fields", () => {
+  const booking = {
+    id: "b1", event_id: "e1", slot_id: "s1",
+    guest_name: "Guest", guest_email: "g@x.com", guest_phone: null,
+    role: null, company: null, challenge: null,
+    status: "unassigned", booked_by_display_name: null, booked_by_type: null,
+    luma_guest_id: "gst-1", notion_dev_page_id: null, notion_ambassador_page_id: null,
+    last_synced_hash: null, last_synced_at: null,
+    created_at: "2026-07-30T00:00:00Z", updated_at: "2026-07-30T00:00:00Z",
+  } as any;
+
+  it("sets Event name and Event date", () => {
+    const props = bookingToPageProperties(booking, {
+      eventName: "Office Hours — SF — Aug 2026",
+      eventDate: "2026-08-26",
+    }) as Record<string, any>;
+    expect(props["Event"].rich_text[0].text.content).toBe("Office Hours — SF — Aug 2026");
+    expect(props["Event date"].date.start).toBe("2026-08-26");
+  });
+
+  it("nulls Event date when absent", () => {
+    const props = bookingToPageProperties(booking, {}) as Record<string, any>;
+    expect(props["Event date"].date).toBeNull();
   });
 });

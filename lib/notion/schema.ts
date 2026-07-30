@@ -22,6 +22,8 @@ export const PROP = {
   challenge: "Challenge",
   slot: "Slot",
   location: "Location",
+  event: "Event",
+  eventDate: "Event date",
   status: "Status",
   bookedByPerson: "Booked by", // native people prop, per-workspace, NOT synced
   bookedByName: "Booked by (name)", // text mirror that DOES cross
@@ -58,6 +60,8 @@ export function buildBookingsProperties(cities: string[] = ["SF", "NYC"]) {
     [PROP.location]: {
       select: { options: cities.map((c) => ({ name: c })) },
     },
+    [PROP.event]: { rich_text: {} },
+    [PROP.eventDate]: { date: {} },
     [PROP.status]: {
       select: {
         options: [

@@ -17,6 +17,7 @@ export type Database = {
       bookings: {
         Row: {
           booked_by_display_name: string | null
+          booked_by_email: string | null
           booked_by_type: Database["public"]["Enums"]["booked_by_type"] | null
           challenge: string | null
           company: string | null
@@ -38,6 +39,7 @@ export type Database = {
         }
         Insert: {
           booked_by_display_name?: string | null
+          booked_by_email?: string | null
           booked_by_type?: Database["public"]["Enums"]["booked_by_type"] | null
           challenge?: string | null
           company?: string | null
@@ -59,6 +61,7 @@ export type Database = {
         }
         Update: {
           booked_by_display_name?: string | null
+          booked_by_email?: string | null
           booked_by_type?: Database["public"]["Enums"]["booked_by_type"] | null
           challenge?: string | null
           company?: string | null
@@ -225,6 +228,7 @@ export type Database = {
       booking_details: {
         Row: {
           booked_by_display_name: string | null
+          booked_by_email: string | null
           booked_by_type: Database["public"]["Enums"]["booked_by_type"] | null
           challenge: string | null
           company: string | null
@@ -274,7 +278,7 @@ export type Database = {
     }
     Enums: {
       booked_by_type: "employee" | "ambassador"
-      booking_status: "unassigned" | "assigned" | "checked_in" | "no_show"
+      booking_status: "unassigned" | "assigned" | "checked_in" | "no_show" | "cancelled"
       event_status: "planned" | "live" | "completed" | "cancelled"
       sync_direction:
         | "luma_in"
@@ -410,7 +414,7 @@ export const Constants = {
   public: {
     Enums: {
       booked_by_type: ["employee", "ambassador"],
-      booking_status: ["unassigned", "assigned", "checked_in", "no_show"],
+      booking_status: ["unassigned", "assigned", "checked_in", "no_show", "cancelled"],
       event_status: ["planned", "live", "completed", "cancelled"],
       sync_direction: [
         "luma_in",

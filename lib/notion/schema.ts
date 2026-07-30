@@ -37,6 +37,7 @@ export const STATUS_LABEL = {
   assigned: "Assigned",
   checked_in: "Checked In",
   no_show: "No-show",
+  cancelled: "Cancelled",
 } as const;
 
 export const BOOKED_BY_TYPE_LABEL = {
@@ -69,6 +70,7 @@ export function buildBookingsProperties(cities: string[] = ["SF", "NYC"]) {
           { name: STATUS_LABEL.assigned, color: "blue" },
           { name: STATUS_LABEL.checked_in, color: "green" },
           { name: STATUS_LABEL.no_show, color: "red" },
+          { name: STATUS_LABEL.cancelled, color: "orange" },
         ],
       },
     },

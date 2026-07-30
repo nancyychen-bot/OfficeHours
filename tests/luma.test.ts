@@ -85,6 +85,11 @@ describe("normalizeGuest", () => {
     expect(n.company).toBeNull();
     expect(n.challenge).toBeNull();
   });
+
+  it("exposes approvalStatus", () => {
+    expect(normalizeGuest(guest({ approval_status: "approved" })).approvalStatus).toBe("approved");
+    expect(normalizeGuest(guest()).approvalStatus).toBeNull();
+  });
 });
 
 describe("isCheckedIn (per-ticket)", () => {

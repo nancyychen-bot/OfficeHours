@@ -11,6 +11,7 @@ export interface NormalizedRegistration {
   challenge: string | null;
   requestedSlotLabel: string | null;
   isCheckedIn: boolean;
+  approvalStatus: string | null;
 }
 
 /** Pull a primitive string out of a registration answer, whatever its type. */
@@ -111,5 +112,6 @@ export function normalizeGuest(data: LumaGuestData): NormalizedRegistration {
     challenge: mapped.challenge,
     requestedSlotLabel: mapped.requestedSlotLabel,
     isCheckedIn: isCheckedIn(data),
+    approvalStatus: data.approval_status ?? null,
   };
 }

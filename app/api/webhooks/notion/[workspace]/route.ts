@@ -3,12 +3,14 @@ import { env } from "@/lib/env";
 import { isEcho } from "@/lib/sync/hash";
 import type { NotionWorkspace } from "@/lib/notion/client";
 import { getNotionClient } from "@/lib/notion/client";
-import { pagePropertiesToSyncedFields } from "@/lib/notion/mappers";
+import { pagePropertiesToSyncedFields, readFirstPersonEmail } from "@/lib/notion/mappers";
+import { PROP } from "@/lib/notion/schema";
 import {
   getBookingByNotionPageId,
   getBookingById,
   claimBooking,
   releaseBooking,
+  setBookedByEmail,
 } from "@/lib/db/bookings";
 import { pushBookingToWorkspaces, clearBookingInWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
@@ -139,6 +141,8 @@ export async function POST(
         return NextResponse.json({ received: true, conflict: true });
       }
       await pushBookingToWorkspaces(claim.booking, { skip: [workspace] });
+      const helperEmail = readFirstPersonEmail(page.properties?.[PROP.bookedByPerson]);
+      if (helperEmail) await setBookedByEmail(claim.booking.id, helperEmail);
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "claimed" });
       return NextResponse.json({ received: true });
     }

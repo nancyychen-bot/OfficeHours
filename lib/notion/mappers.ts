@@ -134,6 +134,17 @@ function readFirstPersonName(prop: unknown): string | null {
 }
 
 /**
+ * Read the first person's email from a Notion people property. Requires the
+ * integration's "Read user information WITH email addresses" capability;
+ * otherwise `person.email` is absent and this returns null.
+ */
+export function readFirstPersonEmail(prop: unknown): string | null {
+  const p = prop as { people?: Array<{ person?: { email?: string } }> } | undefined;
+  if (!p?.people?.length) return null;
+  return p.people[0]?.person?.email ?? null;
+}
+
+/**
  * Parse the synced fields out of a fetched Notion page's `properties` object
  * (Notion→hub direction). We read the page via the API after a webhook rather
  * than trusting the webhook body, since the "Send webhook" payload is

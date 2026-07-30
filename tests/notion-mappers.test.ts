@@ -6,6 +6,7 @@ import {
   syncedFieldsToUpdateProperties,
   pagePropertiesToSyncedFields,
   bookingToPageProperties,
+  readFirstPersonEmail,
 } from "@/lib/notion/mappers";
 import { PROP } from "@/lib/notion/schema";
 import type { SyncedFields } from "@/lib/sync/types";
@@ -95,6 +96,18 @@ describe("pagePropertiesToSyncedFields (Notion -> hub)", () => {
     };
     const fields = pagePropertiesToSyncedFields(properties as any);
     expect(fields.booked_by_display_name).toBe("Text Mirror Name");
+  });
+});
+
+describe("readFirstPersonEmail", () => {
+  it("reads the first person's email", () => {
+    const prop = { people: [{ name: "Nancy", person: { email: "nchen@makenotion.com" } }] };
+    expect(readFirstPersonEmail(prop as any)).toBe("nchen@makenotion.com");
+  });
+  it("returns null when no people or no email", () => {
+    expect(readFirstPersonEmail({ people: [] } as any)).toBeNull();
+    expect(readFirstPersonEmail({ people: [{ name: "X" }] } as any)).toBeNull();
+    expect(readFirstPersonEmail(undefined as any)).toBeNull();
   });
 });
 

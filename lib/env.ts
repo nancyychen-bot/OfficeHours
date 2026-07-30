@@ -45,5 +45,6 @@ export const env = {
   },
   app: {
     baseUrl: () => optional("APP_BASE_URL") ?? "http://localhost:3000",
+    cronSecret: () => optional("CRON_SECRET"),
   },
 } as const;

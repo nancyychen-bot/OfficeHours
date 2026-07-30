@@ -141,3 +141,28 @@ export async function clearBookingInWorkspaces(released: Booking): Promise<void>
     console.error("[push] stampSynced (release) failed", err);
   }
 }
+
+/**
+ * Archive (trash) a booking's mirrored pages in both workspaces — used on
+ * cancellation so the card disappears from every board. Best-effort per side.
+ */
+export async function archiveBookingPages(booking: Booking): Promise<void> {
+  for (const workspace of ["dev", "ambassador"] as const) {
+    if (!isConfigured(workspace)) continue;
+    const pageId =
+      workspace === "dev" ? booking.notion_dev_page_id : booking.notion_ambassador_page_id;
+    if (!pageId) continue;
+    try {
+      const notion = getNotionClient(workspace);
+      await notion.pages.update({ page_id: pageId, archived: true });
+    } catch (err) {
+      await logSync({
+        direction: workspace === "dev" ? "hub_to_dev" : "hub_to_amb",
+        result: "error",
+        bookingId: booking.id,
+        action: "archive",
+        note: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}

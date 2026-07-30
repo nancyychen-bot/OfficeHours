@@ -1,5 +1,6 @@
 import { getAdminClient } from "../supabase/admin";
 import { hashSyncedFields } from "../sync/hash";
+import { noShowCutoffISO } from "../sync/noshow";
 import { pickSyncedFields, type BookedByType, type Booking } from "../sync/types";
 
 /**
@@ -171,7 +172,7 @@ export async function markNoShowsForEndedSlots(now: Date = new Date()): Promise<
   const { data: endedSlots, error: slotErr } = await supabase
     .from("slots")
     .select("id")
-    .lt("ends_at", now.toISOString());
+    .lt("ends_at", noShowCutoffISO(now));
   if (slotErr) throw slotErr;
   const slotIds = (endedSlots ?? []).map((s) => s.id);
   if (slotIds.length === 0) return [];

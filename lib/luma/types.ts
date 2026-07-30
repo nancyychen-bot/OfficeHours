@@ -52,3 +52,20 @@ export interface LumaWebhookEnvelope {
   type: LumaWebhookType;
   data: LumaGuestData;
 }
+
+/** Luma event-detail types (from GET /v1/event/get). */
+export interface LumaRegistrationQuestion {
+  id?: string;
+  type?: string;
+  label?: string;
+  options?: unknown[]; // present for dropdown/multi-select questions
+}
+
+export interface LumaEventDetail {
+  id: string;
+  name: string;
+  start_at: string;
+  end_at?: string;
+  timezone?: string;
+  registration_questions?: LumaRegistrationQuestion[] | null;
+}

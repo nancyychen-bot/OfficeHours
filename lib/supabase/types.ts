@@ -275,7 +275,7 @@ export type Database = {
     Enums: {
       booked_by_type: "employee" | "ambassador"
       booking_status: "unassigned" | "assigned" | "checked_in" | "no_show"
-      event_status: "planned" | "live" | "completed"
+      event_status: "planned" | "live" | "completed" | "cancelled"
       sync_direction:
         | "luma_in"
         | "notion_dev_in"
@@ -411,7 +411,7 @@ export const Constants = {
     Enums: {
       booked_by_type: ["employee", "ambassador"],
       booking_status: ["unassigned", "assigned", "checked_in", "no_show"],
-      event_status: ["planned", "live", "completed"],
+      event_status: ["planned", "live", "completed", "cancelled"],
       sync_direction: [
         "luma_in",
         "notion_dev_in",

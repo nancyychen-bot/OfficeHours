@@ -53,13 +53,11 @@ export async function POST(req: Request) {
     if (!event) {
       await logSync({
         direction: "luma_in",
-        result: "error",
-        action: type,
-        payload: envelope as never,
-        note: `no matching event for luma id ${norm.lumaEventId}`,
+        result: "applied",
+        action: "ignored",
+        note: `not a registered Office Hours event (${norm.lumaEventId})`,
       });
-      // 200 so Luma doesn't retry — this needs an Events row, not a redelivery.
-      return NextResponse.json({ received: true, warning: "unknown event" });
+      return NextResponse.json({ received: true, ignored: true });
     }
 
     const slot = norm.requestedSlotLabel
@@ -87,8 +85,8 @@ export async function POST(req: Request) {
     // TODO(scale): for high volume, enqueue this so we always 2xx within Luma's
     // 5s window; today the Notion legs are skipped until tokens are set.
     await pushBookingToWorkspaces(booking, {
-      dev: { slotLabel: slot?.name ?? null, location: event.city },
-      ambassador: { slotLabel: slot?.name ?? null, location: event.city },
+      dev: { slotLabel: slot?.name ?? null, location: event.city, eventName: event.name, eventDate: event.event_date },
+      ambassador: { slotLabel: slot?.name ?? null, location: event.city, eventName: event.name, eventDate: event.event_date },
     });
 
     await logSync({

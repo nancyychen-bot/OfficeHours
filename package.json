@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "setup:notion": "tsx --env-file=.env.local scripts/create-notion-databases.ts",
+    "register:event": "tsx --env-file=.env.local scripts/register-event.ts",
     "gen:types": "supabase gen types typescript --project-id jldgxdaemtdqcfrdzeby --schema public > lib/supabase/types.ts"
   },
   "dependencies": {

@@ -4,10 +4,13 @@ import { verifyLumaSignature } from "@/lib/luma/verify";
 import { normalizeGuest } from "@/lib/luma/parse";
 import type { LumaWebhookEnvelope } from "@/lib/luma/types";
 import { getEventByLumaId } from "@/lib/db/events";
-import { matchSlotForEvent } from "@/lib/db/slots";
-import { upsertBookingFromLuma, checkInByLumaGuestId } from "@/lib/db/bookings";
-import { pushBookingToWorkspaces } from "@/lib/notion/push";
+import { matchSlotForEvent, getSlotById } from "@/lib/db/slots";
+import { upsertBookingFromLuma, checkInByLumaGuestId, getBookingByLumaGuestId, cancelBooking } from "@/lib/db/bookings";
+import { pushBookingToWorkspaces, archiveBookingPages } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
+import { lifecycleAction } from "@/lib/events/lifecycle";
+import { sendEmail } from "@/lib/email/resend";
+import { checkInEmail, cancellationEmail } from "@/lib/email/templates";
 
 export const runtime = "nodejs";
 
@@ -49,14 +52,40 @@ export async function POST(req: Request) {
   try {
     const norm = normalizeGuest(data);
 
+    const action = lifecycleAction(norm.approvalStatus);
+
+    // CANCEL — an approved booking was declined / the guest cancelled.
+    if (action === "cancel") {
+      const existing = await getBookingByLumaGuestId(norm.lumaGuestId);
+      if (!existing) {
+        await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: "decline for unknown/never-approved guest" });
+        return NextResponse.json({ received: true, ignored: true });
+      }
+      if (existing.booked_by_email) {
+        const slot = existing.slot_id ? await getSlotById(existing.slot_id) : null;
+        try {
+          const msg = cancellationEmail({ guestName: existing.guest_name, slotLabel: slot?.name ?? null });
+          await sendEmail({ to: existing.booked_by_email, subject: msg.subject, text: msg.text });
+        } catch (err) {
+          await logSync({ direction: "luma_in", result: "error", bookingId: existing.id, action: "cancel_email", note: err instanceof Error ? err.message : String(err) });
+        }
+      }
+      const cancelled = (await cancelBooking(existing.id)) ?? existing;
+      await archiveBookingPages(cancelled);
+      await logSync({ direction: "luma_in", result: "applied", bookingId: cancelled.id, action: "cancelled" });
+      return NextResponse.json({ received: true, cancelled: true });
+    }
+
+    // IGNORE — pending / waitlist / invited: never reaches the shared DB.
+    if (action === "ignore") {
+      await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: `not approved (${norm.approvalStatus ?? "none"})` });
+      return NextResponse.json({ received: true, ignored: true });
+    }
+
+    // CREATE — approved guest becomes/updates a booking.
     const event = await getEventByLumaId(norm.lumaEventId);
     if (!event) {
-      await logSync({
-        direction: "luma_in",
-        result: "applied",
-        action: "ignored",
-        note: `not a registered Office Hours event (${norm.lumaEventId})`,
-      });
+      await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: `not a registered Office Hours event (${norm.lumaEventId})` });
       return NextResponse.json({ received: true, ignored: true });
     }
 
@@ -78,7 +107,22 @@ export async function POST(req: Request) {
 
     if (norm.isCheckedIn && booking.status !== "checked_in") {
       const updated = await checkInByLumaGuestId(norm.lumaGuestId);
-      if (updated) booking = updated;
+      if (updated) {
+        booking = updated;
+        if (booking.booked_by_email) {
+          try {
+            const msg = checkInEmail({
+              guestName: booking.guest_name,
+              company: booking.company,
+              slotLabel: slot?.name ?? null,
+              challenge: booking.challenge,
+            });
+            await sendEmail({ to: booking.booked_by_email, subject: msg.subject, text: msg.text });
+          } catch (err) {
+            await logSync({ direction: "luma_in", result: "error", bookingId: booking.id, action: "checkin_email", note: err instanceof Error ? err.message : String(err) });
+          }
+        }
+      }
     }
 
     // Mirror to both Notion workspaces (no-op until Notion is configured).

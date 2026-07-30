@@ -59,7 +59,7 @@ webhook. Duplicates possible → **idempotent** handlers (we key on `gst-` id + 
 ## Endpoints we may use (reconciliation)
 - `GET /v1/events/guests/list?event_id=evt-…` (cursor: `pagination_cursor`/`pagination_limit`
   → `entries`/`has_more`/`next_cursor`)
-- `GET /v1/events/get`, `GET /v1/calendars/events/list`, `POST /v2/webhooks/create`
+- `GET /v1/event/get`, `GET /v1/calendars/events/list`, `POST /v2/webhooks/create`
 
 ## Sources
 docs.luma.com/reference/* · help.luma.com/p/webhooks · public-api.luma.com/openapi.json

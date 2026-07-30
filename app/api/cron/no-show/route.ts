@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const provided =
     req.headers.get("x-cron-secret") ??
     (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-  if (secret && provided !== secret) {
+  if (!secret || provided !== secret) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

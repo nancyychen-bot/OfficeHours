@@ -3,6 +3,7 @@ import { generateSlotsFromOptions } from "./slots-gen";
 import { reconcileSlots } from "./reconcile";
 import { upsertEvent } from "../db/events";
 import { getAdminClient } from "../supabase/admin";
+import { localCalendarDate } from "./event-date";
 
 export interface RegisterInput {
   lumaEvent: string; // evt- id or URL containing one
@@ -31,7 +32,7 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
   const detail = await getLumaEvent(eventId);
 
   const timezone = detail.timezone ?? "America/Los_Angeles";
-  const eventDate = detail.start_at.slice(0, 10); // YYYY-MM-DD
+  const eventDate = localCalendarDate(detail.start_at, timezone);
 
   const event = await upsertEvent({
     lumaEventId: detail.id,

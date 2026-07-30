@@ -47,8 +47,4 @@ export const env = {
     baseUrl: () => optional("APP_BASE_URL") ?? "http://localhost:3000",
     cronSecret: () => optional("CRON_SECRET"),
   },
-  email: {
-    apiKey: () => required("RESEND_API_KEY"),
-    from: () => optional("EMAIL_FROM") ?? "onboarding@resend.dev",
-  },
 } as const;

@@ -4,13 +4,11 @@ import { verifyLumaSignature } from "@/lib/luma/verify";
 import { normalizeGuest } from "@/lib/luma/parse";
 import type { LumaWebhookEnvelope } from "@/lib/luma/types";
 import { getEventByLumaId } from "@/lib/db/events";
-import { matchSlotForEvent, getSlotById } from "@/lib/db/slots";
+import { matchSlotForEvent } from "@/lib/db/slots";
 import { upsertBookingFromLuma, checkInByLumaGuestId, getBookingByLumaGuestId, cancelBooking } from "@/lib/db/bookings";
-import { pushBookingToWorkspaces, archiveBookingPages } from "@/lib/notion/push";
+import { pushBookingToWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
 import { lifecycleAction } from "@/lib/events/lifecycle";
-import { sendEmail } from "@/lib/email/resend";
-import { checkInEmail, cancellationEmail } from "@/lib/email/templates";
 
 export const runtime = "nodejs";
 
@@ -61,17 +59,11 @@ export async function POST(req: Request) {
         await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: "decline for unknown/never-approved guest" });
         return NextResponse.json({ received: true, ignored: true });
       }
-      if (existing.booked_by_email) {
-        const slot = existing.slot_id ? await getSlotById(existing.slot_id) : null;
-        try {
-          const msg = cancellationEmail({ guestName: existing.guest_name, slotLabel: slot?.name ?? null });
-          await sendEmail({ to: existing.booked_by_email, subject: msg.subject, text: msg.text });
-        } catch (err) {
-          await logSync({ direction: "luma_in", result: "error", bookingId: existing.id, action: "cancel_email", note: err instanceof Error ? err.message : String(err) });
-        }
-      }
       const cancelled = (await cancelBooking(existing.id)) ?? existing;
-      await archiveBookingPages(cancelled);
+      // Set Status → Cancelled on both cards (assignee kept) so a Notion agent
+      // can notify the helper; the card drops out of open-slot views. Email is
+      // handled entirely in Notion.
+      await pushBookingToWorkspaces(cancelled);
       await logSync({ direction: "luma_in", result: "applied", bookingId: cancelled.id, action: "cancelled" });
       return NextResponse.json({ received: true, cancelled: true });
     }
@@ -105,29 +97,11 @@ export async function POST(req: Request) {
       challenge: norm.challenge,
     });
 
+    // Check-in transition → flip status; the helper is notified in Notion (a
+    // Status → Checked In automation/agent), not by the hub.
     if (norm.isCheckedIn && booking.status !== "checked_in") {
       const updated = await checkInByLumaGuestId(norm.lumaGuestId);
-      if (updated) {
-        booking = updated;
-        if (booking.booked_by_email) {
-          try {
-            // A check-in payload may omit registration answers, so `slot` can be
-            // null here — fall back to the slot persisted on the booking.
-            const slotLabel =
-              slot?.name ??
-              (booking.slot_id ? (await getSlotById(booking.slot_id))?.name ?? null : null);
-            const msg = checkInEmail({
-              guestName: booking.guest_name,
-              company: booking.company,
-              slotLabel,
-              challenge: booking.challenge,
-            });
-            await sendEmail({ to: booking.booked_by_email, subject: msg.subject, text: msg.text });
-          } catch (err) {
-            await logSync({ direction: "luma_in", result: "error", bookingId: booking.id, action: "checkin_email", note: err instanceof Error ? err.message : String(err) });
-          }
-        }
-      }
+      if (updated) booking = updated;
     }
 
     // Mirror to both Notion workspaces (no-op until Notion is configured).

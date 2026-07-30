@@ -111,10 +111,15 @@ export async function POST(req: Request) {
         booking = updated;
         if (booking.booked_by_email) {
           try {
+            // A check-in payload may omit registration answers, so `slot` can be
+            // null here — fall back to the slot persisted on the booking.
+            const slotLabel =
+              slot?.name ??
+              (booking.slot_id ? (await getSlotById(booking.slot_id))?.name ?? null : null);
             const msg = checkInEmail({
               guestName: booking.guest_name,
               company: booking.company,
-              slotLabel: slot?.name ?? null,
+              slotLabel,
               challenge: booking.challenge,
             });
             await sendEmail({ to: booking.booked_by_email, subject: msg.subject, text: msg.text });

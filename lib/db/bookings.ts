@@ -65,26 +65,35 @@ export async function upsertBookingFromLuma(input: {
   challenge?: string | null;
 }): Promise<Booking> {
   const supabase = getAdminClient();
-  const { data, error } = await supabase
+  const row = {
+    luma_guest_id: input.lumaGuestId,
+    event_id: input.eventId,
+    slot_id: input.slotId,
+    guest_name: input.guestName,
+    guest_email: input.guestEmail,
+    guest_phone: input.guestPhone ?? null,
+    role: input.role ?? null,
+    company: input.company ?? null,
+    challenge: input.challenge ?? null,
+  };
+  const first = await supabase
     .from("bookings")
-    .upsert(
-      {
-        luma_guest_id: input.lumaGuestId,
-        event_id: input.eventId,
-        slot_id: input.slotId,
-        guest_name: input.guestName,
-        guest_email: input.guestEmail,
-        guest_phone: input.guestPhone ?? null,
-        role: input.role ?? null,
-        company: input.company ?? null,
-        challenge: input.challenge ?? null,
-      },
-      { onConflict: "luma_guest_id" },
-    )
+    .upsert(row, { onConflict: "luma_guest_id" })
     .select("*")
     .single();
-  if (error) throw error;
-  return data;
+  if (!first.error) return first.data;
+
+  // Slot already taken by another guest → keep the booking, drop the slot.
+  if (first.error.code === "23505" && input.slotId) {
+    const retry = await supabase
+      .from("bookings")
+      .upsert({ ...row, slot_id: null }, { onConflict: "luma_guest_id" })
+      .select("*")
+      .single();
+    if (retry.error) throw retry.error;
+    return retry.data;
+  }
+  throw first.error;
 }
 
 export type ClaimResult =
@@ -228,4 +237,27 @@ export async function listBookingsForEvent(eventId: string): Promise<Booking[]> 
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+/** Cancel an approved booking: mark cancelled and free its slot (kept for reporting). */
+export async function cancelBooking(bookingId: string): Promise<Booking | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({ status: "cancelled", slot_id: null })
+    .eq("id", bookingId)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/** Store the assigned helper's email (from their Notion Person) for notifications. */
+export async function setBookedByEmail(bookingId: string, email: string): Promise<void> {
+  const supabase = getAdminClient();
+  const { error } = await supabase
+    .from("bookings")
+    .update({ booked_by_email: email })
+    .eq("id", bookingId);
+  if (error) throw error;
 }

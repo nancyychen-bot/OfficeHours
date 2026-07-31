@@ -16,6 +16,11 @@ import { pushBookingToWorkspaces, clearBookingInWorkspaces } from "@/lib/notion/
 import { logSync } from "@/lib/sync/log";
 
 export const runtime = "nodejs";
+export const maxDuration = 30; // allow the claim-read delay + processing
+
+// Notion buttons fire their webhook before the "Edit property" step commits, so
+// we wait this long before reading the page's post-click state (see claim path).
+const CLAIM_READ_DELAY_MS = 5000;
 
 /**
  * Notion → hub webhook (PRD §7.3 / §8.4). One route per workspace via the
@@ -111,22 +116,16 @@ export async function POST(
       return NextResponse.json({ received: true });
     }
 
-    // CLAIM / default — fetch the page for authoritative CURRENT state (the
-    // button's payload can be a stale pre-edit snapshot).
+    // CLAIM / default — the Claim button sends its webhook BEFORE its
+    // "Edit property" step commits, and the step order can't be changed on this
+    // workspace's buttons. So wait for the edit to land, THEN read the page's
+    // authoritative state. (Unclaim/cancel/re-register don't read Notion state
+    // after a button, so they're unaffected by this race.)
+    await new Promise((resolve) => setTimeout(resolve, CLAIM_READ_DELAY_MS));
     const notion = getNotionClient(workspace);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let page = (await notion.pages.retrieve({ page_id: pageId })) as any;
-    let incoming = pagePropertiesToSyncedFields(page.properties ?? {});
-
-    // Tolerate button step-ordering: if a Claim button sends its webhook before
-    // its "Edit property" step commits, this first read shows a stale
-    // "unassigned". Retry once so an in-flight claim isn't dropped as a no-op.
-    if (incoming.status === "unassigned" && booking.status === "unassigned") {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      page = (await notion.pages.retrieve({ page_id: pageId })) as any;
-      incoming = pagePropertiesToSyncedFields(page.properties ?? {});
-    }
+    const page = (await notion.pages.retrieve({ page_id: pageId })) as any;
+    const incoming = pagePropertiesToSyncedFields(page.properties ?? {});
 
     // Loop prevention (PRD §7.3): drop echoes of the hub's own last write.
     if (isEcho(incoming, booking.last_synced_hash)) {

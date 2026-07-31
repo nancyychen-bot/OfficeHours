@@ -23,6 +23,7 @@ describe("statusPill", () => {
     expect(statusPill("assigned").label).toBe("Assigned");
     expect(statusPill("checked_in").label).toBe("Checked In");
     expect(statusPill("unassigned").label).toBe("Unassigned");
+    expect(statusPill("no_show").label).toBe("No-show");
     expect(statusPill("cancelled").label).toBe("Cancelled");
     expect(statusPill("assigned").className).toContain("bg-");
   });
@@ -62,6 +63,16 @@ describe("filterBookings", () => {
   it("searches name/company/email case-insensitively", () => {
     expect(filterBookings(rows, { chip: "all", search: "globex" }).map((r) => r.id)).toEqual(["b2"]);
     expect(filterBookings(rows, { chip: "all", search: "ALICE" }).map((r) => r.id)).toEqual(["b1"]);
+  });
+  it("filters by selected statuses (multi-select; empty = all)", () => {
+    const s = [
+      booking({ id: "u", status: "unassigned" }),
+      booking({ id: "a", status: "assigned" }),
+      booking({ id: "n", status: "no_show" }),
+    ];
+    expect(filterBookings(s, { chip: "all", search: "", statuses: [] }).map((r) => r.id)).toEqual(["u", "a", "n"]);
+    expect(filterBookings(s, { chip: "all", search: "", statuses: ["no_show"] }).map((r) => r.id)).toEqual(["n"]);
+    expect(filterBookings(s, { chip: "all", search: "", statuses: ["unassigned", "assigned"] }).map((r) => r.id)).toEqual(["u", "a"]);
   });
 });
 

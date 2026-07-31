@@ -2,18 +2,23 @@
 
 import { useState } from "react";
 import type { HubBooking } from "@/lib/hub/queries";
-import { filterBookings, groupByCity, type Chip } from "@/lib/hub/format";
+import { filterBookings, groupByCity, STATUS_FILTERS, type Chip } from "@/lib/hub/format";
 import { StatusPill } from "./StatusPill";
 
 export function BookingsTab({ bookings, chips }: { bookings: HubBooking[]; chips: Chip[] }) {
   const [chip, setChip] = useState("all");
+  const [statuses, setStatuses] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const groups = groupByCity(filterBookings(bookings, { chip, search }));
+  const groups = groupByCity(filterBookings(bookings, { chip, search, statuses }));
   const allChips: Chip[] = [{ key: "all", label: "All bookings" }, ...chips];
+
+  function toggleStatus(value: string) {
+    setStatuses((prev) => (prev.includes(value) ? prev.filter((s) => s !== value) : [...prev, value]));
+  }
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         {allChips.map((c) => (
           <button
             key={c.key}
@@ -29,6 +34,27 @@ export function BookingsTab({ bookings, chips }: { bookings: HubBooking[]; chips
           placeholder="Search name, company, email"
           className="ml-auto w-64 rounded-md border border-line bg-white px-3 py-1.5 text-sm outline-none focus:border-neutral-400"
         />
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs uppercase tracking-wide text-neutral-400">Status</span>
+        {STATUS_FILTERS.map((s) => {
+          const active = statuses.includes(s.value);
+          return (
+            <button
+              key={s.value}
+              onClick={() => toggleStatus(s.value)}
+              className={`rounded-full border px-3 py-1 text-xs ${active ? "border-neutral-800 bg-neutral-900 text-white" : "border-line bg-white text-neutral-600 hover:bg-neutral-50"}`}
+            >
+              {s.label}
+            </button>
+          );
+        })}
+        {statuses.length > 0 ? (
+          <button onClick={() => setStatuses([])} className="text-xs text-neutral-500 underline hover:text-neutral-800">
+            Clear
+          </button>
+        ) : null}
       </div>
 
       <div className="overflow-hidden rounded-lg border border-line bg-white">

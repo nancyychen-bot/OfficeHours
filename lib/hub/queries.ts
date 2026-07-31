@@ -17,17 +17,6 @@ export interface HubBooking {
   slot_starts_at: string | null;
 }
 
-export interface HubSlot {
-  id: string;
-  name: string;
-  starts_at: string | null;
-  event_name: string | null;
-  city: string | null;
-  event_date: string | null;
-  booked: boolean;
-  guest_name: string | null;
-}
-
 export interface HubEvent {
   id: string;
   name: string;
@@ -75,40 +64,6 @@ export async function listBookings(): Promise<HubBooking[]> {
       luma_event_id: (lumaEventId as string) ?? "",
       slot_name: (b.slot_name as string) ?? null,
       slot_starts_at: (b.slot_starts_at as string) ?? null,
-    };
-  });
-}
-
-/** All slots with event context and whether they are booked. */
-export async function listSlots(): Promise<HubSlot[]> {
-  const supabase = getAdminClient();
-  const { data: slots, error } = await supabase
-    .from("slots")
-    .select("id,name,starts_at,event_id,events(name,city,event_date)")
-    .order("starts_at", { ascending: true });
-  if (error) throw error;
-  const { data: bookings, error: bErr } = await supabase
-    .from("bookings")
-    .select("slot_id,guest_name,status")
-    .neq("status", "cancelled");
-  if (bErr) throw bErr;
-  const bySlot = new Map<string, { guest_name: string }>();
-  for (const b of bookings ?? []) {
-    if (b.slot_id) bySlot.set(b.slot_id as string, { guest_name: b.guest_name as string });
-  }
-  return (slots ?? []).map((s) => {
-    // Supabase returns the joined `events` relation as an object.
-    const ev = (s as { events?: { name?: string; city?: string; event_date?: string } }).events;
-    const booking = bySlot.get(s.id as string);
-    return {
-      id: s.id as string,
-      name: s.name as string,
-      starts_at: (s.starts_at as string) ?? null,
-      event_name: ev?.name ?? null,
-      city: ev?.city ?? null,
-      event_date: ev?.event_date ?? null,
-      booked: !!booking,
-      guest_name: booking?.guest_name ?? null,
     };
   });
 }

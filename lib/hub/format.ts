@@ -1,15 +1,25 @@
 import type { HubBooking, HubEvent } from "./queries";
 
 const STATUS_PILLS: Record<string, { label: string; className: string }> = {
+  unassigned: { label: "Unassigned", className: "bg-neutral-100 text-neutral-600" },
   assigned: { label: "Assigned", className: "bg-blue-100 text-blue-800" },
   checked_in: { label: "Checked In", className: "bg-green-100 text-green-800" },
-  unassigned: { label: "Unassigned", className: "bg-neutral-100 text-neutral-600" },
+  no_show: { label: "No-show", className: "bg-amber-100 text-amber-800" },
   cancelled: { label: "Cancelled", className: "bg-red-100 text-red-700" },
 };
 
 export function statusPill(status: string): { label: string; className: string } {
   return STATUS_PILLS[status] ?? { label: status, className: "bg-neutral-100 text-neutral-600" };
 }
+
+/** The booking statuses available as filter chips, in display order. */
+export const STATUS_FILTERS: { value: string; label: string }[] = [
+  "unassigned",
+  "assigned",
+  "checked_in",
+  "no_show",
+  "cancelled",
+].map((value) => ({ value, label: STATUS_PILLS[value].label }));
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -35,14 +45,19 @@ export function eventChips(events: HubEvent[]): Chip[] {
   }));
 }
 
-/** Filter by event chip ("all" = no filter) then by a name/company/email search. */
+/**
+ * Filter by event chip ("all" = no filter), then by selected statuses
+ * (empty/undefined = all), then by a name/company/email search. All AND-combined.
+ */
 export function filterBookings(
   rows: HubBooking[],
-  opts: { chip: string; search: string },
+  opts: { chip: string; search: string; statuses?: string[] },
 ): HubBooking[] {
   const q = opts.search.trim().toLowerCase();
+  const statuses = opts.statuses ?? [];
   return rows.filter((r) => {
     if (opts.chip !== "all" && r.luma_event_id !== opts.chip) return false;
+    if (statuses.length && !statuses.includes(r.status)) return false;
     if (!q) return true;
     return (
       r.guest_name.toLowerCase().includes(q) ||

@@ -57,7 +57,7 @@ const defaultDeps: CommsDeps = {
 
 const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   assigned: ["helper", "guest"],
-  checked_in: ["helper"],
+  checked_in: ["helper", "guest"],
   no_show: ["helper"],
 };
 

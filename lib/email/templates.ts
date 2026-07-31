@@ -98,6 +98,18 @@ export function renderComms(
       ]),
     };
   }
+  if (kind === "checked_in" && role === "guest") {
+    return {
+      subject: `You're checked in — ${f.eventName ?? "Office Hours"}`,
+      ...wrap([
+        `Hi ${f.guestName},`,
+        "",
+        "You're checked in — welcome! Your host will be with you shortly.",
+        "",
+        ...details,
+      ]),
+    };
+  }
   if (kind === "no_show" && role === "helper") {
     return {
       subject: `No-show: ${f.guestName}`,

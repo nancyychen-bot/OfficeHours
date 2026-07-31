@@ -50,8 +50,13 @@ describe("renderComms", () => {
     expect(r.subject).toBe("No-show: Ada Lovelace");
     expect(r.text).toContain("marked as a no-show");
   });
-  it("guest gets nothing for checked_in / no_show", () => {
-    expect(renderComms("checked_in", "guest", fields())).toBeNull();
+  it("checked_in→guest gets a welcome confirmation", () => {
+    const r = renderComms("checked_in", "guest", fields())!;
+    expect(r.subject.toLowerCase()).toContain("checked in");
+    expect(r.text).toContain("Hi Ada Lovelace,");
+    expect(r.text).toContain("You're checked in");
+  });
+  it("guest still gets nothing for no_show", () => {
     expect(renderComms("no_show", "guest", fields())).toBeNull();
   });
 });

@@ -41,11 +41,11 @@ describe("sendBookingComms", () => {
     expect(sent.map((s) => s.to)).toEqual(["ada@x.com"]);
   });
 
-  it("checked_in → helper only, no attachment", async () => {
+  it("checked_in → helper + guest, no attachment", async () => {
     const { deps, sent } = makeDeps();
     await sendBookingComms("b1", "checked_in", deps);
-    expect(sent.map((s) => s.to)).toEqual(["grace@x.com"]);
-    expect(sent[0].hasAttachment).toBe(false);
+    expect(sent.map((s) => s.to).sort()).toEqual(["ada@x.com", "grace@x.com"]);
+    expect(sent.every((s) => !s.hasAttachment)).toBe(true);
   });
 
   it("no_show → helper only", async () => {
@@ -67,7 +67,7 @@ describe("sendBookingComms", () => {
       send: async () => { order.push("send"); return { id: "re_1" }; },
       finalize: async () => { order.push("finalize"); },
     });
-    await sendBookingComms("b1", "checked_in", deps);
+    await sendBookingComms("b1", "no_show", deps);
     expect(order).toEqual(["reserve", "send", "finalize"]);
   });
 
@@ -87,7 +87,7 @@ describe("sendBookingComms", () => {
 
   it("empty Resend id is treated as a failure", async () => {
     const { deps, recorded } = makeDeps({ send: async () => ({ id: "" }) });
-    await sendBookingComms("b1", "checked_in", deps);
+    await sendBookingComms("b1", "no_show", deps); // helper-only kind keeps this focused
     expect(recorded).toEqual([{ role: "helper", status: "failed" }]);
   });
 

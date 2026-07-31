@@ -7,7 +7,7 @@ import { localCalendarDate } from "./event-date";
 
 export interface RegisterInput {
   lumaEvent: string; // evt- id or URL containing one
-  city: string;
+  city?: string; // optional override; defaults to the Luma event's city
   slotStart?: string; // ISO instant for first slot; defaults to event start_at
   slotLengthMinutes?: number; // default 30
 }
@@ -34,10 +34,19 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
   const timezone = detail.timezone ?? "America/Los_Angeles";
   const eventDate = localCalendarDate(detail.start_at, timezone);
 
+  // Prefer the city from the Luma event's address (source of truth, no typos);
+  // allow an explicit override for edge cases where Luma's address is off.
+  const city = input.city ?? detail.geo_address_json?.city;
+  if (!city) {
+    throw new Error(
+      `No city for ${detail.id}: Luma event has no address city — pass --city explicitly.`,
+    );
+  }
+
   const event = await upsertEvent({
     lumaEventId: detail.id,
     name: detail.name,
-    city: input.city,
+    city,
     eventDate,
     timezone,
     status: "planned",

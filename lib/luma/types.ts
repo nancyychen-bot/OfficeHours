@@ -67,5 +67,13 @@ export interface LumaEventDetail {
   start_at: string;
   end_at?: string;
   timezone?: string;
+  /** Physical location; `geo_address_json.city` is our source for the event city. */
+  geo_address_json?: {
+    city?: string;
+    region?: string;
+    country?: string;
+    city_state?: string;
+    full_address?: string;
+  } | null;
   registration_questions?: LumaRegistrationQuestion[] | null;
 }

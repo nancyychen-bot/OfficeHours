@@ -50,17 +50,18 @@ async function pushToWorkspace(
       ? bookingToPageProperties(booking, opts)
       : syncedFieldsToUpdateProperties(pickSyncedFields(booking));
     try {
-      await notion.pages.update({
+      const updated = (await notion.pages.update({
         page_id: existingPageId,
         // Notion SDK's property typing is stricter than our generic builder.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         properties: properties as any,
-      });
-      return "updated";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      })) as any;
+      // If the card was manually deleted, Notion may either throw ("Can't edit
+      // archived block") OR silently update it while leaving it in the trash.
+      // Only treat it as done if the page came back live; else recreate below.
+      if (!updated.archived && !updated.in_trash) return "updated";
     } catch (err) {
-      // If the card was manually deleted/archived in Notion, the stored id is
-      // dead ("Can't edit archived block" / not found). Fall through to create a
-      // fresh card. Rethrow anything else.
       const msg = err instanceof Error ? err.message : String(err);
       if (!/archived|not[ _]?found|could not find/i.test(msg)) throw err;
     }

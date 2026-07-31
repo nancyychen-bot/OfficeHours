@@ -198,18 +198,21 @@ export async function checkInByLumaGuestId(lumaGuestId: string): Promise<Booking
 }
 
 /**
- * Time-based No-show sweep (PRD §9.4): any booking whose slot has ended and that
- * never reached Checked In is marked No-show for reporting. Returns updated rows.
+ * Time-based No-show sweep (PRD §9.4): any booking whose slot STARTED more than
+ * NO_SHOW_GRACE_MINUTES ago and that never reached Checked In is marked No-show.
+ * Keyed off each booking's own slot start (absolute UTC instant), so it's
+ * per-booking and timezone-correct — never the event's overall time. Returns
+ * updated rows.
  */
-export async function markNoShowsForEndedSlots(now: Date = new Date()): Promise<Booking[]> {
+export async function markNoShowsForStartedSlots(now: Date = new Date()): Promise<Booking[]> {
   const supabase = getAdminClient();
-  // Find candidate slots that have ended.
-  const { data: endedSlots, error: slotErr } = await supabase
+  // Candidate slots: started more than the grace period ago.
+  const { data: startedSlots, error: slotErr } = await supabase
     .from("slots")
     .select("id")
-    .lt("ends_at", noShowCutoffISO(now));
+    .lt("starts_at", noShowCutoffISO(now));
   if (slotErr) throw slotErr;
-  const slotIds = (endedSlots ?? []).map((s) => s.id);
+  const slotIds = (startedSlots ?? []).map((s) => s.id);
   if (slotIds.length === 0) return [];
 
   const { data, error } = await supabase

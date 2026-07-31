@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { markNoShowsForEndedSlots } from "@/lib/db/bookings";
+import { markNoShowsForStartedSlots } from "@/lib/db/bookings";
 import { pushBookingToWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
 import { sendBookingComms } from "@/lib/email/comms";
@@ -9,8 +9,8 @@ export const runtime = "nodejs";
 
 /**
  * No-show sweep. Vercel Cron calls this on a schedule; it flips any booking whose
- * slot ended > NO_SHOW_GRACE_MINUTES ago and is not Checked In to No-show, then
- * mirrors the status to Notion. Guarded by a shared secret.
+ * slot STARTED > NO_SHOW_GRACE_MINUTES ago and is not Checked In to No-show, then
+ * mirrors the status to Notion + emails the helper. Guarded by a shared secret.
  */
 export async function POST(req: Request) {
   const secret = env.app.cronSecret();
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const swept = await markNoShowsForEndedSlots(new Date());
+  const swept = await markNoShowsForStartedSlots(new Date());
   for (const booking of swept) {
     await pushBookingToWorkspaces(booking);
     await sendBookingComms(booking.id, "no_show");

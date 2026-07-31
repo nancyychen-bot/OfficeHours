@@ -10,9 +10,11 @@ function table(): any {
 }
 
 /**
- * Atomically reserve the send slot for (booking, kind, role) — the concurrency
- * guard that makes sending (not just the ledger) idempotent. Returns true only
- * to the caller that won the reservation; that caller then sends and finalizes.
+ * Atomically reserve the send slot for (booking, kind, recipient EMAIL) — the
+ * concurrency guard that makes sending (not just the ledger) idempotent. Keyed
+ * on email, not role, so re-assigning a booking to a different helper notifies
+ * the new helper (new email → new send) while the same recipient never gets a
+ * duplicate. Returns true only to the caller that won the reservation.
  *
  * Two paths, both race-safe:
  *  1. First attempt: INSERT a `pending` row via upsert-ignore-duplicates. Only
@@ -39,35 +41,35 @@ export async function reserveCommsSlot(
         status: "pending",
         resend_id: null,
       },
-      { onConflict: "booking_id,event_kind,recipient_role", ignoreDuplicates: true },
+      { onConflict: "booking_id,event_kind,recipient_email", ignoreDuplicates: true },
     )
     .select("id");
   if (insErr) throw insErr;
   if (inserted && inserted.length > 0) return true;
 
-  // A row already exists — claim it only if it's a retryable prior attempt.
+  // A row already exists for this email — claim it only if it's retryable.
   const { data: claimed, error: updErr } = await table()
-    .update({ status: "pending", recipient_email: email, resend_id: null })
+    .update({ status: "pending", recipient_role: role, resend_id: null })
     .eq("booking_id", bookingId)
     .eq("event_kind", eventKind)
-    .eq("recipient_role", role)
+    .eq("recipient_email", email)
     .in("status", ["failed", "skipped"])
     .select("id");
   if (updErr) throw updErr;
   return !!(claimed && claimed.length > 0);
 }
 
-/** Finalize a reserved slot with its terminal status + Resend id. */
+/** Finalize a reserved slot (keyed on recipient email) with its terminal status. */
 export async function finalizeComms(
   bookingId: string,
   eventKind: string,
-  role: string,
+  email: string,
   outcome: { resendId: string | null; status: CommsStatus },
 ): Promise<void> {
   const { error } = await table()
     .update({ status: outcome.status, resend_id: outcome.resendId })
     .eq("booking_id", bookingId)
     .eq("event_kind", eventKind)
-    .eq("recipient_role", role);
+    .eq("recipient_email", email);
   if (error) throw error;
 }

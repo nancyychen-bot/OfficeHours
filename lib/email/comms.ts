@@ -10,10 +10,10 @@ import type { BookingDetails } from "../sync/types";
 /** Injectable side-effects so the orchestrator is unit-testable. */
 export interface CommsDeps {
   getFields: (bookingId: string) => Promise<CommsFields | null>;
-  /** Atomically claim the send slot; true only for the caller that won it. */
+  /** Atomically claim the send slot (keyed on email); true only for the winner. */
   reserve: (bookingId: string, kind: string, role: string, email: string) => Promise<boolean>;
-  /** Set the terminal status for a reserved slot. */
-  finalize: (bookingId: string, kind: string, role: string, outcome: { resendId: string | null; status: CommsStatus }) => Promise<void>;
+  /** Set the terminal status for a reserved slot (keyed on recipient email). */
+  finalize: (bookingId: string, kind: string, email: string, outcome: { resendId: string | null; status: CommsStatus }) => Promise<void>;
   send: (input: { to: string; subject: string; html: string; text: string; attachments?: EmailAttachment[] }) => Promise<{ id: string }>;
   enabled: () => boolean;
   from: () => string;
@@ -116,7 +116,7 @@ export async function sendBookingComms(
 
       if (!deps.enabled()) {
         // Kill-switch: record as skipped (retryable — reserve re-claims it later).
-        await deps.finalize(bookingId, kind, role, { resendId: null, status: "skipped" });
+        await deps.finalize(bookingId, kind, to, { resendId: null, status: "skipped" });
         continue;
       }
       try {
@@ -128,10 +128,10 @@ export async function sendBookingComms(
           attachments: kind === "assigned" && attachment ? [attachment] : undefined,
         });
         if (!id) throw new Error("Resend returned no message id");
-        await deps.finalize(bookingId, kind, role, { resendId: id, status: "sent" });
+        await deps.finalize(bookingId, kind, to, { resendId: id, status: "sent" });
       } catch (err) {
         // Leave the row as `failed` (retryable) and surface it.
-        await deps.finalize(bookingId, kind, role, { resendId: null, status: "failed" });
+        await deps.finalize(bookingId, kind, to, { resendId: null, status: "failed" });
         await logSync({ direction: "luma_in", result: "error", bookingId, action: `comms_${kind}_${role}`, note: err instanceof Error ? err.message : String(err) });
       }
     }

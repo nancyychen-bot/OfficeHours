@@ -13,11 +13,11 @@ function fields(p: Partial<CommsFields> = {}): CommsFields {
 
 function makeDeps(over: Partial<CommsDeps> = {}, f: CommsFields | null = fields()) {
   const sent: Array<{ to: string; hasAttachment: boolean }> = [];
-  const recorded: Array<{ role: string; status: string }> = [];
+  const recorded: Array<{ email: string; status: string }> = [];
   const deps: CommsDeps = {
     getFields: async () => f,
     reserve: async () => true,
-    finalize: async (_b, _k, role, o) => { recorded.push({ role, status: o.status }); },
+    finalize: async (_b, _k, email, o) => { recorded.push({ email, status: o.status }); },
     send: async (i) => { sent.push({ to: i.to, hasAttachment: !!i.attachments?.length }); return { id: "re_1" }; },
     enabled: () => true,
     from: () => "Office Hours <hello@oh.com>",
@@ -88,7 +88,7 @@ describe("sendBookingComms", () => {
   it("empty Resend id is treated as a failure", async () => {
     const { deps, recorded } = makeDeps({ send: async () => ({ id: "" }) });
     await sendBookingComms("b1", "no_show", deps); // helper-only kind keeps this focused
-    expect(recorded).toEqual([{ role: "helper", status: "failed" }]);
+    expect(recorded).toEqual([{ email: "grace@x.com", status: "failed" }]);
   });
 
   it("missing booking → no-op", async () => {

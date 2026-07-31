@@ -1,7 +1,7 @@
 import { getAdminClient } from "../supabase/admin";
 import { hashSyncedFields } from "../sync/hash";
 import { noShowCutoffISO } from "../sync/noshow";
-import { pickSyncedFields, type BookedByType, type Booking } from "../sync/types";
+import { pickSyncedFields, type BookedByType, type Booking, type BookingDetails } from "../sync/types";
 
 /**
  * Data-access + core state machine for bookings — the record mirrored across
@@ -13,6 +13,18 @@ export async function getBookingById(id: string): Promise<Booking | null> {
   const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("bookings")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/** Fetch the enriched booking_details row (joins event + slot) by booking id. */
+export async function getBookingDetailsById(id: string): Promise<BookingDetails | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("booking_details")
     .select("*")
     .eq("id", id)
     .maybeSingle();

@@ -47,6 +47,13 @@ export const env = {
     baseUrl: () => optional("APP_BASE_URL") ?? "http://localhost:3000",
     cronSecret: () => optional("CRON_SECRET"),
   },
+  comms: {
+    apiKey: () => required("RESEND_API_KEY"),
+    from: () => required("COMMS_FROM"),
+    replyTo: () => optional("COMMS_REPLY_TO"),
+    /** Kill-switch: set COMMS_ENABLED=false to record sends as skipped. */
+    enabled: () => optional("COMMS_ENABLED") !== "false",
+  },
   hub: {
     password: () => required("HUB_PASSWORD"),
     sessionSecret: () => required("HUB_SESSION_SECRET"),

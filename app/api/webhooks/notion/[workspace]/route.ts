@@ -14,6 +14,7 @@ import {
 } from "@/lib/db/bookings";
 import { pushBookingToWorkspaces, clearBookingInWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
+import { sendBookingComms } from "@/lib/email/comms";
 
 export const runtime = "nodejs";
 export const maxDuration = 30; // allow the button-settle delay + processing
@@ -161,6 +162,7 @@ export async function POST(
       // Push to BOTH: flip Status → Assigned on the origin card too (the button
       // may not have) and mirror to the other workspace.
       await pushBookingToWorkspaces(claim.booking);
+      await sendBookingComms(claim.booking.id, "assigned");
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "claimed" });
       return NextResponse.json({ received: true });
     }

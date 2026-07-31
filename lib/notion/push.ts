@@ -43,28 +43,34 @@ async function pushToWorkspace(
     workspace === "dev" ? booking.notion_dev_page_id : booking.notion_ambassador_page_id;
 
   if (existingPageId) {
-    // fullUpdate (Luma-driven): refresh ALL guest fields (challenge, slot,
-    // company, etc.) so re-registration edits reflect on the card. Otherwise
-    // (claim/status mirror): touch only status + booked-by.
-    const properties = fullUpdate
-      ? bookingToPageProperties(booking, opts)
-      : syncedFieldsToUpdateProperties(pickSyncedFields(booking));
+    // Check the stored card is still LIVE before updating. A manually-deleted
+    // card leaves a dead id here; Notion then either throws on update or
+    // silently updates it while keeping it trashed (and the update response's
+    // archived flag isn't reliable), so we detect via retrieve, not the update.
+    let live = false;
     try {
-      const updated = (await notion.pages.update({
-        page_id: existingPageId,
-        // Notion SDK's property typing is stricter than our generic builder.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        properties: properties as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      })) as any;
-      // If the card was manually deleted, Notion may either throw ("Can't edit
-      // archived block") OR silently update it while leaving it in the trash.
-      // Only treat it as done if the page came back live; else recreate below.
-      if (!updated.archived && !updated.in_trash) return "updated";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = (await notion.pages.retrieve({ page_id: existingPageId })) as any;
+      live = !existing.archived && !existing.in_trash;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (!/archived|not[ _]?found|could not find/i.test(msg)) throw err;
+      if (!/not[ _]?found|could not find/i.test(msg)) throw err;
     }
+
+    if (live) {
+      // fullUpdate (Luma-driven): refresh ALL guest fields. Otherwise
+      // (claim/status mirror): touch only status + booked-by.
+      const properties = fullUpdate
+        ? bookingToPageProperties(booking, opts)
+        : syncedFieldsToUpdateProperties(pickSyncedFields(booking));
+      await notion.pages.update({
+        page_id: existingPageId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        properties: properties as any,
+      });
+      return "updated";
+    }
+    // Dead/archived card → fall through to create a fresh one.
   }
 
   const created = await notion.pages.create({

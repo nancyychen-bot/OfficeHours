@@ -1,5 +1,5 @@
 import { getBookingDetailsById } from "../db/bookings";
-import { hasSentComms, recordComms, type CommsStatus } from "../db/email-log";
+import { reserveCommsSlot, finalizeComms, type CommsStatus } from "../db/email-log";
 import { sendEmail, type EmailAttachment } from "./resend";
 import { buildInvite, inviteAttachment, fromAddressEmail } from "./ics";
 import { renderComms, guestDetailsLines, type CommsFields, type CommsKind, type Recipient } from "./templates";
@@ -10,8 +10,10 @@ import type { BookingDetails } from "../sync/types";
 /** Injectable side-effects so the orchestrator is unit-testable. */
 export interface CommsDeps {
   getFields: (bookingId: string) => Promise<CommsFields | null>;
-  hasSent: (bookingId: string, kind: string, role: string) => Promise<boolean>;
-  record: (row: { bookingId: string; eventKind: string; role: string; email: string; resendId: string | null; status: CommsStatus }) => Promise<void>;
+  /** Atomically claim the send slot; true only for the caller that won it. */
+  reserve: (bookingId: string, kind: string, role: string, email: string) => Promise<boolean>;
+  /** Set the terminal status for a reserved slot. */
+  finalize: (bookingId: string, kind: string, role: string, outcome: { resendId: string | null; status: CommsStatus }) => Promise<void>;
   send: (input: { to: string; subject: string; html: string; text: string; attachments?: EmailAttachment[] }) => Promise<{ id: string }>;
   enabled: () => boolean;
   from: () => string;
@@ -45,8 +47,8 @@ const defaultDeps: CommsDeps = {
     const d = await getBookingDetailsById(id);
     return d ? toCommsFields(d) : null;
   },
-  hasSent: hasSentComms,
-  record: recordComms,
+  reserve: reserveCommsSlot,
+  finalize: finalizeComms,
   send: sendEmail,
   enabled: () => env.comms.enabled(),
   from: () => env.comms.from(),
@@ -97,13 +99,24 @@ export async function sendBookingComms(
 
     for (const role of RECIPIENTS[kind]) {
       const to = role === "helper" ? f.helperEmail : f.guestEmail;
-      if (!to) continue; // no address for this recipient → skip silently
+      if (!to) {
+        // The helper (who just claimed) is the key recipient — surface a missing
+        // address rather than dropping it silently. Guests legitimately vary.
+        if (role === "helper") {
+          await logSync({ direction: "luma_in", result: "applied", bookingId, action: `comms_${kind}_helper_skipped`, note: "no booked_by_email" });
+        }
+        continue;
+      }
       const rendered = renderComms(kind, role, f);
       if (!rendered) continue;
-      if (await deps.hasSent(bookingId, kind, role)) continue;
+
+      // Reserve BEFORE sending so concurrent retries can't both send. A false
+      // means already sent, or another run owns it, or it's mid-flight.
+      if (!(await deps.reserve(bookingId, kind, role, to))) continue;
 
       if (!deps.enabled()) {
-        await deps.record({ bookingId, eventKind: kind, role, email: to, resendId: null, status: "skipped" });
+        // Kill-switch: record as skipped (retryable — reserve re-claims it later).
+        await deps.finalize(bookingId, kind, role, { resendId: null, status: "skipped" });
         continue;
       }
       try {
@@ -114,9 +127,11 @@ export async function sendBookingComms(
           text: rendered.text,
           attachments: kind === "assigned" && attachment ? [attachment] : undefined,
         });
-        await deps.record({ bookingId, eventKind: kind, role, email: to, resendId: id, status: "sent" });
+        if (!id) throw new Error("Resend returned no message id");
+        await deps.finalize(bookingId, kind, role, { resendId: id, status: "sent" });
       } catch (err) {
-        await deps.record({ bookingId, eventKind: kind, role, email: to, resendId: null, status: "failed" });
+        // Leave the row as `failed` (retryable) and surface it.
+        await deps.finalize(bookingId, kind, role, { resendId: null, status: "failed" });
         await logSync({ direction: "luma_in", result: "error", bookingId, action: `comms_${kind}_${role}`, note: err instanceof Error ? err.message : String(err) });
       }
     }

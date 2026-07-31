@@ -16,8 +16,8 @@ function makeDeps(over: Partial<CommsDeps> = {}, f: CommsFields | null = fields(
   const recorded: Array<{ role: string; status: string }> = [];
   const deps: CommsDeps = {
     getFields: async () => f,
-    hasSent: async () => false,
-    record: async (r) => { recorded.push({ role: r.role, status: r.status }); },
+    reserve: async () => true,
+    finalize: async (_b, _k, role, o) => { recorded.push({ role, status: o.status }); },
     send: async (i) => { sent.push({ to: i.to, hasAttachment: !!i.attachments?.length }); return { id: "re_1" }; },
     enabled: () => true,
     from: () => "Office Hours <hello@oh.com>",
@@ -54,23 +54,41 @@ describe("sendBookingComms", () => {
     expect(sent.map((s) => s.to)).toEqual(["grace@x.com"]);
   });
 
-  it("idempotent: already-sent recipients are skipped", async () => {
-    const { deps, sent } = makeDeps({ hasSent: async () => true });
+  it("idempotent: recipients that lose the reservation are not sent", async () => {
+    const { deps, sent } = makeDeps({ reserve: async () => false });
     await sendBookingComms("b1", "assigned", deps);
     expect(sent).toHaveLength(0);
   });
 
-  it("disabled: records skipped and does not send", async () => {
+  it("reserve is called before send (send-once guard)", async () => {
+    const order: string[] = [];
+    const { deps } = makeDeps({
+      reserve: async () => { order.push("reserve"); return true; },
+      send: async () => { order.push("send"); return { id: "re_1" }; },
+      finalize: async () => { order.push("finalize"); },
+    });
+    await sendBookingComms("b1", "checked_in", deps);
+    expect(order).toEqual(["reserve", "send", "finalize"]);
+  });
+
+  it("disabled: reserves then finalizes skipped, does not send", async () => {
     const { deps, sent, recorded } = makeDeps({ enabled: () => false });
     await sendBookingComms("b1", "assigned", deps);
     expect(sent).toHaveLength(0);
     expect(recorded.every((r) => r.status === "skipped")).toBe(true);
+    expect(recorded).toHaveLength(2); // helper + guest both reserved+skipped
   });
 
-  it("send failure is recorded and does not throw", async () => {
+  it("send failure finalizes failed (retryable) and does not throw", async () => {
     const { deps, recorded } = makeDeps({ send: async () => { throw new Error("boom"); } });
     await expect(sendBookingComms("b1", "assigned", deps)).resolves.toBeUndefined();
     expect(recorded.some((r) => r.status === "failed")).toBe(true);
+  });
+
+  it("empty Resend id is treated as a failure", async () => {
+    const { deps, recorded } = makeDeps({ send: async () => ({ id: "" }) });
+    await sendBookingComms("b1", "checked_in", deps);
+    expect(recorded).toEqual([{ role: "helper", status: "failed" }]);
   });
 
   it("missing booking → no-op", async () => {

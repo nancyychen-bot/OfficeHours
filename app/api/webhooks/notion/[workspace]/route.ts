@@ -45,7 +45,6 @@ export async function POST(
   }
   const workspace = ws as NotionWorkspace;
   const direction = workspace === "dev" ? "notion_dev_in" : "notion_amb_in";
-  const other: NotionWorkspace = workspace === "dev" ? "ambassador" : "dev";
 
   const raw = await req.text();
   let body: {
@@ -133,38 +132,44 @@ export async function POST(
       return NextResponse.json({ received: true, echo: true });
     }
 
-    // Apply the human change.
-    if (incoming.status === "assigned" && booking.status === "unassigned") {
+    // The Claim button reliably sets "Booked by" (the assignee) but may NOT flip
+    // the Status select. So key the claim off the ASSIGNEE, not Status — the hub
+    // owns Status and sets it everywhere. `claimer` = text mirror ?? Person name.
+    const claimer = incoming.booked_by_display_name;
+
+    // CLAIM — an open booking now has an assignee.
+    if (booking.status === "unassigned" && claimer) {
       const claim = await claimBooking({
         bookingId: booking.id,
-        displayName: incoming.booked_by_display_name ?? "Unknown",
+        displayName: claimer,
         bookedByType: incoming.booked_by_type ?? (workspace === "dev" ? "employee" : "ambassador"),
       });
       if (!claim.ok) {
-        // Lost the race — revert this workspace's page to canonical state.
+        // Lost the race — re-push canonical state to BOTH sides to correct them.
         const current = claim.reason === "already_claimed" ? claim.current : await getBookingById(booking.id);
-        if (current) {
-          await pushBookingToWorkspaces(current, { skip: [other] });
-        }
-        await logSync({ direction, result: "applied", bookingId: booking.id, action: "claim_conflict", note: "already claimed; reverted origin" });
+        if (current) await pushBookingToWorkspaces(current);
+        await logSync({ direction, result: "applied", bookingId: booking.id, action: "claim_conflict", note: "already claimed" });
         return NextResponse.json({ received: true, conflict: true });
       }
-      await pushBookingToWorkspaces(claim.booking, { skip: [workspace] });
       const helperEmail = readFirstPersonEmail(page.properties?.[PROP.bookedByPerson]);
       if (helperEmail) await setBookedByEmail(claim.booking.id, helperEmail);
+      // Push to BOTH: flip Status → Assigned on the origin card too (the button
+      // may not have) and mirror to the other workspace.
+      await pushBookingToWorkspaces(claim.booking);
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "claimed" });
       return NextResponse.json({ received: true });
     }
 
-    if (incoming.status === "unassigned" && booking.status === "assigned") {
+    // RELEASE — an assigned booking had its assignee cleared (manual edit; the
+    // Unclaim button path is handled earlier via X-Action).
+    if (booking.status === "assigned" && !claimer) {
       const released = await releaseBooking(booking.id);
-      if (released) await pushBookingToWorkspaces(released, { skip: [workspace] });
+      if (released) await pushBookingToWorkspaces(released);
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "released" });
       return NextResponse.json({ received: true });
     }
 
-    // Other transitions (e.g. no_show set manually) are not mirrored back yet.
-    await logSync({ direction, result: "applied", bookingId: booking.id, action: `noop:${incoming.status}`, note: "no reconciliation rule" });
+    await logSync({ direction, result: "applied", bookingId: booking.id, action: `noop:${incoming.status}`, note: `claimer=${claimer ?? "none"}` });
     return NextResponse.json({ received: true });
   } catch (err) {
     await logSync({ direction, result: "error", action: "process", note: err instanceof Error ? err.message : String(err) });

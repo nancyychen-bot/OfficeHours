@@ -47,4 +47,8 @@ export const env = {
     baseUrl: () => optional("APP_BASE_URL") ?? "http://localhost:3000",
     cronSecret: () => optional("CRON_SECRET"),
   },
+  hub: {
+    password: () => required("HUB_PASSWORD"),
+    sessionSecret: () => required("HUB_SESSION_SECRET"),
+  },
 } as const;

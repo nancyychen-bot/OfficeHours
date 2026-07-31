@@ -107,7 +107,10 @@ export async function POST(req: Request) {
     // Mirror to both Notion workspaces (no-op until Notion is configured).
     // TODO(scale): for high volume, enqueue this so we always 2xx within Luma's
     // 5s window; today the Notion legs are skipped until tokens are set.
+    // fullUpdate: refresh all guest fields on the cards so re-registration edits
+    // (changed challenge, slot, company, …) reflect in Notion, not just Supabase.
     await pushBookingToWorkspaces(booking, {
+      fullUpdate: true,
       dev: { slotLabel: slot?.name ?? null, location: event.city, eventName: event.name, eventDate: event.event_date },
       ambassador: { slotLabel: slot?.name ?? null, location: event.city, eventName: event.name, eventDate: event.event_date },
     });

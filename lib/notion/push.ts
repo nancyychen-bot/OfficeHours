@@ -34,6 +34,7 @@ async function pushToWorkspace(
   workspace: NotionWorkspace,
   booking: Booking,
   opts: PushOptions,
+  fullUpdate: boolean,
 ): Promise<"created" | "updated" | "skipped"> {
   if (!isConfigured(workspace)) return "skipped";
 
@@ -42,11 +43,17 @@ async function pushToWorkspace(
     workspace === "dev" ? booking.notion_dev_page_id : booking.notion_ambassador_page_id;
 
   if (existingPageId) {
+    // fullUpdate (Luma-driven): refresh ALL guest fields (challenge, slot,
+    // company, etc.) so re-registration edits reflect on the card. Otherwise
+    // (claim/status mirror): touch only status + booked-by.
+    const properties = fullUpdate
+      ? bookingToPageProperties(booking, opts)
+      : syncedFieldsToUpdateProperties(pickSyncedFields(booking));
     await notion.pages.update({
       page_id: existingPageId,
       // Notion SDK's property typing is stricter than our generic builder.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      properties: syncedFieldsToUpdateProperties(pickSyncedFields(booking)) as any,
+      properties: properties as any,
     });
     return "updated";
   }
@@ -72,7 +79,13 @@ export interface PushResult {
  */
 export async function pushBookingToWorkspaces(
   booking: Booking,
-  opts: { dev?: PushOptions; ambassador?: PushOptions; skip?: NotionWorkspace[] } = {},
+  opts: {
+    dev?: PushOptions;
+    ambassador?: PushOptions;
+    skip?: NotionWorkspace[];
+    /** Refresh all guest fields on existing cards (use for Luma-driven pushes). */
+    fullUpdate?: boolean;
+  } = {},
 ): Promise<PushResult> {
   const result: PushResult = { dev: "skipped", ambassador: "skipped" };
   const skip = new Set(opts.skip ?? []);
@@ -80,7 +93,12 @@ export async function pushBookingToWorkspaces(
   for (const workspace of ["dev", "ambassador"] as const) {
     if (skip.has(workspace)) continue;
     try {
-      result[workspace] = await pushToWorkspace(workspace, booking, opts[workspace] ?? {});
+      result[workspace] = await pushToWorkspace(
+        workspace,
+        booking,
+        opts[workspace] ?? {},
+        opts.fullUpdate ?? false,
+      );
     } catch (err) {
       result[workspace] = "error";
       await logSync({

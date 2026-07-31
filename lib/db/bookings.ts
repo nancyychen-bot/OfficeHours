@@ -65,6 +65,12 @@ export async function upsertBookingFromLuma(input: {
   challenge?: string | null;
 }): Promise<Booking> {
   const supabase = getAdminClient();
+  // Re-registration reuses the same Luma guest id. If the existing booking was
+  // cancelled, an approved re-registration should RE-ACTIVATE it (back to
+  // unassigned, assignee cleared). Otherwise leave status/assignee untouched —
+  // a normal guest.updated must never un-claim an active booking.
+  const existing = await getBookingByLumaGuestId(input.lumaGuestId);
+  const reactivate = existing?.status === "cancelled";
   const row = {
     luma_guest_id: input.lumaGuestId,
     event_id: input.eventId,
@@ -75,6 +81,14 @@ export async function upsertBookingFromLuma(input: {
     role: input.role ?? null,
     company: input.company ?? null,
     challenge: input.challenge ?? null,
+    ...(reactivate
+      ? {
+          status: "unassigned" as const,
+          booked_by_display_name: null,
+          booked_by_type: null,
+          booked_by_email: null,
+        }
+      : {}),
   };
   const first = await supabase
     .from("bookings")

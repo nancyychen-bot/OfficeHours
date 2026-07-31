@@ -49,13 +49,21 @@ async function pushToWorkspace(
     const properties = fullUpdate
       ? bookingToPageProperties(booking, opts)
       : syncedFieldsToUpdateProperties(pickSyncedFields(booking));
-    await notion.pages.update({
-      page_id: existingPageId,
-      // Notion SDK's property typing is stricter than our generic builder.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      properties: properties as any,
-    });
-    return "updated";
+    try {
+      await notion.pages.update({
+        page_id: existingPageId,
+        // Notion SDK's property typing is stricter than our generic builder.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        properties: properties as any,
+      });
+      return "updated";
+    } catch (err) {
+      // If the card was manually deleted/archived in Notion, the stored id is
+      // dead ("Can't edit archived block" / not found). Fall through to create a
+      // fresh card. Rethrow anything else.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!/archived|not[ _]?found|could not find/i.test(msg)) throw err;
+    }
   }
 
   const created = await notion.pages.create({

@@ -48,9 +48,11 @@ const RE = {
 /**
  * Map custom registration answers to our fields (PRD §5).
  *
- * The Luma form isn't locked yet, so this matches on question label + type.
- * Once the questions are finalized, pin these to explicit `question_id`s (the
- * ids are stable and available from Get Event → registration_questions).
+ * Primarily by question TYPE (dropdown→slot, long-text→challenge, company→
+ * company/role), with label keywords only as a fallback. Each answer is claimed
+ * by at most ONE field (note the `continue`s) so a slot question labelled
+ * "…for 1:1 help" can't also leak into challenge. Pin to explicit question_ids
+ * once the form is finalized for full determinism.
  */
 function mapAnswers(answers: LumaRegistrationAnswer[]): {
   role: string | null;
@@ -65,19 +67,33 @@ function mapAnswers(answers: LumaRegistrationAnswer[]): {
 
   for (const a of answers) {
     const label = a.label ?? "";
-    const asString = answerToString(a);
+    const type = (a.question_type ?? "").toLowerCase();
+    const val = answerToString(a);
 
-    if (a.question_type === "company") {
-      company = company ?? answerToString(a);
-      role = role ?? jobTitleFromAnswer(a);
+    // Company question type carries both company and job title (→ role).
+    if (type === "company") {
+      if (!company) company = val;
+      if (!role) role = jobTitleFromAnswer(a);
       continue;
     }
-    if (!requestedSlotLabel && (RE.slot.test(label) || a.question_type === "dropdown")) {
-      if (RE.slot.test(label)) requestedSlotLabel = asString;
+    // Slot: the dropdown (or a slot/time-labelled question). Claim it exclusively.
+    if (!requestedSlotLabel && (type === "dropdown" || RE.slot.test(label))) {
+      requestedSlotLabel = val;
+      continue;
     }
-    if (!challenge && RE.challenge.test(label)) challenge = asString;
-    else if (!role && RE.role.test(label)) role = asString;
-    else if (!company && RE.company.test(label)) company = asString;
+    // Challenge: a long-text question (or a challenge-labelled one).
+    if (!challenge && (type === "long-text" || RE.challenge.test(label))) {
+      challenge = val;
+      continue;
+    }
+    if (!role && RE.role.test(label)) {
+      role = val;
+      continue;
+    }
+    if (!company && RE.company.test(label)) {
+      company = val;
+      continue;
+    }
   }
 
   return { role, company, challenge, requestedSlotLabel };

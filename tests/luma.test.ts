@@ -90,6 +90,34 @@ describe("normalizeGuest", () => {
     expect(normalizeGuest(guest({ approval_status: "approved" })).approvalStatus).toBe("approved");
     expect(normalizeGuest(guest()).approvalStatus).toBeNull();
   });
+
+  it("does not leak a slot question labelled 'help' into challenge", () => {
+    const n = normalizeGuest(
+      guest({
+        registration_answers: [
+          { label: "Requested time slot for 1:1 help", question_id: "q3", question_type: "dropdown", value: "2:30-3:00 PM" },
+        ],
+      }),
+    );
+    expect(n.requestedSlotLabel).toBe("2:30-3:00 PM");
+    expect(n.challenge).toBeNull();
+  });
+
+  it("maps by type: dropdown→slot, long-text→challenge, company→company/role", () => {
+    const n = normalizeGuest(
+      guest({
+        registration_answers: [
+          { label: "Requested time slot for 1:1 help", question_id: "q3", question_type: "dropdown", value: "3:00-3:30 PM" },
+          { label: "What challenge do you need help with?", question_id: "q2", question_type: "long-text", value: "Pricing strategy" },
+          { label: "Where do you work?", question_id: "q1", question_type: "company", value: { company: "Acme", job_title: "PM" } },
+        ],
+      }),
+    );
+    expect(n.requestedSlotLabel).toBe("3:00-3:30 PM");
+    expect(n.challenge).toBe("Pricing strategy");
+    expect(n.company).toBe("Acme");
+    expect(n.role).toBe("PM");
+  });
 });
 
 describe("isCheckedIn (per-ticket)", () => {

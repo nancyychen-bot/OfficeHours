@@ -9,6 +9,7 @@ import { upsertBookingFromLuma, checkInByLumaGuestId, getBookingByLumaGuestId, c
 import { pushBookingToWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
 import { lifecycleAction } from "@/lib/events/lifecycle";
+import { sendBookingComms } from "@/lib/email/comms";
 
 export const runtime = "nodejs";
 
@@ -101,7 +102,10 @@ export async function POST(req: Request) {
     // Status → Checked In automation/agent), not by the hub.
     if (norm.isCheckedIn && booking.status !== "checked_in") {
       const updated = await checkInByLumaGuestId(norm.lumaGuestId);
-      if (updated) booking = updated;
+      if (updated) {
+        booking = updated;
+        await sendBookingComms(updated.id, "checked_in");
+      }
     }
 
     // Mirror to both Notion workspaces (no-op until Notion is configured).

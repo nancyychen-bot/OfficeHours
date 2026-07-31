@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { markNoShowsForEndedSlots } from "@/lib/db/bookings";
 import { pushBookingToWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
+import { sendBookingComms } from "@/lib/email/comms";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
   const swept = await markNoShowsForEndedSlots(new Date());
   for (const booking of swept) {
     await pushBookingToWorkspaces(booking);
+    await sendBookingComms(booking.id, "no_show");
     await logSync({ direction: "luma_in", result: "applied", bookingId: booking.id, action: "no_show" });
   }
   return NextResponse.json({ swept: swept.length });

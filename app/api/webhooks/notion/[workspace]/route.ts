@@ -16,11 +16,13 @@ import { pushBookingToWorkspaces, clearBookingInWorkspaces } from "@/lib/notion/
 import { logSync } from "@/lib/sync/log";
 
 export const runtime = "nodejs";
-export const maxDuration = 30; // allow the claim-read delay + processing
+export const maxDuration = 30; // allow the button-settle delay + processing
 
-// Notion buttons fire their webhook before the "Edit property" step commits, so
-// we wait this long before reading the page's post-click state (see claim path).
-const CLAIM_READ_DELAY_MS = 5000;
+// This workspace's buttons fire their webhook BEFORE their "Edit property" step
+// commits (and can't be reordered). So we wait this long for the button's edit
+// to settle before the hub reads (claim) or writes the final state (unclaim) —
+// otherwise the button's late edit races/overwrites the hub.
+const BUTTON_EDIT_SETTLE_MS = 5000;
 
 /**
  * Notion → hub webhook (PRD §7.3 / §8.4). One route per workspace via the
@@ -110,6 +112,9 @@ export async function POST(
     // dependence on button-edit timing.
     if (action === "unclaim") {
       const released = (await releaseBooking(booking.id)) ?? booking;
+      // Wait for the button's own Edit step to settle, THEN clear both cards so
+      // the hub's clear writes last and wins on the origin card too.
+      await new Promise((resolve) => setTimeout(resolve, BUTTON_EDIT_SETTLE_MS));
       await clearBookingInWorkspaces(released);
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "unclaimed" });
       return NextResponse.json({ received: true });
@@ -120,7 +125,7 @@ export async function POST(
     // workspace's buttons. So wait for the edit to land, THEN read the page's
     // authoritative state. (Unclaim/cancel/re-register don't read Notion state
     // after a button, so they're unaffected by this race.)
-    await new Promise((resolve) => setTimeout(resolve, CLAIM_READ_DELAY_MS));
+    await new Promise((resolve) => setTimeout(resolve, BUTTON_EDIT_SETTLE_MS));
     const notion = getNotionClient(workspace);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const page = (await notion.pages.retrieve({ page_id: pageId })) as any;

@@ -61,13 +61,13 @@ export function BookingsTab({ bookings, chips }: { bookings: HubBooking[]; chips
         <table className="w-full text-left text-sm">
           <thead className="border-b border-line text-xs uppercase tracking-wide text-neutral-400">
             <tr>
-              <th className="px-3 py-2 font-medium">Guest</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Slot</th>
-              <th className="px-3 py-2 font-medium">City</th>
-              <th className="px-3 py-2 font-medium">Booked by</th>
-              <th className="px-3 py-2 font-medium">Helper type</th>
-              <th className="px-3 py-2 font-medium">Challenge</th>
+              <th className="px-3 py-2 font-medium whitespace-nowrap">Guest</th>
+              <th className="px-3 py-2 font-medium whitespace-nowrap">Status</th>
+              <th className="px-3 py-2 font-medium whitespace-nowrap">Slot</th>
+              <th className="px-3 py-2 font-medium whitespace-nowrap">City</th>
+              <th className="px-3 py-2 font-medium whitespace-nowrap">Booked by</th>
+              <th className="px-3 py-2 font-medium whitespace-nowrap">Helper type</th>
+              <th className="w-[40%] min-w-[320px] px-3 py-2 font-medium">Challenge</th>
             </tr>
           </thead>
           <tbody>
@@ -97,13 +97,13 @@ function RowsForCity({ city, rows }: { city: string; rows: HubBooking[] }) {
         </td>
       </tr>
       {rows.map((r) => (
-        <tr key={r.id} className="border-b border-line last:border-0">
-          <td className="px-3 py-2 font-medium text-neutral-800">{r.guest_name}</td>
+        <tr key={r.id} className="border-b border-line align-top last:border-0">
+          <td className="whitespace-nowrap px-3 py-2 font-medium text-neutral-800">{r.guest_name}</td>
           <td className="px-3 py-2"><StatusPill status={r.status} /></td>
-          <td className="px-3 py-2 text-neutral-600">{r.slot_name ?? "—"}</td>
-          <td className="px-3 py-2 text-neutral-600">{r.location ?? "—"}</td>
-          <td className="px-3 py-2 text-neutral-600">{r.booked_by_display_name ?? "Empty"}</td>
-          <td className="px-3 py-2 text-neutral-600">{r.booked_by_type ?? "—"}</td>
+          <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{r.slot_name ?? "—"}</td>
+          <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{r.location ?? "—"}</td>
+          <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{r.booked_by_display_name ?? "Empty"}</td>
+          <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{r.booked_by_type ?? "—"}</td>
           <td className="px-3 py-2 text-neutral-600">{r.challenge ?? "—"}</td>
         </tr>
       ))}

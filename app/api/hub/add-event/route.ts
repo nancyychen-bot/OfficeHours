@@ -32,7 +32,13 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+    // This route is public + embeddable — don't echo raw internal/upstream
+    // error text (Luma API details, DB messages) to anonymous callers. Log the
+    // real error server-side; return a generic, actionable message.
+    console.error("[add-event] register failed", err);
+    return NextResponse.json(
+      { ok: false, error: "Couldn't add that event. Check the Luma URL and try again." },
+      { status: 400 },
+    );
   }
 }

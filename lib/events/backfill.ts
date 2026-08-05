@@ -27,7 +27,7 @@ export async function backfillEventGuests(lumaEventId: string): Promise<Backfill
     try {
       // The list entry has no nested `event`; supply the id we're backfilling.
       const norm = normalizeGuest({ ...g, event: { id: lumaEventId } } as LumaGuestData);
-      const outcome = await ingestRegistration(norm, { sendCheckInComms: false });
+      const outcome = await ingestRegistration(norm, { live: false });
       if (outcome.status === "ingested") result.imported++;
       else result.ignored++;
     } catch (err) {

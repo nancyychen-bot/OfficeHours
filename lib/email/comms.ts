@@ -1,7 +1,7 @@
 import { getBookingDetailsById } from "../db/bookings";
 import { reserveCommsSlot, finalizeComms, type CommsStatus } from "../db/email-log";
 import { sendEmail, type EmailAttachment } from "./resend";
-import { buildInvite, inviteAttachment, fromAddressEmail } from "./ics";
+import { buildInvite, buildCancel, inviteAttachment, fromAddressEmail } from "./ics";
 import { renderComms, guestDetailsLines, type CommsFields, type CommsKind, type Recipient } from "./templates";
 import { env } from "../env";
 import { logSync } from "../sync/log";
@@ -90,26 +90,28 @@ export async function sendBookingComms(
     const f = await deps.getFields(bookingId);
     if (!f) return;
 
-    // Build the invite once (assigned only); skip + log if the time is unparseable.
+    // Attach a calendar file: assigned → an invite that holds the slot;
+    // cancelled/declined → a CANCEL that removes the previously-sent hold from
+    // attendees' calendars. Skipped (null) when there's no parseable slot time.
     let attachment: EmailAttachment | undefined;
-    if (kind === "assigned") {
-      const ics = buildInvite(
-        {
-          bookingId: f.bookingId,
-          guestName: f.guestName,
-          guestEmail: f.guestEmail,
-          helperEmail: f.helperEmail,
-          helperName: f.helperName,
-          slotStartsAt: f.slotStartsAt,
-          slotEndsAt: f.slotEndsAt,
-          location: f.location,
-          descriptionText: guestDetailsLines(f).join("\n"),
-        },
-        fromAddressEmail(deps.from()),
-        deps.now(),
-      );
+    if (kind === "assigned" || kind === "cancelled" || kind === "declined") {
+      const icsFields = {
+        bookingId: f.bookingId,
+        guestName: f.guestName,
+        guestEmail: f.guestEmail,
+        helperEmail: f.helperEmail,
+        helperName: f.helperName,
+        slotStartsAt: f.slotStartsAt,
+        slotEndsAt: f.slotEndsAt,
+        location: f.location,
+        descriptionText: guestDetailsLines(f).join("\n"),
+      };
+      const ics =
+        kind === "assigned"
+          ? buildInvite(icsFields, fromAddressEmail(deps.from()), deps.now())
+          : buildCancel(icsFields, fromAddressEmail(deps.from()), deps.now());
       if (ics) attachment = inviteAttachment(ics);
-      else await logSync({ direction: "luma_in", result: "applied", bookingId, action: "comms_ics_skipped", note: "unparseable slot time" });
+      else if (kind === "assigned") await logSync({ direction: "luma_in", result: "applied", bookingId, action: "comms_ics_skipped", note: "unparseable slot time" });
     }
 
     for (const role of RECIPIENTS[kind]) {
@@ -140,7 +142,7 @@ export async function sendBookingComms(
           subject: rendered.subject,
           html: rendered.html,
           text: rendered.text,
-          attachments: kind === "assigned" && attachment ? [attachment] : undefined,
+          attachments: attachment ? [attachment] : undefined,
         });
         if (!id) throw new Error("Resend returned no message id");
         await deps.finalize(bookingId, kind, to, { resendId: id, status: "sent" });

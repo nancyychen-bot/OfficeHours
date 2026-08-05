@@ -1,6 +1,6 @@
 import { getEventByLumaId } from "../db/events";
 import { matchSlotForEvent } from "../db/slots";
-import { upsertBookingFromLuma, checkInByLumaGuestId } from "../db/bookings";
+import { upsertBookingFromLuma, checkInByLumaGuestId, getBookingByLumaGuestId } from "../db/bookings";
 import { pushBookingToWorkspaces } from "../notion/push";
 import { sendBookingComms } from "../email/comms";
 import { approvalStatusToLumaStatus } from "../luma/approval";
@@ -16,16 +16,28 @@ export type IngestOutcome =
  * both Notion workspaces. Shared by the Luma webhook (live) and the event
  * backfill (bulk import from guests/list).
  *
- * `sendCheckInComms` is true only for the live webhook; the backfill imports
- * silently so it never blasts retroactive emails.
+ * `live` is true only for the live webhook; the backfill imports silently so it
+ * never blasts retroactive emails.
  */
 export async function ingestRegistration(
   norm: NormalizedRegistration,
-  opts: { sendCheckInComms: boolean },
+  opts: { live: boolean },
 ): Promise<IngestOutcome> {
   const event = await getEventByLumaId(norm.lumaEventId);
   if (!event) {
     return { status: "ignored", reason: `not a registered Notion Build Bar event (${norm.lumaEventId})` };
+  }
+
+  const nextLumaStatus = approvalStatusToLumaStatus(norm.approvalStatus);
+
+  // Guest self-cancelled (or was declined) in Luma an already-claimed 1:1: notify
+  // the helper + cancel the calendar hold BEFORE the upsert releases the helper
+  // (which clears booked_by_email). Live webhook only — backfill stays silent.
+  if (opts.live && nextLumaStatus === "declined") {
+    const prior = await getBookingByLumaGuestId(norm.lumaGuestId);
+    if (prior?.status === "assigned") {
+      await sendBookingComms(prior.id, "cancelled");
+    }
   }
 
   const slot = norm.requestedSlot
@@ -47,7 +59,7 @@ export async function ingestRegistration(
     experienceLevel: norm.experienceLevel,
     attendReasons: norm.attendReasons,
     requestedSlot: norm.requestedSlot,
-    lumaStatus: approvalStatusToLumaStatus(norm.approvalStatus),
+    lumaStatus: nextLumaStatus,
   });
 
   let checkedIn = false;
@@ -56,7 +68,7 @@ export async function ingestRegistration(
     if (updated) {
       booking = updated;
       checkedIn = true;
-      if (opts.sendCheckInComms) await sendBookingComms(updated.id, "checked_in");
+      if (opts.live) await sendBookingComms(updated.id, "checked_in");
     }
   }
 

@@ -32,8 +32,10 @@ export async function applyLumaStatus(
   const isDowngrade = next === "waitlist" || next === "declined";
   if (isDowngrade && wasAssigned) {
     const to = booking.requested_slot ? "unassigned" : "no_help_needed";
-    current = (await deps.resetAssignment(booking.id, to)) ?? current;
+    // Email BEFORE clearing: resetAssignment nulls booked_by_email, and the
+    // cancellation comms need the helper's address to reach them.
     await deps.sendComms(booking.id, "cancelled");
+    current = (await deps.resetAssignment(booking.id, to)) ?? current;
   }
 
   if (opts.source !== "luma") {

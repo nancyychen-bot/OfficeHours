@@ -41,6 +41,11 @@ describe("applyLumaStatus", () => {
     expect(d.resetAssignment).toHaveBeenCalledWith("b1", "unassigned");
     expect(d.sendComms).toHaveBeenCalledWith("b1", "cancelled");
     expect(d.updateGuestOnLuma).toHaveBeenCalledWith("evt-1", "gst-1", "declined");
+    // Cancellation email MUST fire before resetAssignment nulls booked_by_email,
+    // otherwise the helper recipient is silently dropped.
+    const sendOrder = (d.sendComms as unknown as { mock: { invocationCallOrder: number[] } }).mock.invocationCallOrder[0];
+    const resetOrder = (d.resetAssignment as unknown as { mock: { invocationCallOrder: number[] } }).mock.invocationCallOrder[0];
+    expect(sendOrder).toBeLessThan(resetOrder);
   });
 
   it("Luma-origin change never writes back to Luma", async () => {

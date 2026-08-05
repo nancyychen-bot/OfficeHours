@@ -191,6 +191,7 @@ export async function releaseBooking(bookingId: string): Promise<Booking | null>
       status: "unassigned",
       booked_by_display_name: null,
       booked_by_type: null,
+      booked_by_email: null,
     })
     .eq("id", bookingId)
     .select("*")
@@ -286,19 +287,6 @@ export async function listBookingsForEvent(eventId: string): Promise<Booking[]> 
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data ?? [];
-}
-
-/** Cancel an approved booking: mark cancelled and free its slot (kept for reporting). */
-export async function cancelBooking(bookingId: string): Promise<Booking | null> {
-  const supabase = getAdminClient();
-  const { data, error } = await supabase
-    .from("bookings")
-    .update({ status: "cancelled", slot_id: null })
-    .eq("id", bookingId)
-    .select("*")
-    .maybeSingle();
-  if (error) throw error;
-  return data;
 }
 
 /** Store the assigned helper's email (from their Notion Person) for notifications. */

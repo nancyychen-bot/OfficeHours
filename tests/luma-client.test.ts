@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { parseLumaEventId, extractSlotOptions } from "@/lib/luma/client";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { parseLumaEventId, extractSlotOptions, updateGuestStatus } from "@/lib/luma/client";
 import type { LumaRegistrationQuestion } from "@/lib/luma/types";
 
 describe("parseLumaEventId", () => {
@@ -38,5 +38,56 @@ describe("extractSlotOptions", () => {
   });
   it("returns [] when no question has options", () => {
     expect(extractSlotOptions([textQ])).toEqual([]);
+  });
+});
+
+describe("updateGuestStatus", () => {
+  beforeEach(() => {
+    process.env.LUMA_API_KEY = "test-key";
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.LUMA_API_KEY;
+  });
+
+  it("POSTs to /v1/event/update-guest-status with correct body (approved maps to 'approved')", async () => {
+    let capturedUrl = "";
+    let capturedInit: RequestInit | undefined;
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      capturedUrl = url;
+      capturedInit = init;
+      return { ok: true } as Response;
+    });
+
+    await updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "approved" });
+
+    expect(capturedUrl).toContain("/v1/event/update-guest-status");
+    expect(capturedInit?.method).toBe("POST");
+    const body = JSON.parse(capturedInit?.body as string);
+    expect(body).toEqual({ event_api_id: "evt-123", guest_api_id: "gst-456", status: "approved" });
+  });
+
+  it("pending maps to 'pending_approval' in the request body", async () => {
+    let capturedBody: Record<string, string> | undefined;
+    vi.stubGlobal("fetch", async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(init?.body as string);
+      return { ok: true } as Response;
+    });
+
+    await updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "pending" });
+
+    expect(capturedBody?.status).toBe("pending_approval");
+  });
+
+  it("throws when the response is non-2xx", async () => {
+    vi.stubGlobal("fetch", async () => ({
+      ok: false,
+      status: 422,
+      text: async () => "Unprocessable Entity",
+    } as Response));
+
+    await expect(
+      updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "approved" }),
+    ).rejects.toThrow("Luma update-guest-status failed: HTTP 422");
   });
 });

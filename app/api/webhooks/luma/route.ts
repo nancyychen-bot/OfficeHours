@@ -3,13 +3,8 @@ import { env } from "@/lib/env";
 import { verifyLumaSignature } from "@/lib/luma/verify";
 import { normalizeGuest } from "@/lib/luma/parse";
 import type { LumaWebhookEnvelope } from "@/lib/luma/types";
-import { getEventByLumaId } from "@/lib/db/events";
-import { matchSlotForEvent } from "@/lib/db/slots";
-import { upsertBookingFromLuma, checkInByLumaGuestId } from "@/lib/db/bookings";
-import { pushBookingToWorkspaces } from "@/lib/notion/push";
+import { ingestRegistration } from "@/lib/events/ingest";
 import { logSync } from "@/lib/sync/log";
-import { approvalStatusToLumaStatus } from "@/lib/luma/approval";
-import { sendBookingComms } from "@/lib/email/comms";
 
 export const runtime = "nodejs";
 
@@ -51,62 +46,20 @@ export async function POST(req: Request) {
   try {
     const norm = normalizeGuest(data);
 
-    // CREATE — every registrant becomes/updates a booking (no approval gate).
-    const event = await getEventByLumaId(norm.lumaEventId);
-    if (!event) {
-      await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: `not a registered Notion Build Bar event (${norm.lumaEventId})` });
+    // Every registrant becomes/updates a booking (no approval gate) and mirrors
+    // to both Notion workspaces. Shared with the event backfill via ingest.
+    const outcome = await ingestRegistration(norm, { sendCheckInComms: true });
+    if (outcome.status === "ignored") {
+      await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: outcome.reason });
       return NextResponse.json({ received: true, ignored: true });
     }
-
-    const slot = norm.requestedSlot
-      ? await matchSlotForEvent({ eventId: event.id, requestedLabel: norm.requestedSlot })
-      : null;
-
-    let booking = await upsertBookingFromLuma({
-      lumaGuestId: norm.lumaGuestId,
-      eventId: event.id,
-      slotId: slot?.id ?? null,
-      guestName: norm.guestName,
-      guestEmail: norm.guestEmail,
-      guestPhone: norm.guestPhone,
-      role: norm.role,
-      company: norm.company,
-      challenge: norm.challenge,
-      notionEmail: norm.notionEmail,
-      notionPlan: norm.notionPlan,
-      experienceLevel: norm.experienceLevel,
-      attendReasons: norm.attendReasons,
-      requestedSlot: norm.requestedSlot,
-      lumaStatus: approvalStatusToLumaStatus(norm.approvalStatus),
-    });
-
-    // Check-in transition → flip status; the helper is notified in Notion (a
-    // Status → Checked In automation/agent), not by the hub.
-    if (norm.isCheckedIn && booking.status !== "checked_in") {
-      const updated = await checkInByLumaGuestId(norm.lumaGuestId);
-      if (updated) {
-        booking = updated;
-        await sendBookingComms(updated.id, "checked_in");
-      }
-    }
-
-    // Mirror to both Notion workspaces (no-op until Notion is configured).
-    // TODO(scale): for high volume, enqueue this so we always 2xx within Luma's
-    // 5s window; today the Notion legs are skipped until tokens are set.
-    // fullUpdate: refresh all guest fields on the cards so re-registration edits
-    // (changed challenge, slot, company, …) reflect in Notion, not just Supabase.
-    await pushBookingToWorkspaces(booking, {
-      fullUpdate: true,
-      dev: { slotLabel: slot?.name ?? null, location: event.city, eventName: event.name, eventDate: event.event_date },
-      ambassador: { slotLabel: slot?.name ?? null, location: event.city, eventName: event.name, eventDate: event.event_date },
-    });
 
     await logSync({
       direction: "luma_in",
       result: "applied",
-      bookingId: booking.id,
+      bookingId: outcome.booking.id,
       action: type,
-      note: norm.isCheckedIn ? "upserted + checked_in" : "upserted",
+      note: outcome.checkedIn ? "upserted + checked_in" : "upserted",
     });
     return NextResponse.json({ received: true });
   } catch (err) {

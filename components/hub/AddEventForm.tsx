@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
-type Result = { ok: true; event: { name: string; slots: number } } | { ok: false; error: string };
+type Result =
+  | { ok: true; event: { name: string; slots: number; importedGuests: number } }
+  | { ok: false; error: string };
 
 export function AddEventForm({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
@@ -44,7 +46,11 @@ export function AddEventForm({ token }: { token: string }) {
       </button>
       {result?.ok ? (
         <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
-          Added <strong>{result.event.name}</strong> — {result.event.slots} slots tracked.
+          Added <strong>{result.event.name}</strong> — {result.event.slots} slots tracked
+          {result.event.importedGuests > 0
+            ? `, ${result.event.importedGuests} existing guest${result.event.importedGuests === 1 ? "" : "s"} imported`
+            : ""}
+          .
         </p>
       ) : null}
       {result && !result.ok ? (

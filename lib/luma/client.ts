@@ -1,5 +1,10 @@
 import { env } from "../env";
-import type { LumaEventDetail, LumaRegistrationQuestion } from "./types";
+import type {
+  LumaEventDetail,
+  LumaRegistrationQuestion,
+  LumaGuestListEntry,
+  LumaGuestListResponse,
+} from "./types";
 import type { LumaStatus } from "../sync/types";
 
 const BASE = "https://public-api.luma.com";
@@ -11,6 +16,60 @@ export function parseLumaEventId(input: string): string {
   const match = trimmed.match(/evt-[A-Za-z0-9]+/);
   if (match) return match[0];
   throw new Error(`Could not find an evt- id in: ${input}`);
+}
+
+/**
+ * Resolve a Luma event id from user input. Accepts an `evt-…` id, any URL that
+ * contains one (e.g. a manage link), OR a public vanity URL like
+ * `https://luma.com/g95pjn8u` — the public API only takes `evt-` ids, so for a
+ * vanity URL we fetch the page and pull the embedded `evt-` id out of the HTML.
+ */
+export async function resolveLumaEventId(input: string): Promise<string> {
+  const trimmed = input.trim();
+  const direct = trimmed.match(/evt-[A-Za-z0-9]+/);
+  if (direct) return direct[0];
+
+  const looksLikeUrl = /^https?:\/\//i.test(trimmed) || /\b(lu\.ma|luma\.com)\//i.test(trimmed);
+  if (!looksLikeUrl) {
+    throw new Error(`Could not find an evt- id in: ${input}`);
+  }
+  const url = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "user-agent": "Mozilla/5.0 (compatible; NotionBuildBarHub/1.0)" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err) {
+    throw new Error(`Could not load Luma page ${url}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (!res.ok) throw new Error(`Could not load Luma page ${url}: HTTP ${res.status}`);
+  const found = (await res.text()).match(/evt-[A-Za-z0-9]+/);
+  if (found) return found[0];
+  throw new Error(`No evt- id found on Luma page ${url}`);
+}
+
+/**
+ * List every guest for an event (host-only), following cursor pagination. Used
+ * by the backfill to import guests who registered before the hub tracked the
+ * event — Luma doesn't resend webhooks retroactively.
+ */
+export async function listEventGuests(eventId: string): Promise<LumaGuestListEntry[]> {
+  const out: LumaGuestListEntry[] = [];
+  let cursor: string | undefined;
+  do {
+    const url = new URL(`${BASE}/v1/events/guests/list`);
+    url.searchParams.set("event_id", eventId);
+    url.searchParams.set("pagination_limit", "50");
+    if (cursor) url.searchParams.set("pagination_cursor", cursor);
+    const res = await fetch(url, { headers: { "x-luma-api-key": env.luma.apiKey() } });
+    if (!res.ok) throw new Error(`Luma guests/list ${eventId} failed: HTTP ${res.status}`);
+    const body = (await res.json()) as LumaGuestListResponse;
+    out.push(...(body.entries ?? []));
+    cursor = body.has_more && body.next_cursor ? body.next_cursor : undefined;
+  } while (cursor);
+  return out;
 }
 
 function optionLabel(o: unknown): string {

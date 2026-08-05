@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseLumaEventId, extractSlotOptions, updateGuestStatus } from "@/lib/luma/client";
+import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus } from "@/lib/luma/client";
 import type { LumaRegistrationQuestion } from "@/lib/luma/types";
 
 describe("parseLumaEventId", () => {
@@ -11,6 +11,35 @@ describe("parseLumaEventId", () => {
   });
   it("throws when no evt- id is present", () => {
     expect(() => parseLumaEventId("https://lu.ma/some-slug")).toThrow();
+  });
+});
+
+describe("resolveLumaEventId", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("returns an evt- id (or one embedded in a URL) without fetching", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await resolveLumaEventId("evt-ABC123")).toBe("evt-ABC123");
+    expect(await resolveLumaEventId("https://luma.com/manage/evt-ABC123")).toBe("evt-ABC123");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("resolves a vanity URL by extracting the evt- id from the page HTML", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      text: async () => '<html><script>{"id":"evt-VANITY9zzz"}</script></html>',
+    } as Response)));
+    expect(await resolveLumaEventId("https://luma.com/g95pjn8u")).toBe("evt-VANITY9zzz");
+  });
+
+  it("throws when the vanity page has no evt- id", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => "<html>nope</html>" } as Response)));
+    await expect(resolveLumaEventId("https://luma.com/nope")).rejects.toThrow(/No evt- id/);
+  });
+
+  it("throws for input that is neither an id nor a URL", async () => {
+    await expect(resolveLumaEventId("just some words")).rejects.toThrow(/Could not find an evt- id/);
   });
 });
 

@@ -1,6 +1,7 @@
-import { getLumaEvent, extractSlotOptions, parseLumaEventId } from "../luma/client";
+import { getLumaEvent, extractSlotOptions, resolveLumaEventId } from "../luma/client";
 import { generateSlotsFromOptions } from "./slots-gen";
 import { reconcileSlots } from "./reconcile";
+import { backfillEventGuests } from "./backfill";
 import { upsertEvent } from "../db/events";
 import { getAdminClient } from "../supabase/admin";
 import { localCalendarDate } from "./event-date";
@@ -19,6 +20,7 @@ export interface RegisterResult {
   updated: number;
   deleted: number;
   skippedDeletes: number; // slots that would be removed but have bookings
+  importedGuests: number; // existing Luma guests pulled in via backfill
 }
 
 /**
@@ -28,7 +30,7 @@ export interface RegisterResult {
  */
 export async function registerEventFromLuma(input: RegisterInput): Promise<RegisterResult> {
   const supabase = getAdminClient();
-  const eventId = parseLumaEventId(input.lumaEvent);
+  const eventId = await resolveLumaEventId(input.lumaEvent);
   const detail = await getLumaEvent(eventId);
 
   const timezone = detail.timezone ?? "America/Los_Angeles";
@@ -92,6 +94,16 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     if (error) throw error;
   }
 
+  // Backfill any guests who registered before the event was tracked (Luma
+  // doesn't resend webhooks). Best-effort: never fail the registration over it.
+  let importedGuests = 0;
+  try {
+    const backfill = await backfillEventGuests(detail.id);
+    importedGuests = backfill.imported;
+  } catch (err) {
+    console.error("[register] guest backfill failed", err);
+  }
+
   return {
     eventId: event.id,
     eventName: event.name,
@@ -99,5 +111,6 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     updated: plan.toUpdate.length,
     deleted: deletable.length,
     skippedDeletes,
+    importedGuests,
   };
 }

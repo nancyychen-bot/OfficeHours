@@ -57,8 +57,8 @@ export async function getLumaEvent(eventId: string): Promise<LumaEventDetail> {
 
 /**
  * The value Luma's update-guest-status endpoint expects for each hub status.
- * ⚠️ VERIFY the exact spelling against the live endpoint before production
- * (docs.luma.com/reference/post_v1-event-update-guest-status). Adjust here only.
+ * Verified against the live OpenAPI (POST /v1/events/guests/update-status):
+ * status ∈ approved | declined | pending_approval | waitlist.
  */
 const LUMA_API_STATUS: Record<LumaStatus, string> = {
   approved: "approved",
@@ -77,15 +77,15 @@ export async function updateGuestStatus(params: {
   guestLumaId: string; // gst-…
   status: LumaStatus;
 }): Promise<void> {
-  const res = await fetch(`${BASE}/v1/event/update-guest-status`, {
+  const res = await fetch(`${BASE}/v1/events/guests/update-status`, {
     method: "POST",
     headers: {
       "x-luma-api-key": env.luma.apiKey(),
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      event_api_id: params.eventLumaId,
-      guest_api_id: params.guestLumaId,
+      event_id: params.eventLumaId,
+      guest_id: params.guestLumaId,
       status: LUMA_API_STATUS[params.status],
     }),
   });

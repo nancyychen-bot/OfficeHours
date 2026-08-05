@@ -50,7 +50,7 @@ describe("updateGuestStatus", () => {
     delete process.env.LUMA_API_KEY;
   });
 
-  it("POSTs to /v1/event/update-guest-status with correct body (approved maps to 'approved')", async () => {
+  it("POSTs to /v1/events/guests/update-status with correct body (approved maps to 'approved')", async () => {
     let capturedUrl = "";
     let capturedInit: RequestInit | undefined;
     vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
@@ -61,10 +61,10 @@ describe("updateGuestStatus", () => {
 
     await updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "approved" });
 
-    expect(capturedUrl).toContain("/v1/event/update-guest-status");
+    expect(capturedUrl).toContain("/v1/events/guests/update-status");
     expect(capturedInit?.method).toBe("POST");
     const body = JSON.parse(capturedInit?.body as string);
-    expect(body).toEqual({ event_api_id: "evt-123", guest_api_id: "gst-456", status: "approved" });
+    expect(body).toEqual({ event_id: "evt-123", guest_id: "gst-456", status: "approved" });
   });
 
   it("pending maps to 'pending_approval' in the request body", async () => {

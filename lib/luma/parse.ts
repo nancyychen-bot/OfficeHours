@@ -9,7 +9,11 @@ export interface NormalizedRegistration {
   role: string | null;
   company: string | null;
   challenge: string | null;
-  requestedSlotLabel: string | null;
+  notionEmail: string | null;
+  notionPlan: string | null;
+  experienceLevel: string | null;
+  attendReasons: string | null;
+  requestedSlot: string | null;
   isCheckedIn: boolean;
   approvalStatus: string | null;
 }
@@ -38,65 +42,55 @@ function jobTitleFromAnswer(answer: LumaRegistrationAnswer): string | null {
   return null;
 }
 
-const RE = {
-  challenge: /challenge|help|working on|struggl|goal|need/i,
-  role: /role|title|position|job/i,
-  company: /company|organization|employer|where.*work/i,
-  slot: /slot|time|session/i,
+// Label pins for the finalized Build Bar form (case-insensitive `.test`).
+const LABEL = {
+  notionEmail: /email.*notion/i,
+  notionPlan: /type of notion plan|notion plan/i,
+  experience: /experience level/i,
+  reasons: /why.*(come|build bar)/i,
+  challenge: /help.*building|need help with/i,
+  slot: /requested time slot|time slot/i,
 };
 
-/**
- * Map custom registration answers to our fields (PRD §5).
- *
- * Primarily by question TYPE (dropdown→slot, long-text→challenge, company→
- * company/role), with label keywords only as a fallback. Each answer is claimed
- * by at most ONE field (note the `continue`s) so a slot question labelled
- * "…for 1:1 help" can't also leak into challenge. Pin to explicit question_ids
- * once the form is finalized for full determinism.
- */
 function mapAnswers(answers: LumaRegistrationAnswer[]): {
   role: string | null;
   company: string | null;
   challenge: string | null;
-  requestedSlotLabel: string | null;
+  notionEmail: string | null;
+  notionPlan: string | null;
+  experienceLevel: string | null;
+  attendReasons: string | null;
+  requestedSlot: string | null;
 } {
-  let role: string | null = null;
-  let company: string | null = null;
-  let challenge: string | null = null;
-  let requestedSlotLabel: string | null = null;
+  const out = {
+    role: null as string | null,
+    company: null as string | null,
+    challenge: null as string | null,
+    notionEmail: null as string | null,
+    notionPlan: null as string | null,
+    experienceLevel: null as string | null,
+    attendReasons: null as string | null,
+    requestedSlot: null as string | null,
+  };
 
   for (const a of answers) {
     const label = a.label ?? "";
     const type = (a.question_type ?? "").toLowerCase();
     const val = answerToString(a);
 
-    // Company question type carries both company and job title (→ role).
     if (type === "company") {
-      if (!company) company = val;
-      if (!role) role = jobTitleFromAnswer(a);
+      out.company ??= val;
+      out.role ??= jobTitleFromAnswer(a);
       continue;
     }
-    // Slot: the dropdown (or a slot/time-labelled question). Claim it exclusively.
-    if (!requestedSlotLabel && (type === "dropdown" || RE.slot.test(label))) {
-      requestedSlotLabel = val;
-      continue;
-    }
-    // Challenge: a long-text question (or a challenge-labelled one).
-    if (!challenge && (type === "long-text" || RE.challenge.test(label))) {
-      challenge = val;
-      continue;
-    }
-    if (!role && RE.role.test(label)) {
-      role = val;
-      continue;
-    }
-    if (!company && RE.company.test(label)) {
-      company = val;
-      continue;
-    }
+    if (LABEL.notionEmail.test(label)) { out.notionEmail ??= val; continue; }
+    if (LABEL.notionPlan.test(label)) { out.notionPlan ??= val; continue; }
+    if (LABEL.experience.test(label)) { out.experienceLevel ??= val; continue; }
+    if (LABEL.reasons.test(label)) { out.attendReasons ??= val; continue; }
+    if (LABEL.slot.test(label)) { out.requestedSlot ??= val; continue; }
+    if (LABEL.challenge.test(label) || type === "long-text") { out.challenge ??= val; continue; }
   }
-
-  return { role, company, challenge, requestedSlotLabel };
+  return out;
 }
 
 function displayName(data: LumaGuestData): string {
@@ -126,7 +120,11 @@ export function normalizeGuest(data: LumaGuestData): NormalizedRegistration {
     role: mapped.role,
     company: mapped.company,
     challenge: mapped.challenge,
-    requestedSlotLabel: mapped.requestedSlotLabel,
+    notionEmail: mapped.notionEmail,
+    notionPlan: mapped.notionPlan,
+    experienceLevel: mapped.experienceLevel,
+    attendReasons: mapped.attendReasons,
+    requestedSlot: mapped.requestedSlot,
     isCheckedIn: isCheckedIn(data),
     approvalStatus: data.approval_status ?? null,
   };

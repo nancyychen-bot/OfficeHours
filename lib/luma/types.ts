@@ -53,6 +53,19 @@ export interface LumaWebhookEnvelope {
   data: LumaGuestData;
 }
 
+/**
+ * A row from GET /v1/events/guests/list. Same guest shape as the webhook, minus
+ * the nested `event` (the event is the list's query parameter). Used by the
+ * backfill to import guests who registered before the event was tracked.
+ */
+export type LumaGuestListEntry = Omit<LumaGuestData, "event">;
+
+export interface LumaGuestListResponse {
+  entries?: LumaGuestListEntry[];
+  has_more?: boolean;
+  next_cursor?: string;
+}
+
 /** Luma event-detail types (from GET /v1/event/get). */
 export interface LumaRegistrationQuestion {
   id?: string;

@@ -29,6 +29,7 @@ export async function POST(req: Request) {
       event: {
         name: result.eventName,
         slots: result.inserted + result.updated,
+        importedGuests: result.importedGuests,
       },
     });
   } catch (err) {

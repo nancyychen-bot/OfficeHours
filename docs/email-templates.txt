@@ -1,0 +1,211 @@
+================================================================================
+NOTION BUILD BAR — TRANSACTIONAL EMAILS
+Reference generated 2026-08-05 · Source of truth: lib/email/templates.ts
+================================================================================
+
+HOW TO READ THIS
+- There are 8 emails across 5 booking moments.
+- {curly braces} = values filled in per booking.
+- Lines marked (only if present) are dropped when that data is missing.
+- Sender name/address come from COMMS_FROM (currently "Notion Build Bar
+  <noreply@notioncommunity.com>").
+
+QUICK MAP
+  1. Booking confirmed .......... Guest + Helper   (helper claims a 1:1)
+  2. Checked in ................. Guest + Helper   (guest scans in at Luma)
+  3. No-show ................... Helper only       (guest never checked in)
+  4. Cancelled ................. Guest + Helper   (set to Waitlist/Declined after a claim)
+  5. Expert unavailable ........ Guest only        (helper unclaims / is removed)
+
+
+================================================================================
+1. BOOKING CONFIRMED
+   Fires when a helper claims a guest's 1:1 (Status → Assigned).
+   The guest email has a calendar invite (.ics) attached.
+================================================================================
+
+------------------------------------------------------------ 1a. TO THE GUEST
+SUBJECT: You're booked for Notion Build Bar — {event date} 🎉
+
+Hi {guest first name},
+
+Great news — your 1:1 at Notion Build Bar is confirmed, and {helper name} will
+be your Notion expert. We can't wait to build with you!
+
+Here's your session:
+🗓  {event date}          (only if present)
+⏰  {time slot}           (only if present)
+📍  {location}            (only if present)
+🧑‍💻  With {helper name}    (only if present)
+
+📅 A calendar invite is attached so the time is locked in.
+
+Can't make it? Please cancel your registration to free up the spot for someone else.
+
+If you have any questions please email communityevents@makenotion.com
+
+See you soon,
+The Notion Community Team
+
+---------------------------------------------------------- 1b. TO THE HELPER
+SUBJECT: You're helping {guest full name} at Notion Build Bar
+
+Hi {helper first name},
+
+Thanks for jumping in! You've claimed a 1:1 at Notion Build Bar — here's who
+you'll be helping:
+
+Guest Name: {guest full name}
+Guest Email: {guest email}
+Challenge: {challenge}
+Date: {event date}
+Time Slot: {time slot}
+Location: {location}
+Role: {role}                 (only if present)
+Company: {company}           (only if present)
+Guest phone: {phone}         (only if present)
+Event: {event name}          (only if present)
+
+📅 A calendar hold is attached for the scheduled time.
+
+Come ready to help them leave with something that actually works. If anything
+changes, unclaim the card and we'll find them a new match.
+
+Thanks for building with us,
+The Notion Community Team
+
+
+================================================================================
+2. CHECKED IN
+   Fires when the guest scans in at the door (Luma check-in → Status → Checked In).
+================================================================================
+
+------------------------------------------------------------ 2a. TO THE GUEST
+SUBJECT: You're checked in — welcome to Build Bar 👋
+
+Hi {guest first name},
+
+You're all checked in — welcome to Notion Build Bar! {helper name} will be with
+you shortly.
+  (if no helper yet: "Your Notion expert will be with you shortly.")
+
+Grab a seat, open your workspace, and get ready to build. If you need anything,
+just flag someone on the Community team.
+
+See you inside,
+The Notion Community Team
+
+---------------------------------------------------------- 2b. TO THE HELPER
+SUBJECT: {guest full name} just checked in
+
+Hi {helper first name},
+
+Your guest {guest full name} has arrived and is checked in. A quick refresher
+before you meet:
+
+Guest Name: {guest full name}
+Guest Email: {guest email}
+Challenge: {challenge}
+Date: {event date}
+Time Slot: {time slot}
+Location: {location}
+Role: {role}                 (only if present)
+Company: {company}           (only if present)
+Guest phone: {phone}         (only if present)
+Event: {event name}          (only if present)
+
+Head over whenever you're ready. Thanks for building with us,
+The Notion Community Team
+
+
+================================================================================
+3. NO-SHOW
+   Fires when a guest never checked in and their slot start has passed
+   (Status → No-show). Helper only — the guest is not emailed.
+================================================================================
+
+---------------------------------------------------------- 3a. TO THE HELPER
+SUBJECT: No-show: {guest full name}
+
+Hi {helper first name},
+
+Heads up — {guest full name} didn't check in for their slot, so we've marked it
+as a no-show. Nothing you need to do; the slot has been freed up.
+
+Guest Name: {guest full name}
+Guest Email: {guest email}
+Challenge: {challenge}
+Date: {event date}
+Time Slot: {time slot}
+Location: {location}
+Role: {role}                 (only if present)
+Company: {company}           (only if present)
+Guest phone: {phone}         (only if present)
+Event: {event name}          (only if present)
+
+Thanks for being here,
+The Notion Community Team
+
+
+================================================================================
+4. CANCELLED
+   Fires when an already-claimed booking is set to Waitlist or Declined
+   (helper + slot are released). Both parties are emailed.
+================================================================================
+
+------------------------------------------------------------ 4a. TO THE GUEST
+SUBJECT: Your Notion Build Bar 1:1 was cancelled
+
+Hi {guest first name},
+
+Your 1:1 at Notion Build Bar has been cancelled. If this was a surprise — or
+you'd like to grab another time — just reply to this email and we'll help you
+rebook.
+
+You're still very welcome to come cowork with us. The door's open.
+
+Thanks,
+The Notion Community Team
+
+  NOTE: Luma may also send its own decline/waitlist email to the guest, so the
+  guest could receive two messages. Ask if you'd like to suppress Luma's.
+
+---------------------------------------------------------- 4b. TO THE HELPER
+SUBJECT: Slot freed — {guest full name}'s 1:1 was cancelled
+
+Hi {helper first name},
+
+Quick update: the 1:1 you'd claimed with {guest full name} has been cancelled,
+so the slot has been released. Nothing you need to do.
+
+Thanks for building with us,
+The Notion Community Team
+
+
+================================================================================
+5. EXPERT UNAVAILABLE
+   Fires when a helper unclaims / is removed from an assigned booking
+   (guest returns to the queue for a new match). Guest only.
+================================================================================
+
+------------------------------------------------------------ 5a. TO THE GUEST
+SUBJECT: A quick update on your Build Bar 1:1
+
+Hi {guest first name},
+
+Quick heads-up: the Notion expert assigned to your 1:1 is no longer available.
+We're already lining up a replacement and will confirm your new match shortly —
+your slot is still held for you.
+
+Thanks for rolling with us, and sorry for the shuffle.
+
+See you soon,
+The Notion Community Team
+
+
+================================================================================
+NOT SENT BY THE HUB (handled elsewhere / not built)
+- Guest "no-show" email — intentionally not sent (helper only).
+- Pre-event reminder + post-event feedback (the two screenshots you shared) are
+  bulk sends from Luma/your comms tool, not the hub's transactional flow.
+================================================================================

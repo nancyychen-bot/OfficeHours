@@ -87,7 +87,7 @@ Hi {guest first name},
 
 You're all checked in — welcome to Notion Build Bar! {helper name} will be with
 you shortly.
-  (if no helper yet: "Your Notion expert will be with you shortly.")
+  (if no helper matched: "Feel free to cowork, grab a coffee and a snack.")
 
 Grab a seat, open your workspace, and get ready to build. If you need anything,
 just flag someone on the Community team.

@@ -138,7 +138,7 @@ export function renderComms(
       ...wrap([
         `Hi ${firstName(f.guestName)},`,
         "",
-        `You're all checked in — welcome to Notion Build Bar! ${f.helperName ? `${f.helperName} will be with you shortly.` : "Your Notion expert will be with you shortly."}`,
+        `You're all checked in — welcome to Notion Build Bar! ${f.helperName ? `${f.helperName} will be with you shortly.` : "Feel free to cowork, grab a coffee and a snack."}`,
         "",
         "Grab a seat, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.",
         "",

@@ -161,12 +161,9 @@ SUBJECT: Your Notion Build Bar 1:1 was cancelled
 Hi {guest first name},
 
 Your 1:1 at Notion Build Bar has been cancelled. If this was a surprise — or
-you'd like to grab another time — just reply to this email and we'll help you
-rebook.
+you'd like to grab another time — just email communityevents@makenotion.com.
 
 You're still very welcome to come cowork with us. The door's open.
-
-If you have any questions please email communityevents@makenotion.com
 
 Thanks,
 The Notion Community Team

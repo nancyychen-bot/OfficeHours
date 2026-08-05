@@ -170,11 +170,9 @@ export function renderComms(
       ...wrap([
         `Hi ${firstName(f.guestName)},`,
         "",
-        "Your 1:1 at Notion Build Bar has been cancelled. If this was a surprise — or you'd like to grab another time — just reply to this email and we'll help you rebook.",
+        "Your 1:1 at Notion Build Bar has been cancelled. If this was a surprise — or you'd like to grab another time — just email communityevents@makenotion.com.",
         "",
         "You're still very welcome to come cowork with us. The door's open.",
-        "",
-        SUPPORT,
         "",
         "Thanks,",
         SIGNOFF,

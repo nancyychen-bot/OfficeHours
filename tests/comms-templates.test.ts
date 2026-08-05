@@ -88,4 +88,12 @@ describe("renderComms", () => {
     expect(h.subject.toLowerCase()).toContain("freed");
     expect(h.text).toContain("released");
   });
+  it("waitlisted → guest gets the waitlist note, helper gets slot-freed", () => {
+    const g = renderComms("waitlisted", "guest", fields())!;
+    expect(g.text).toContain("waitlist");
+    expect(g.text).toContain("The Notion Community Team");
+    const h = renderComms("waitlisted", "helper", fields())!;
+    expect(h.text).toContain("waitlist");
+    expect(h.subject.toLowerCase()).toContain("freed");
+  });
 });

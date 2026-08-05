@@ -61,9 +61,17 @@ describe("applyLumaStatus", () => {
     expect(d.updateGuestOnLuma).not.toHaveBeenCalled();
   });
 
-  it("downgrade with no requested slot resets to no_help_needed", async () => {
+  it("waitlisting an assigned booking emails waitlisted + releases", async () => {
     const d = deps();
     await applyLumaStatus(booking({ status: "assigned", requested_slot: null }), "waitlist", { source: "dev" }, d);
+    expect(d.sendComms).toHaveBeenCalledWith("b1", "waitlisted");
     expect(d.resetAssignment).toHaveBeenCalledWith("b1", "no_help_needed");
+  });
+
+  it("waitlisting an unassigned guest still emails them, without releasing", async () => {
+    const d = deps();
+    await applyLumaStatus(booking({ status: "unassigned" }), "waitlist", { source: "dev" }, d);
+    expect(d.sendComms).toHaveBeenCalledWith("b1", "waitlisted");
+    expect(d.resetAssignment).not.toHaveBeenCalled();
   });
 });

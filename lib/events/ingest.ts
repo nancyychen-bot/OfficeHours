@@ -30,13 +30,15 @@ export async function ingestRegistration(
 
   const nextLumaStatus = approvalStatusToLumaStatus(norm.approvalStatus);
 
-  // Guest self-cancelled (or was declined) in Luma an already-claimed 1:1: notify
-  // the helper + cancel the calendar hold BEFORE the upsert releases the helper
-  // (which clears booked_by_email). Live webhook only — backfill stays silent.
-  if (opts.live && nextLumaStatus === "declined") {
+  // Approval change made in Luma (a guest self-cancel, or an organizer acting in
+  // Luma instead of Notion): send the same downgrade emails as the Notion path,
+  // BEFORE the upsert releases the helper (which clears booked_by_email). Gated on
+  // an actual transition so it never duplicates the Notion path's echo. Live only.
+  if (opts.live) {
     const prior = await getBookingByLumaGuestId(norm.lumaGuestId);
-    if (prior?.status === "assigned") {
-      await sendBookingComms(prior.id, "cancelled");
+    if (prior && prior.luma_status !== nextLumaStatus) {
+      if (nextLumaStatus === "declined") await sendBookingComms(prior.id, "declined");
+      else if (nextLumaStatus === "waitlist") await sendBookingComms(prior.id, "waitlisted");
     }
   }
 

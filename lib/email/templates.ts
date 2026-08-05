@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted";
 export type Recipient = "helper" | "guest";
 
 export interface CommsFields {
@@ -186,6 +186,38 @@ export function renderComms(
         `Hi ${firstName(f.helperName)},`,
         "",
         `Quick update: the 1:1 you'd claimed with ${f.guestName} has been cancelled, so the slot has been released. Nothing you need to do.`,
+        "",
+        "Thanks for building with us,",
+        SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "waitlisted" && role === "guest") {
+    return {
+      subject: "You're on the waitlist for Notion Build Bar",
+      ...wrap([
+        `Hi ${firstName(f.guestName)},`,
+        "",
+        "Thanks for your interest in Notion Build Bar! We're currently at capacity, so you're on the waitlist for now. If a spot opens up, we'll email you right away.",
+        "",
+        "You're also welcome to follow our Notion calendar for future events:",
+        "",
+        "👉 https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh",
+        "",
+        SUPPORT,
+        "",
+        "With gratitude,",
+        SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "waitlisted" && role === "helper") {
+    return {
+      subject: `Slot freed — ${f.guestName} moved to the waitlist`,
+      ...wrap([
+        `Hi ${firstName(f.helperName)},`,
+        "",
+        `Quick update: ${f.guestName} has been moved to the waitlist, so the slot you'd claimed has been released. Nothing you need to do.`,
         "",
         "Thanks for building with us,",
         SIGNOFF,

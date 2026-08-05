@@ -65,10 +65,13 @@ export async function getBookingByNotionPageId(
  *   so a guest who isn't coming is never claimable (idempotent if already cancelled).
  * - New going/pending guest → open for claiming: `unassigned` if they requested a
  *   1:1 slot, else `no_help_needed`.
+ * - Waitlisted + already claimed → release the helper (slot kept in case they're
+ *   approved later). Claimability itself is gated in `claimBooking` on luma_status,
+ *   so a waitlisted guest can't be re-claimed even while `unassigned`.
  * - Previously-cancelled guest who re-registers (and isn't declined) → reactivate
  *   to the open status with the assignee cleared.
- * - Otherwise (active, non-declined) → leave assignment untouched; a slot/answer
- *   edit must never un-claim an active booking.
+ * - Otherwise (active) → leave assignment untouched; a slot/answer edit must never
+ *   un-claim an active booking.
  */
 export function decideBookingStatusPatch(
   existingStatus: BookingStatus | null,
@@ -87,6 +90,11 @@ export function decideBookingStatusPatch(
     return { status: "cancelled", slot_id: null, booked_by_display_name: null, booked_by_type: null, booked_by_email: null };
   }
   if (existingStatus === null) return { status: openStatus };
+  if (lumaStatus === "waitlist") {
+    return existingStatus === "assigned"
+      ? { status: openStatus, booked_by_display_name: null, booked_by_type: null, booked_by_email: null }
+      : {};
+  }
   if (existingStatus === "cancelled") {
     return { status: openStatus, booked_by_display_name: null, booked_by_type: null, booked_by_email: null };
   }
@@ -176,6 +184,9 @@ export type ClaimResult =
  * `status = 'unassigned'`. Postgres row locking makes this atomic, so two
  * helpers racing within the sync propagation window can't both succeed — the
  * loser gets `already_claimed` and the hub reverts their Notion page.
+ *
+ * Also gated on `luma_status IN (pending, approved)`: a waitlisted or declined
+ * guest is never claimable (a claim of a pending guest auto-approves them).
  */
 export async function claimBooking(params: {
   bookingId: string;
@@ -192,6 +203,7 @@ export async function claimBooking(params: {
     })
     .eq("id", params.bookingId)
     .eq("status", "unassigned") // <-- the guard that makes this first-wins
+    .in("luma_status", ["pending", "approved"]) // waitlisted/declined can't be claimed
     .select("*")
     .maybeSingle();
   if (error) throw error;

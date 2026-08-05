@@ -45,17 +45,22 @@ describe("buildInvite", () => {
 });
 
 describe("buildCancel", () => {
-  it("cancels the same UID with METHOD:CANCEL + STATUS:CANCELLED and a higher SEQUENCE", () => {
+  it("cancels the same UID with METHOD:CANCEL + STATUS:CANCELLED", () => {
     const ics = buildCancel(icsFields(), FROM, STAMP)!;
     expect(ics).toContain("METHOD:CANCEL");
     expect(ics).toContain("STATUS:CANCELLED");
-    expect(ics).toContain("SEQUENCE:1");
     expect(ics).toContain("UID:booking-b1@notionbuildbar"); // same UID as the invite
     expect(ics).toContain("mailto:grace@x.com");
     expect(ics).toContain("mailto:ada@x.com");
   });
   it("returns null when the start time is missing", () => {
     expect(buildCancel(icsFields({ slotStartsAt: null }), FROM, STAMP)).toBeNull();
+  });
+  it("uses a monotonic SEQUENCE so a later cancel/re-invite supersedes an earlier one", () => {
+    const seq = (ics: string) => Number(ics.match(/SEQUENCE:(\d+)/)![1]);
+    const invited = buildInvite(icsFields(), FROM, "2026-07-31T00:00:00Z")!;
+    const cancelled = buildCancel(icsFields(), FROM, "2026-07-31T00:05:00Z")!;
+    expect(seq(cancelled)).toBeGreaterThan(seq(invited));
   });
 });
 

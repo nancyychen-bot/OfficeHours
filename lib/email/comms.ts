@@ -94,7 +94,7 @@ export async function sendBookingComms(
     // cancelled/declined → a CANCEL that removes the previously-sent hold from
     // attendees' calendars. Skipped (null) when there's no parseable slot time.
     let attachment: EmailAttachment | undefined;
-    if (kind === "assigned" || kind === "cancelled" || kind === "declined") {
+    if (kind === "assigned" || kind === "cancelled" || kind === "declined" || kind === "expert_unavailable") {
       const icsFields = {
         bookingId: f.bookingId,
         guestName: f.guestName,

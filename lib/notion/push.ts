@@ -5,9 +5,33 @@ import {
   releaseUpdateProperties,
   type PushOptions,
 } from "./mappers";
+import { PROP } from "./schema";
 import { setNotionPageId, stampSynced } from "../db/bookings";
 import { pickSyncedFields, type Booking } from "../sync/types";
 import { logSync } from "../sync/log";
+
+/**
+ * Find an existing card for a guest by the "Luma guest id" property. Idempotency
+ * guard: a new signup fires guest.registered + guest.updated ~1s apart, and if
+ * both push before the first card's id is stored, each would create a card. By
+ * adopting any card already tagged with this guest id, the second push updates
+ * instead of duplicating (also self-heals if a page id was ever lost).
+ */
+async function findCardByLumaGuestId(
+  notion: ReturnType<typeof getNotionClient>,
+  workspace: NotionWorkspace,
+  lumaGuestId: string,
+): Promise<string | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const res = (await (notion as any).dataSources.query({
+    data_source_id: bookingsDataSourceId(workspace),
+    filter: { property: PROP.lumaGuestId, rich_text: { equals: lumaGuestId } },
+    page_size: 5,
+  })) as { results?: Array<{ id: string; archived?: boolean; in_trash?: boolean }> };
+  const pages = res.results ?? [];
+  const live = pages.find((p) => !p.archived && !p.in_trash) ?? pages[0];
+  return live?.id ?? null;
+}
 
 /**
  * Outbound sync leg: hub → Notion (PRD §7.3 / §8.4).
@@ -71,6 +95,21 @@ async function pushToWorkspace(
       return "updated";
     }
     // Dead/archived card → fall through to create a fresh one.
+  }
+
+  // No usable stored id — adopt an existing card for this guest if one exists
+  // (race guard / self-heal) rather than creating a duplicate.
+  if (booking.luma_guest_id) {
+    const found = await findCardByLumaGuestId(notion, workspace, booking.luma_guest_id);
+    if (found) {
+      await notion.pages.update({
+        page_id: found,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        properties: bookingToPageProperties(booking, opts) as any,
+      });
+      await setNotionPageId(booking.id, workspace, found);
+      return "updated";
+    }
   }
 
   const created = await notion.pages.create({

@@ -133,12 +133,14 @@ export async function POST(
     // sides (status/name/type/person). No page fetch, no echo check, no
     // dependence on button-edit timing.
     if (action === "unclaim") {
+      // Email BEFORE releasing — release clears booked_by_email, and both the
+      // guest and the unclaiming helper need the cancel .ics to drop the hold.
+      await sendBookingComms(booking.id, "expert_unavailable");
       const released = (await releaseBooking(booking.id)) ?? booking;
       // Wait for the button's own Edit step to settle, THEN clear both cards so
       // the hub's clear writes last and wins on the origin card too.
       await new Promise((resolve) => setTimeout(resolve, BUTTON_EDIT_SETTLE_MS));
       await clearBookingInWorkspaces(released);
-      await sendBookingComms(booking.id, "expert_unavailable");
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "unclaimed" });
       return NextResponse.json({ received: true });
     }
@@ -204,9 +206,11 @@ export async function POST(
     // RELEASE — an assigned booking had its assignee cleared (manual edit; the
     // Unclaim button path is handled earlier via X-Action).
     if (booking.status === "assigned" && !claimer) {
+      // Email BEFORE releasing so the guest + prior helper get the cancel .ics
+      // (release clears booked_by_email).
+      await sendBookingComms(booking.id, "expert_unavailable");
       const released = await releaseBooking(booking.id);
       if (released) await pushBookingToWorkspaces(released);
-      if (released) await sendBookingComms(released.id, "expert_unavailable");
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "released" });
       return NextResponse.json({ received: true });
     }

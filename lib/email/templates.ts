@@ -224,6 +224,19 @@ export function renderComms(
       ]),
     };
   }
+  if (kind === "expert_unavailable" && role === "helper") {
+    return {
+      subject: `You've released ${f.guestName}'s 1:1`,
+      ...wrap([
+        `Hi ${firstName(f.helperName)},`,
+        "",
+        `You've unclaimed ${f.guestName}'s 1:1, so it's back in the queue for another Notion expert. The calendar hold has been removed from your calendar — nothing else to do.`,
+        "",
+        "Thanks for building with us,",
+        SIGNOFF,
+      ]),
+    };
+  }
   if (kind === "expert_unavailable" && role === "guest") {
     return {
       subject: "A quick update on your Build Bar 1:1",

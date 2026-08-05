@@ -74,4 +74,16 @@ describe("renderComms", () => {
     expect(g.text).toContain("no longer available");
     expect(renderComms("expert_unavailable", "helper", fields())).toBeNull();
   });
+  it("declined → guest gets the at-capacity note with the calendar link", () => {
+    const g = renderComms("declined", "guest", fields())!;
+    expect(g.text).toContain("Hi Ada,");
+    expect(g.text).toContain("reached capacity");
+    expect(g.text).toContain("https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh");
+    expect(g.text).toContain("The Notion Community Team");
+  });
+  it("declined → helper gets a slot-freed note", () => {
+    const h = renderComms("declined", "helper", fields())!;
+    expect(h.subject.toLowerCase()).toContain("freed");
+    expect(h.text).toContain("released");
+  });
 });

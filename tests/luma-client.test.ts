@@ -93,7 +93,7 @@ describe("updateGuestStatus", () => {
     expect(capturedUrl).toContain("/v1/events/guests/update-status");
     expect(capturedInit?.method).toBe("POST");
     const body = JSON.parse(capturedInit?.body as string);
-    expect(body).toEqual({ event_id: "evt-123", guest_id: "gst-456", status: "approved" });
+    expect(body).toEqual({ event_id: "evt-123", guest_id: "gst-456", status: "approved", send_email: true });
   });
 
   it("pending maps to 'pending_approval' in the request body", async () => {

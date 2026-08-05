@@ -146,6 +146,9 @@ export async function updateGuestStatus(params: {
       event_id: params.eventLumaId,
       guest_id: params.guestLumaId,
       status: LUMA_API_STATUS[params.status],
+      // Let Luma send its confirmation/ticket email only on approval; for
+      // declined/waitlist/pending the hub owns the guest messaging (no duplicate).
+      send_email: params.status === "approved",
     }),
   });
   if (!res.ok) {

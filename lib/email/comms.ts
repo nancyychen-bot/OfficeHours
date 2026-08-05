@@ -73,6 +73,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   no_show: ["helper"],
   cancelled: ["guest", "helper"],
   expert_unavailable: ["guest"],
+  declined: ["guest", "helper"],
 };
 
 /**

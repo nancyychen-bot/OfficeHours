@@ -11,13 +11,34 @@ import {
   claimBooking,
   releaseBooking,
   setBookedByEmail,
+  setLumaStatus,
+  resetAssignment,
 } from "@/lib/db/bookings";
+import { getEventById } from "@/lib/db/events";
+import { updateGuestStatus } from "@/lib/luma/client";
+import { applyLumaStatus, type ApplyDeps } from "@/lib/sync/approval";
+import type { SyncDirection } from "@/lib/sync/types";
 import { pushBookingToWorkspaces, clearBookingInWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
 import { sendBookingComms } from "@/lib/email/comms";
 
 export const runtime = "nodejs";
 export const maxDuration = 30; // allow the button-settle delay + processing
+
+/** Build the applyLumaStatus dependencies for a Notion-origin approval change. */
+function approvalDeps(direction: SyncDirection, bookingId: string): ApplyDeps {
+  return {
+    setLumaStatus,
+    resetAssignment,
+    pushToWorkspaces: (b) => pushBookingToWorkspaces(b),
+    updateGuestOnLuma: (eventLumaId, guestLumaId, next) =>
+      updateGuestStatus({ eventLumaId, guestLumaId, status: next }),
+    sendComms: (bid, kind) => sendBookingComms(bid, kind),
+    getEventLumaId: async (eventId) => (await getEventById(eventId))?.luma_event_id ?? null,
+    log: async (e) =>
+      logSync({ direction, result: e.error ? "error" : "applied", bookingId, action: e.action, note: e.note }),
+  };
+}
 
 // This workspace's buttons fire their webhook BEFORE their "Edit property" step
 // commits (and can't be reordered). So we wait this long for the button's edit
@@ -117,6 +138,7 @@ export async function POST(
       // the hub's clear writes last and wins on the origin card too.
       await new Promise((resolve) => setTimeout(resolve, BUTTON_EDIT_SETTLE_MS));
       await clearBookingInWorkspaces(released);
+      await sendBookingComms(booking.id, "expert_unavailable");
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "unclaimed" });
       return NextResponse.json({ received: true });
     }
@@ -136,6 +158,13 @@ export async function POST(
     if (isEcho(incoming, booking.last_synced_hash)) {
       await logSync({ direction, result: "skipped_echo", bookingId: booking.id, action: "echo" });
       return NextResponse.json({ received: true, echo: true });
+    }
+
+    // APPROVAL CHANGE — Luma Status edited in Notion (property-diff, no button).
+    if (incoming.luma_status !== booking.luma_status) {
+      await applyLumaStatus(booking, incoming.luma_status, { source: workspace }, approvalDeps(direction, booking.id));
+      await logSync({ direction, result: "applied", bookingId: booking.id, action: `luma_status:${incoming.luma_status}` });
+      return NextResponse.json({ received: true });
     }
 
     // The Claim button reliably sets "Booked by" (the assignee) but may NOT flip
@@ -162,6 +191,11 @@ export async function POST(
       // Push to BOTH: flip Status → Assigned on the origin card too (the button
       // may not have) and mirror to the other workspace.
       await pushBookingToWorkspaces(claim.booking);
+      // A claim triages an untriaged guest: pending -> approved (writes back to
+      // Luma + mirrors). Deliberate waitlist/declined are left untouched.
+      if (claim.booking.luma_status === "pending") {
+        await applyLumaStatus(claim.booking, "approved", { source: workspace }, approvalDeps(direction, claim.booking.id));
+      }
       await sendBookingComms(claim.booking.id, "assigned");
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "claimed" });
       return NextResponse.json({ received: true });
@@ -172,6 +206,7 @@ export async function POST(
     if (booking.status === "assigned" && !claimer) {
       const released = await releaseBooking(booking.id);
       if (released) await pushBookingToWorkspaces(released);
+      if (released) await sendBookingComms(released.id, "expert_unavailable");
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "released" });
       return NextResponse.json({ received: true });
     }

@@ -44,6 +44,19 @@ describe("decideBookingStatusPatch", () => {
     });
   });
 
+  it("waitlisting an assigned booking releases the helper (claimability gated on luma_status)", () => {
+    expect(decideBookingStatusPatch("assigned", "waitlist", "2:00-2:30 PM")).toEqual({
+      status: "unassigned",
+      booked_by_display_name: null,
+      booked_by_type: null,
+      booked_by_email: null,
+    });
+  });
+
+  it("waitlisting an unassigned guest leaves the status (non-claimable via claim guard)", () => {
+    expect(decideBookingStatusPatch("unassigned", "waitlist", "2:00-2:30 PM")).toEqual({});
+  });
+
   it("never disturbs an active, non-declined booking (no un-claim)", () => {
     expect(decideBookingStatusPatch("assigned", "approved", "2:00-2:30 PM")).toEqual({});
     expect(decideBookingStatusPatch("checked_in", "pending", null)).toEqual({});

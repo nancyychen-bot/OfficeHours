@@ -30,15 +30,12 @@ export async function applyLumaStatus(
   let current = (await deps.setLumaStatus(booking.id, next)) ?? booking;
 
   const releaseTo = booking.requested_slot ? "unassigned" : "no_help_needed";
-  if (next === "declined") {
-    // Every declined guest gets the "at capacity" email (assigned or not). Email
-    // BEFORE clearing: resetAssignment nulls booked_by_email, which the helper
-    // copy needs.
-    await deps.sendComms(booking.id, "declined");
+  // Downgrades notify the guest (assigned or not) and release the helper if the
+  // booking was claimed. Email BEFORE clearing: resetAssignment nulls
+  // booked_by_email, which the helper copy needs.
+  if (next === "declined" || next === "waitlist") {
+    await deps.sendComms(booking.id, next === "declined" ? "declined" : "waitlisted");
     if (wasAssigned) current = (await deps.resetAssignment(booking.id, releaseTo)) ?? current;
-  } else if (next === "waitlist" && wasAssigned) {
-    await deps.sendComms(booking.id, "cancelled");
-    current = (await deps.resetAssignment(booking.id, releaseTo)) ?? current;
   }
 
   if (opts.source !== "luma") {

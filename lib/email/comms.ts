@@ -74,7 +74,17 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   cancelled: ["guest", "helper"],
   expert_unavailable: ["guest", "helper"],
   declined: ["guest", "helper"],
+  waitlisted: ["guest", "helper"],
 };
+
+/** Kinds that tear down a booking → attach a calendar CANCEL to remove the hold. */
+const CANCEL_CALENDAR_KINDS = new Set<CommsKind>([
+  "cancelled",
+  "declined",
+  "expert_unavailable",
+  "waitlisted",
+  "no_show",
+]);
 
 /**
  * Send the comms for a booking reaching `kind`. Best-effort: never throws.
@@ -94,7 +104,7 @@ export async function sendBookingComms(
     // cancelled/declined → a CANCEL that removes the previously-sent hold from
     // attendees' calendars. Skipped (null) when there's no parseable slot time.
     let attachment: EmailAttachment | undefined;
-    if (kind === "assigned" || kind === "cancelled" || kind === "declined" || kind === "expert_unavailable") {
+    if (kind === "assigned" || CANCEL_CALENDAR_KINDS.has(kind)) {
       const icsFields = {
         bookingId: f.bookingId,
         guestName: f.guestName,

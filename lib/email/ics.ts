@@ -47,6 +47,9 @@ function buildEvent(
       ? new Date(f.slotEndsAt)
       : new Date(start.getTime() + 30 * 60_000);
   const cancel = variant === "cancel";
+  // Monotonic SEQUENCE from the stamp time so invite → cancel → re-invite (on a
+  // re-claim) always increases; calendar clients ignore a lower/equal sequence.
+  const seq = Math.max(0, Math.floor(new Date(stampISO).getTime() / 1000));
 
   const lines: (string | null)[] = [
     "BEGIN:VCALENDAR",
@@ -56,7 +59,7 @@ function buildEvent(
     cancel ? "METHOD:CANCEL" : "METHOD:REQUEST",
     "BEGIN:VEVENT",
     `UID:booking-${f.bookingId}@notionbuildbar`,
-    cancel ? "SEQUENCE:1" : "SEQUENCE:0",
+    `SEQUENCE:${seq}`,
     `DTSTAMP:${stamp(stampISO)}`,
     `DTSTART:${stamp(start.toISOString())}`,
     `DTEND:${stamp(endDate.toISOString())}`,

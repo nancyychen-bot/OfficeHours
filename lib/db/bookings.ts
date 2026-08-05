@@ -1,7 +1,7 @@
 import { getAdminClient } from "../supabase/admin";
 import { hashSyncedFields } from "../sync/hash";
 import { noShowCutoffISO } from "../sync/noshow";
-import { pickSyncedFields, type BookedByType, type Booking, type BookingDetails } from "../sync/types";
+import { pickSyncedFields, type BookedByType, type Booking, type BookingDetails, type BookingStatus, type LumaStatus } from "../sync/types";
 
 /**
  * Data-access + core state machine for bookings — the record mirrored across
@@ -59,11 +59,46 @@ export async function getBookingByNotionPageId(
 }
 
 /**
+ * Decide the assignment-status patch for a Luma upsert. Pure + unit-tested.
+ *
+ * - Declined (Luma "Not Going" / cancelled) → `cancelled`, slot + helper cleared,
+ *   so a guest who isn't coming is never claimable (idempotent if already cancelled).
+ * - New going/pending guest → open for claiming: `unassigned` if they requested a
+ *   1:1 slot, else `no_help_needed`.
+ * - Previously-cancelled guest who re-registers (and isn't declined) → reactivate
+ *   to the open status with the assignee cleared.
+ * - Otherwise (active, non-declined) → leave assignment untouched; a slot/answer
+ *   edit must never un-claim an active booking.
+ */
+export function decideBookingStatusPatch(
+  existingStatus: BookingStatus | null,
+  lumaStatus: LumaStatus,
+  requestedSlot: string | null | undefined,
+): {
+  status?: BookingStatus;
+  slot_id?: null;
+  booked_by_display_name?: null;
+  booked_by_type?: null;
+  booked_by_email?: null;
+} {
+  const openStatus: BookingStatus = requestedSlot ? "unassigned" : "no_help_needed";
+  if (lumaStatus === "declined") {
+    if (existingStatus === "cancelled") return {};
+    return { status: "cancelled", slot_id: null, booked_by_display_name: null, booked_by_type: null, booked_by_email: null };
+  }
+  if (existingStatus === null) return { status: openStatus };
+  if (existingStatus === "cancelled") {
+    return { status: openStatus, booked_by_display_name: null, booked_by_type: null, booked_by_email: null };
+  }
+  return {};
+}
+
+/**
  * Create or update a booking from a Luma registration (PRD §8.1). Matched on
  * `luma_guest_id` so a `guest.updated` webhook (e.g. slot change) updates the
- * same row rather than creating a duplicate. Only guest-supplied fields are
- * touched here — never `status` or the `booked_by_*` fields, which are owned by
- * the claim flow.
+ * same row rather than creating a duplicate. Assignment transitions are decided
+ * by `decideBookingStatusPatch` (declined → cancelled/non-claimable, etc.);
+ * an active booking's claim is otherwise never disturbed here.
  */
 export async function upsertBookingFromLuma(input: {
   lumaGuestId: string;
@@ -83,15 +118,12 @@ export async function upsertBookingFromLuma(input: {
   lumaStatus: import("../sync/types").LumaStatus;
 }): Promise<Booking> {
   const supabase = getAdminClient();
-  // Re-registration reuses the same Luma guest id. If the existing booking was
-  // cancelled, an approved re-registration should RE-ACTIVATE it (back to
-  // unassigned, assignee cleared). Otherwise leave status/assignee untouched —
-  // a normal guest.updated must never un-claim an active booking.
   const existing = await getBookingByLumaGuestId(input.lumaGuestId);
-  const reactivate = existing?.status === "cancelled";
-  // Initial assignment status on CREATE only: guests who requested a 1:1 slot
-  // need a helper (unassigned); everyone else is "no help needed".
-  const initialStatus = input.requestedSlot ? "unassigned" : "no_help_needed";
+  const statusPatch = decideBookingStatusPatch(
+    existing?.status ?? null,
+    input.lumaStatus,
+    input.requestedSlot,
+  );
   const row = {
     luma_guest_id: input.lumaGuestId,
     event_id: input.eventId,
@@ -108,19 +140,9 @@ export async function upsertBookingFromLuma(input: {
     attend_reasons: input.attendReasons ?? null,
     requested_slot: input.requestedSlot ?? null,
     luma_status: input.lumaStatus,
-    ...(existing
-      ? {}
-      : { status: initialStatus as "unassigned" | "no_help_needed" }),
-    ...(reactivate
-      ? {
-          status: (input.requestedSlot ? "unassigned" : "no_help_needed") as
-            | "unassigned"
-            | "no_help_needed",
-          booked_by_display_name: null,
-          booked_by_type: null,
-          booked_by_email: null,
-        }
-      : {}),
+    // Assignment transitions (declined→cancelled, reactivate, open-for-claim);
+    // spread last so it wins over the plain slot_id above when clearing.
+    ...statusPatch,
   };
   const first = await supabase
     .from("bookings")

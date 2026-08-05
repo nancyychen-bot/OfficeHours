@@ -35,17 +35,24 @@ describe("applyLumaStatus", () => {
     expect(d.pushToWorkspaces).toHaveBeenCalled();
   });
 
-  it("Notion-origin decline of an assigned booking: releases + emails cancellation", async () => {
+  it("Notion-origin decline of an assigned booking: emails declined + releases", async () => {
     const d = deps();
     await applyLumaStatus(booking({ status: "assigned", requested_slot: "2:00–2:30 PM" }), "declined", { source: "ambassador" }, d);
     expect(d.resetAssignment).toHaveBeenCalledWith("b1", "unassigned");
-    expect(d.sendComms).toHaveBeenCalledWith("b1", "cancelled");
+    expect(d.sendComms).toHaveBeenCalledWith("b1", "declined");
     expect(d.updateGuestOnLuma).toHaveBeenCalledWith("evt-1", "gst-1", "declined");
-    // Cancellation email MUST fire before resetAssignment nulls booked_by_email,
+    // Decline email MUST fire before resetAssignment nulls booked_by_email,
     // otherwise the helper recipient is silently dropped.
     const sendOrder = (d.sendComms as unknown as { mock: { invocationCallOrder: number[] } }).mock.invocationCallOrder[0];
     const resetOrder = (d.resetAssignment as unknown as { mock: { invocationCallOrder: number[] } }).mock.invocationCallOrder[0];
     expect(sendOrder).toBeLessThan(resetOrder);
+  });
+
+  it("declining an UNassigned guest still emails them, without releasing", async () => {
+    const d = deps();
+    await applyLumaStatus(booking({ status: "unassigned", requested_slot: "2:00–2:30 PM" }), "declined", { source: "dev" }, d);
+    expect(d.sendComms).toHaveBeenCalledWith("b1", "declined");
+    expect(d.resetAssignment).not.toHaveBeenCalled();
   });
 
   it("Luma-origin change never writes back to Luma", async () => {

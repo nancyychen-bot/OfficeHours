@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined";
 export type Recipient = "helper" | "guest";
 
 export interface CommsFields {
@@ -186,6 +186,38 @@ export function renderComms(
         `Hi ${firstName(f.helperName)},`,
         "",
         `Quick update: the 1:1 you'd claimed with ${f.guestName} has been cancelled, so the slot has been released. Nothing you need to do.`,
+        "",
+        "Thanks for building with us,",
+        SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "declined" && role === "guest") {
+    return {
+      subject: "An update on your Notion Build Bar booking",
+      ...wrap([
+        `Hi ${firstName(f.guestName)},`,
+        "",
+        "Thank you so much for your interest in Notion Build Bar! Unfortunately, we've reached capacity for this event and aren't able to accommodate your booking this time.",
+        "",
+        "We're genuinely sorry to miss you — please follow our Notion calendar for future events. We'd love to build with you at the next one:",
+        "",
+        "👉 https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh",
+        "",
+        SUPPORT,
+        "",
+        "With gratitude,",
+        SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "declined" && role === "helper") {
+    return {
+      subject: `Slot freed — ${f.guestName} won't be joining`,
+      ...wrap([
+        `Hi ${firstName(f.helperName)},`,
+        "",
+        `Quick update: ${f.guestName}'s 1:1 has been cancelled (we're at capacity and they won't be joining), so the slot you'd claimed has been released. Nothing you need to do.`,
         "",
         "Thanks for building with us,",
         SIGNOFF,

@@ -107,7 +107,7 @@ export async function createBookingsDatabase(
 ): Promise<CreatedBookingsDb> {
   const res = await notion.databases.create({
     parent: { type: "page_id", page_id: parentPageId },
-    title: [{ type: "text", text: { content: `Office Hours — Bookings (${workspace})` } }],
+    title: [{ type: "text", text: { content: `Notion Build Bar — Bookings (${workspace})` } }],
     // The properties schema lives on the initial data source in v2025-09-03+.
     initial_data_source: { properties: buildBookingsProperties(cities) },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

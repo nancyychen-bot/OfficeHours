@@ -44,19 +44,19 @@ export function buildInvite(f: IcsFields, fromEmail: string, stampISO: string): 
   const lines: (string | null)[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Office Hours Hub//EN",
+    "PRODID:-//Notion Build Bar Hub//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:REQUEST",
     "BEGIN:VEVENT",
-    `UID:booking-${f.bookingId}@officehours`,
+    `UID:booking-${f.bookingId}@notionbuildbar`,
     "SEQUENCE:0",
     `DTSTAMP:${stamp(stampISO)}`,
     `DTSTART:${stamp(start.toISOString())}`,
     `DTEND:${stamp(endDate.toISOString())}`,
-    `SUMMARY:${esc(`Office Hours — ${f.guestName}`)}`,
+    `SUMMARY:${esc(`Notion Build Bar — ${f.guestName}`)}`,
     f.location ? `LOCATION:${esc(f.location)}` : null,
     `DESCRIPTION:${esc(f.descriptionText)}`,
-    `ORGANIZER;CN=Office Hours:mailto:${fromEmail}`,
+    `ORGANIZER;CN=Notion Build Bar:mailto:${fromEmail}`,
     f.helperEmail
       ? `ATTENDEE;ROLE=REQ-PARTICIPANT;RSVP=TRUE;CN=${esc(f.helperName ?? "Helper")}:mailto:${f.helperEmail}`
       : null,

@@ -1,8 +1,8 @@
 {
-  "name": "office-hours-hub",
+  "name": "notion-build-bar-hub",
   "version": "0.1.0",
   "private": true,
-  "description": "Notion Office Hours — cross-workspace booking sync hub (source of truth + sync engine + admin UI)",
+  "description": "Notion Build Bar — cross-workspace booking sync hub (source of truth + sync engine + admin UI)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -9,12 +9,12 @@ function icsFields(p: Partial<IcsFields> = {}): IcsFields {
     location: "SF HQ", descriptionText: "Guest Name: Ada\nChallenge: Scaling", ...p,
   };
 }
-const FROM = "hello@officehours.com";
+const FROM = "hello@notionbuildbar.com";
 const STAMP = "2026-07-31T00:00:00Z";
 
 describe("fromAddressEmail", () => {
   it("extracts the address from a display-name form", () => {
-    expect(fromAddressEmail("Office Hours <hello@d.com>")).toBe("hello@d.com");
+    expect(fromAddressEmail("Notion Build Bar <hello@d.com>")).toBe("hello@d.com");
     expect(fromAddressEmail("hello@d.com")).toBe("hello@d.com");
   });
 });
@@ -24,14 +24,14 @@ describe("buildInvite", () => {
     const ics = buildInvite(icsFields(), FROM, STAMP)!;
     expect(ics).toContain("BEGIN:VCALENDAR");
     expect(ics).toContain("METHOD:REQUEST");
-    expect(ics).toContain("UID:booking-b1@officehours");
+    expect(ics).toContain("UID:booking-b1@notionbuildbar");
     expect(ics).toContain("DTSTART:20260826T210000Z");
     expect(ics).toContain("DTEND:20260826T213000Z");
     expect(ics).toContain("mailto:grace@x.com");
     expect(ics).toContain("mailto:ada@x.com");
     expect(ics).toContain("\r\n");
     // commas in TEXT values are escaped
-    expect(ics).toContain("SUMMARY:Office Hours — Ada\\, Lovelace");
+    expect(ics).toContain("SUMMARY:Notion Build Bar — Ada\\, Lovelace");
   });
   it("defaults DTEND to start+30min when no end time", () => {
     const ics = buildInvite(icsFields({ slotEndsAt: null }), FROM, STAMP)!;

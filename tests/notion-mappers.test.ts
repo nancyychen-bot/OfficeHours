@@ -124,10 +124,10 @@ describe("bookingToPageProperties event fields", () => {
 
   it("sets Event name and Event date", () => {
     const props = bookingToPageProperties(booking, {
-      eventName: "Office Hours — SF — Aug 2026",
+      eventName: "Notion Build Bar — SF — Aug 2026",
       eventDate: "2026-08-26",
     }) as Record<string, any>;
-    expect(props["Event"].rich_text[0].text.content).toBe("Office Hours — SF — Aug 2026");
+    expect(props["Event"].rich_text[0].text.content).toBe("Notion Build Bar — SF — Aug 2026");
     expect(props["Event date"].date.start).toBe("2026-08-26");
   });
 

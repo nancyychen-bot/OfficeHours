@@ -78,7 +78,7 @@ export async function POST(req: Request) {
     // CREATE — approved guest becomes/updates a booking.
     const event = await getEventByLumaId(norm.lumaEventId);
     if (!event) {
-      await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: `not a registered Office Hours event (${norm.lumaEventId})` });
+      await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: `not a registered Notion Build Bar event (${norm.lumaEventId})` });
       return NextResponse.json({ received: true, ignored: true });
     }
 

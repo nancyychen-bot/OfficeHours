@@ -1,6 +1,6 @@
-# Office Hours Hub
+# Notion Build Bar Hub
 
-Cross-workspace booking sync hub for **Notion Office Hours** — turns a Luma RSVP +
+Cross-workspace booking sync hub for **Notion Build Bar** — turns a Luma RSVP +
 slot request into a bookable record mirrored across two separate Notion workspaces
 (Notion Dev + external Ambassador), with Luma check-in status flowing back.
 

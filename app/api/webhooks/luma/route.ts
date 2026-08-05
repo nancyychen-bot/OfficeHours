@@ -4,6 +4,7 @@ import { verifyLumaSignature } from "@/lib/luma/verify";
 import { normalizeGuest } from "@/lib/luma/parse";
 import type { LumaWebhookEnvelope } from "@/lib/luma/types";
 import { ingestRegistration } from "@/lib/events/ingest";
+import { cancelEventByLumaId } from "@/lib/events/cancel-event";
 import { logSync } from "@/lib/sync/log";
 
 export const runtime = "nodejs";
@@ -38,6 +39,26 @@ export async function POST(req: Request) {
   }
 
   const { type, data } = envelope;
+
+  // Whole-event cancellation: cancel every booking for the event, notify guests +
+  // helpers, and remove their calendar holds.
+  if (type === "event.canceled") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = (data as any)?.event?.id ?? (data as any)?.id;
+    const lumaEventId = typeof raw === "string" ? (raw.match(/evt-[A-Za-z0-9]+/)?.[0] ?? null) : null;
+    if (!lumaEventId) {
+      await logSync({ direction: "luma_in", result: "applied", action: "event.canceled", note: `no evt id in payload: ${JSON.stringify(data).slice(0, 300)}` });
+      return NextResponse.json({ received: true });
+    }
+    try {
+      const res = await cancelEventByLumaId(lumaEventId);
+      await logSync({ direction: "luma_in", result: "applied", action: "event.canceled", note: res.found ? `cancelled ${res.cancelled} booking(s) for ${lumaEventId}` : `untracked event ${lumaEventId}` });
+    } catch (err) {
+      await logSync({ direction: "luma_in", result: "error", action: "event.canceled", note: err instanceof Error ? err.message : String(err) });
+    }
+    return NextResponse.json({ received: true });
+  }
+
   if (type !== "guest.registered" && type !== "guest.updated") {
     await logSync({ direction: "luma_in", result: "applied", action: type, note: "ignored (not a guest event)" });
     return NextResponse.json({ received: true });

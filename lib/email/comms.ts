@@ -75,6 +75,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   expert_unavailable: ["guest", "helper"],
   declined: ["guest", "helper"],
   waitlisted: ["guest", "helper"],
+  event_cancelled: ["guest", "helper"],
 };
 
 /** Kinds that tear down a booking → attach a calendar CANCEL to remove the hold. */
@@ -84,6 +85,7 @@ const CANCEL_CALENDAR_KINDS = new Set<CommsKind>([
   "expert_unavailable",
   "waitlisted",
   "no_show",
+  "event_cancelled",
 ]);
 
 /**

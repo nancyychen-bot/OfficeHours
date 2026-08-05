@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/no-show", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/no-show", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/comms-retry", "schedule": "*/15 * * * *" }
   ]
 }

@@ -28,6 +28,15 @@ export async function getEventById(id: string): Promise<EventRow | null> {
   return data;
 }
 
+export async function setEventStatus(
+  eventId: string,
+  status: Enums<"event_status">,
+): Promise<void> {
+  const supabase = getAdminClient();
+  const { error } = await supabase.from("events").update({ status }).eq("id", eventId);
+  if (error) throw error;
+}
+
 export async function listEvents(): Promise<EventRow[]> {
   const supabase = getAdminClient();
   const { data, error } = await supabase

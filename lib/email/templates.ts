@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled";
 export type Recipient = "helper" | "guest";
 
 export interface CommsFields {
@@ -186,6 +186,38 @@ export function renderComms(
         `Hi ${firstName(f.helperName)},`,
         "",
         `Quick update: the 1:1 you'd claimed with ${f.guestName} has been cancelled, so the slot has been released. Nothing you need to do.`,
+        "",
+        "Thanks for building with us,",
+        SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "event_cancelled" && role === "guest") {
+    return {
+      subject: "Notion Build Bar has been cancelled",
+      ...wrap([
+        `Hi ${firstName(f.guestName)},`,
+        "",
+        "We're really sorry — Notion Build Bar has been cancelled, so your booking won't go ahead. We sincerely apologize for the disappointment.",
+        "",
+        "We'd still love to build with you — please follow our Notion calendar for upcoming events:",
+        "",
+        "👉 https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh",
+        "",
+        SUPPORT,
+        "",
+        "With gratitude,",
+        SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "event_cancelled" && role === "helper") {
+    return {
+      subject: `Event cancelled — ${f.guestName}'s 1:1 is off`,
+      ...wrap([
+        `Hi ${firstName(f.helperName)},`,
+        "",
+        `Notion Build Bar has been cancelled, so your 1:1 with ${f.guestName} won't happen. The calendar hold has been removed — nothing you need to do.`,
         "",
         "Thanks for building with us,",
         SIGNOFF,

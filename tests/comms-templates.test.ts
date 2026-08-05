@@ -96,4 +96,11 @@ describe("renderComms", () => {
     expect(h.text).toContain("waitlist");
     expect(h.subject.toLowerCase()).toContain("freed");
   });
+  it("event_cancelled → guest and helper both told the event is off", () => {
+    const g = renderComms("event_cancelled", "guest", fields())!;
+    expect(g.subject.toLowerCase()).toContain("cancelled");
+    expect(g.text).toContain("has been cancelled");
+    const h = renderComms("event_cancelled", "helper", fields())!;
+    expect(h.text).toContain("cancelled");
+  });
 });

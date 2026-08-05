@@ -9,6 +9,7 @@ import { upsertBookingFromLuma, checkInByLumaGuestId, getBookingByLumaGuestId, c
 import { pushBookingToWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
 import { lifecycleAction } from "@/lib/events/lifecycle";
+import { approvalStatusToLumaStatus } from "@/lib/luma/approval";
 import { sendBookingComms } from "@/lib/email/comms";
 
 export const runtime = "nodejs";
@@ -82,8 +83,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true, ignored: true });
     }
 
-    const slot = norm.requestedSlotLabel
-      ? await matchSlotForEvent({ eventId: event.id, requestedLabel: norm.requestedSlotLabel })
+    const slot = norm.requestedSlot
+      ? await matchSlotForEvent({ eventId: event.id, requestedLabel: norm.requestedSlot })
       : null;
 
     let booking = await upsertBookingFromLuma({
@@ -96,6 +97,12 @@ export async function POST(req: Request) {
       role: norm.role,
       company: norm.company,
       challenge: norm.challenge,
+      notionEmail: norm.notionEmail,
+      notionPlan: norm.notionPlan,
+      experienceLevel: norm.experienceLevel,
+      attendReasons: norm.attendReasons,
+      requestedSlot: norm.requestedSlot,
+      lumaStatus: approvalStatusToLumaStatus(norm.approvalStatus),
     });
 
     // Check-in transition → flip status; the helper is notified in Notion (a

@@ -75,7 +75,7 @@ describe("normalizeGuest", () => {
     expect(n.company).toBe("Notion");
     expect(n.role).toBe("Designer");
     expect(n.challenge).toBe("Scaling my team");
-    expect(n.requestedSlotLabel).toBe("2:00–2:30 PM");
+    expect(n.requestedSlot).toBe("2:00–2:30 PM");
     expect(n.lumaEventId).toBe("evt-1");
     expect(n.lumaGuestId).toBe("gst-1");
   });
@@ -99,7 +99,7 @@ describe("normalizeGuest", () => {
         ],
       }),
     );
-    expect(n.requestedSlotLabel).toBe("2:30-3:00 PM");
+    expect(n.requestedSlot).toBe("2:30-3:00 PM");
     expect(n.challenge).toBeNull();
   });
 
@@ -113,7 +113,7 @@ describe("normalizeGuest", () => {
         ],
       }),
     );
-    expect(n.requestedSlotLabel).toBe("3:00-3:30 PM");
+    expect(n.requestedSlot).toBe("3:00-3:30 PM");
     expect(n.challenge).toBe("Pricing strategy");
     expect(n.company).toBe("Acme");
     expect(n.role).toBe("PM");

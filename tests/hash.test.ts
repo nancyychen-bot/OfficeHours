@@ -4,6 +4,7 @@ import type { SyncedFields } from "@/lib/sync/types";
 
 const assigned: SyncedFields = {
   status: "assigned",
+  luma_status: "approved",
   booked_by_display_name: "Jane Doe",
   booked_by_type: "employee",
 };
@@ -23,8 +24,8 @@ describe("hashSyncedFields", () => {
   });
 
   it("treats undefined and null nullable fields as equal", () => {
-    const withNull: SyncedFields = { status: "unassigned", booked_by_display_name: null, booked_by_type: null };
-    const withUndef = { status: "unassigned", booked_by_display_name: undefined, booked_by_type: undefined } as unknown as SyncedFields;
+    const withNull: SyncedFields = { status: "unassigned", luma_status: "pending", booked_by_display_name: null, booked_by_type: null };
+    const withUndef = { status: "unassigned", luma_status: "pending", booked_by_display_name: undefined, booked_by_type: undefined } as unknown as SyncedFields;
     expect(hashSyncedFields(withNull)).toBe(hashSyncedFields(withUndef));
   });
 });

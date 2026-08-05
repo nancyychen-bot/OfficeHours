@@ -36,6 +36,7 @@ describe("syncedFieldsToUpdateProperties (hub -> Notion)", () => {
   it("builds select + rich_text for an assigned booking", () => {
     const fields: SyncedFields = {
       status: "assigned",
+      luma_status: "approved",
       booked_by_display_name: "Jane Doe",
       booked_by_type: "ambassador",
     };
@@ -48,6 +49,7 @@ describe("syncedFieldsToUpdateProperties (hub -> Notion)", () => {
   it("nulls the select when unassigned/empty", () => {
     const fields: SyncedFields = {
       status: "unassigned",
+      luma_status: "pending",
       booked_by_display_name: null,
       booked_by_type: null,
     };

@@ -26,3 +26,8 @@ next-env.d.ts
 
 # test
 /coverage
+
+# local test artifacts
+.playwright-mcp/
+/add-event.png
+/add-event-page.png

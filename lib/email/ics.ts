@@ -28,11 +28,17 @@ function esc(s: string): string {
 }
 
 /**
- * Build a METHOD:REQUEST VEVENT to hold the slot. Returns null if the start
- * time is missing/unparseable (caller then skips the invite). DTEND defaults to
- * start + 30 min when no parseable end time (agent default).
+ * Build a VEVENT for the slot. `variant` = "request" holds the slot (SEQUENCE 0,
+ * CONFIRMED); "cancel" removes it — same UID, higher SEQUENCE, METHOD:CANCEL +
+ * STATUS:CANCELLED — which calendar clients match by UID and delete. Returns null
+ * if the start time is missing/unparseable. DTEND defaults to start + 30 min.
  */
-export function buildInvite(f: IcsFields, fromEmail: string, stampISO: string): string | null {
+function buildEvent(
+  f: IcsFields,
+  fromEmail: string,
+  stampISO: string,
+  variant: "request" | "cancel",
+): string | null {
   if (!f.slotStartsAt) return null;
   const start = new Date(f.slotStartsAt);
   if (Number.isNaN(start.getTime())) return null;
@@ -40,16 +46,17 @@ export function buildInvite(f: IcsFields, fromEmail: string, stampISO: string): 
     f.slotEndsAt && !Number.isNaN(new Date(f.slotEndsAt).getTime())
       ? new Date(f.slotEndsAt)
       : new Date(start.getTime() + 30 * 60_000);
+  const cancel = variant === "cancel";
 
   const lines: (string | null)[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Notion Build Bar Hub//EN",
     "CALSCALE:GREGORIAN",
-    "METHOD:REQUEST",
+    cancel ? "METHOD:CANCEL" : "METHOD:REQUEST",
     "BEGIN:VEVENT",
     `UID:booking-${f.bookingId}@notionbuildbar`,
-    "SEQUENCE:0",
+    cancel ? "SEQUENCE:1" : "SEQUENCE:0",
     `DTSTAMP:${stamp(stampISO)}`,
     `DTSTART:${stamp(start.toISOString())}`,
     `DTEND:${stamp(endDate.toISOString())}`,
@@ -63,11 +70,21 @@ export function buildInvite(f: IcsFields, fromEmail: string, stampISO: string): 
     f.guestEmail
       ? `ATTENDEE;ROLE=REQ-PARTICIPANT;RSVP=TRUE;CN=${esc(f.guestName)}:mailto:${f.guestEmail}`
       : null,
-    "STATUS:CONFIRMED",
+    cancel ? "STATUS:CANCELLED" : "STATUS:CONFIRMED",
     "END:VEVENT",
     "END:VCALENDAR",
   ];
   return lines.filter((l): l is string => l !== null).join("\r\n");
+}
+
+/** METHOD:REQUEST invite that holds the slot. */
+export function buildInvite(f: IcsFields, fromEmail: string, stampISO: string): string | null {
+  return buildEvent(f, fromEmail, stampISO, "request");
+}
+
+/** METHOD:CANCEL for the same booking — removes the held slot from calendars. */
+export function buildCancel(f: IcsFields, fromEmail: string, stampISO: string): string | null {
+  return buildEvent(f, fromEmail, stampISO, "cancel");
 }
 
 export function inviteAttachment(ics: string): { filename: string; content: Buffer } {

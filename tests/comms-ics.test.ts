@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildInvite, inviteAttachment, fromAddressEmail, type IcsFields } from "@/lib/email/ics";
+import { buildInvite, buildCancel, inviteAttachment, fromAddressEmail, type IcsFields } from "@/lib/email/ics";
 
 function icsFields(p: Partial<IcsFields> = {}): IcsFields {
   return {
@@ -41,6 +41,21 @@ describe("buildInvite", () => {
   it("returns null when the start time is missing or unparseable", () => {
     expect(buildInvite(icsFields({ slotStartsAt: null }), FROM, STAMP)).toBeNull();
     expect(buildInvite(icsFields({ slotStartsAt: "not-a-date" }), FROM, STAMP)).toBeNull();
+  });
+});
+
+describe("buildCancel", () => {
+  it("cancels the same UID with METHOD:CANCEL + STATUS:CANCELLED and a higher SEQUENCE", () => {
+    const ics = buildCancel(icsFields(), FROM, STAMP)!;
+    expect(ics).toContain("METHOD:CANCEL");
+    expect(ics).toContain("STATUS:CANCELLED");
+    expect(ics).toContain("SEQUENCE:1");
+    expect(ics).toContain("UID:booking-b1@notionbuildbar"); // same UID as the invite
+    expect(ics).toContain("mailto:grace@x.com");
+    expect(ics).toContain("mailto:ada@x.com");
+  });
+  it("returns null when the start time is missing", () => {
+    expect(buildCancel(icsFields({ slotStartsAt: null }), FROM, STAMP)).toBeNull();
   });
 });
 

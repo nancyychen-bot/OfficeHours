@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     // Every registrant becomes/updates a booking (no approval gate) and mirrors
     // to both Notion workspaces. Shared with the event backfill via ingest.
-    const outcome = await ingestRegistration(norm, { sendCheckInComms: true });
+    const outcome = await ingestRegistration(norm, { live: true });
     if (outcome.status === "ignored") {
       await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: outcome.reason });
       return NextResponse.json({ received: true, ignored: true });

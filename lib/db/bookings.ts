@@ -323,6 +323,25 @@ export async function listBookingsForEvent(eventId: string): Promise<Booking[]> 
   return data ?? [];
 }
 
+/** Cancel a booking outright: mark cancelled and release slot + helper. */
+export async function cancelBooking(bookingId: string): Promise<Booking | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({
+      status: "cancelled",
+      slot_id: null,
+      booked_by_display_name: null,
+      booked_by_type: null,
+      booked_by_email: null,
+    })
+    .eq("id", bookingId)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /** Store the assigned helper's email (from their Notion Person) for notifications. */
 export async function setBookedByEmail(bookingId: string, email: string): Promise<void> {
   const supabase = getAdminClient();

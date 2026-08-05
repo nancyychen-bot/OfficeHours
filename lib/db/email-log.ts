@@ -59,6 +59,28 @@ export async function reserveCommsSlot(
   return !!(claimed && claimed.length > 0);
 }
 
+/**
+ * Distinct (booking_id, event_kind) pairs that still have a `failed` recipient —
+ * a transient send failure that nothing has re-driven. The retry cron re-invokes
+ * sendBookingComms for each, and reserveCommsSlot reclaims the failed row.
+ */
+export async function listRetriableComms(): Promise<Array<{ bookingId: string; kind: string }>> {
+  const { data, error } = await table()
+    .select("booking_id, event_kind")
+    .eq("status", "failed");
+  if (error) throw error;
+  const seen = new Set<string>();
+  const out: Array<{ bookingId: string; kind: string }> = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const r of (data ?? []) as any[]) {
+    const key = `${r.booking_id}:${r.event_kind}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ bookingId: r.booking_id as string, kind: r.event_kind as string });
+  }
+  return out;
+}
+
 /** Finalize a reserved slot (keyed on recipient email) with its terminal status. */
 export async function finalizeComms(
   bookingId: string,

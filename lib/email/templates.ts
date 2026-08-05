@@ -74,6 +74,7 @@ export function renderComms(
   const details = guestDetailsLines(f);
   const session = guestSessionLines(f);
   const SIGNOFF = "The Notion Community Team";
+  const SUPPORT = "If you have any questions please email communityevents@makenotion.com";
 
   if (kind === "assigned" && role === "helper") {
     return {
@@ -109,7 +110,7 @@ export function renderComms(
         "",
         "Can't make it? Please cancel your registration to free up the spot for someone else.",
         "",
-        "If you have any questions please email communityevents@makenotion.com",
+        SUPPORT,
         "",
         "See you soon,",
         SIGNOFF,
@@ -141,6 +142,8 @@ export function renderComms(
         "",
         "Grab a seat, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.",
         "",
+        SUPPORT,
+        "",
         "See you inside,",
         SIGNOFF,
       ]),
@@ -171,6 +174,8 @@ export function renderComms(
         "",
         "You're still very welcome to come cowork with us. The door's open.",
         "",
+        SUPPORT,
+        "",
         "Thanks,",
         SIGNOFF,
       ]),
@@ -198,6 +203,8 @@ export function renderComms(
         "Quick heads-up: the Notion expert assigned to your 1:1 is no longer available. We're already lining up a replacement and will confirm your new match shortly — your slot is still held for you.",
         "",
         "Thanks for rolling with us, and sorry for the shuffle.",
+        "",
+        SUPPORT,
         "",
         "See you soon,",
         SIGNOFF,

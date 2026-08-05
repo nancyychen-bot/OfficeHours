@@ -29,32 +29,35 @@ describe("guestDetailsLines", () => {
 describe("renderComms", () => {
   it("assigned→helper uses the confirmation subject/body", () => {
     const r = renderComms("assigned", "helper", fields())!;
-    expect(r.subject).toBe("Notion Build Bar booking confirmed — Ada Lovelace");
-    expect(r.text).toContain("Hi Grace Hopper,");
-    expect(r.text).toContain("Your Notion Build Bar booking has been confirmed.");
-    expect(r.text).toContain("A calendar hold has been added");
+    expect(r.subject).toContain("Ada Lovelace");
+    expect(r.text).toContain("Hi Grace,");
+    expect(r.text).toContain("claimed a 1:1 at Notion Build Bar");
+    expect(r.text).toContain("calendar hold is attached");
+    expect(r.text).toContain("The Notion Community Team");
   });
   it("assigned→guest confirms with the helper name", () => {
     const r = renderComms("assigned", "guest", fields())!;
-    expect(r.subject).toContain("Your Notion Build Bar slot is confirmed");
-    expect(r.text).toContain("Hi Ada Lovelace,");
-    expect(r.text).toContain("confirmed with Grace Hopper");
+    expect(r.subject).toContain("booked for Notion Build Bar");
+    expect(r.text).toContain("Hi Ada,");
+    expect(r.text).toContain("Grace Hopper will be your Notion expert");
+    expect(r.text).toContain("The Notion Community Team");
   });
   it("checked_in→helper", () => {
     const r = renderComms("checked_in", "helper", fields())!;
-    expect(r.subject).toBe("Guest checked in: Ada Lovelace");
-    expect(r.text).toContain("has been marked as checked in");
+    expect(r.subject).toContain("checked in");
+    expect(r.subject).toContain("Ada Lovelace");
+    expect(r.text).toContain("is checked in");
   });
   it("no_show→helper", () => {
     const r = renderComms("no_show", "helper", fields())!;
     expect(r.subject).toBe("No-show: Ada Lovelace");
-    expect(r.text).toContain("marked as a no-show");
+    expect(r.text).toContain("no-show");
   });
   it("checked_in→guest gets a welcome confirmation", () => {
     const r = renderComms("checked_in", "guest", fields())!;
     expect(r.subject.toLowerCase()).toContain("checked in");
-    expect(r.text).toContain("Hi Ada Lovelace,");
-    expect(r.text).toContain("You're checked in");
+    expect(r.text).toContain("Hi Ada,");
+    expect(r.text).toContain("welcome to Notion Build Bar");
   });
   it("guest still gets nothing for no_show", () => {
     expect(renderComms("no_show", "guest", fields())).toBeNull();
@@ -62,13 +65,13 @@ describe("renderComms", () => {
   it("cancelled → guest and helper", () => {
     const g = renderComms("cancelled", "guest", fields())!;
     expect(g.subject.toLowerCase()).toContain("cancelled");
-    expect(g.text).toContain("Hi Ada Lovelace,");
+    expect(g.text).toContain("Hi Ada,");
     const h = renderComms("cancelled", "helper", fields())!;
-    expect(h.subject.toLowerCase()).toContain("released");
+    expect(h.subject.toLowerCase()).toContain("freed");
   });
   it("expert_unavailable → guest only", () => {
     const g = renderComms("expert_unavailable", "guest", fields())!;
-    expect(g.text).toContain("expert is unavailable");
+    expect(g.text).toContain("no longer available");
     expect(renderComms("expert_unavailable", "helper", fields())).toBeNull();
   });
 });

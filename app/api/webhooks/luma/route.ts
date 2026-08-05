@@ -5,10 +5,10 @@ import { normalizeGuest } from "@/lib/luma/parse";
 import type { LumaWebhookEnvelope } from "@/lib/luma/types";
 import { getEventByLumaId } from "@/lib/db/events";
 import { matchSlotForEvent } from "@/lib/db/slots";
-import { upsertBookingFromLuma, checkInByLumaGuestId, getBookingByLumaGuestId, cancelBooking } from "@/lib/db/bookings";
+import { upsertBookingFromLuma, checkInByLumaGuestId } from "@/lib/db/bookings";
 import { pushBookingToWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
-import { lifecycleAction } from "@/lib/events/lifecycle";
+import { approvalStatusToLumaStatus } from "@/lib/luma/approval";
 import { sendBookingComms } from "@/lib/email/comms";
 
 export const runtime = "nodejs";
@@ -51,39 +51,15 @@ export async function POST(req: Request) {
   try {
     const norm = normalizeGuest(data);
 
-    const action = lifecycleAction(norm.approvalStatus);
-
-    // CANCEL — an approved booking was declined / the guest cancelled.
-    if (action === "cancel") {
-      const existing = await getBookingByLumaGuestId(norm.lumaGuestId);
-      if (!existing) {
-        await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: "decline for unknown/never-approved guest" });
-        return NextResponse.json({ received: true, ignored: true });
-      }
-      const cancelled = (await cancelBooking(existing.id)) ?? existing;
-      // Set Status → Cancelled on both cards (assignee kept) so a Notion agent
-      // can notify the helper; the card drops out of open-slot views. Email is
-      // handled entirely in Notion.
-      await pushBookingToWorkspaces(cancelled);
-      await logSync({ direction: "luma_in", result: "applied", bookingId: cancelled.id, action: "cancelled" });
-      return NextResponse.json({ received: true, cancelled: true });
-    }
-
-    // IGNORE — pending / waitlist / invited: never reaches the shared DB.
-    if (action === "ignore") {
-      await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: `not approved (${norm.approvalStatus ?? "none"})` });
-      return NextResponse.json({ received: true, ignored: true });
-    }
-
-    // CREATE — approved guest becomes/updates a booking.
+    // CREATE — every registrant becomes/updates a booking (no approval gate).
     const event = await getEventByLumaId(norm.lumaEventId);
     if (!event) {
-      await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: `not a registered Office Hours event (${norm.lumaEventId})` });
+      await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: `not a registered Notion Build Bar event (${norm.lumaEventId})` });
       return NextResponse.json({ received: true, ignored: true });
     }
 
-    const slot = norm.requestedSlotLabel
-      ? await matchSlotForEvent({ eventId: event.id, requestedLabel: norm.requestedSlotLabel })
+    const slot = norm.requestedSlot
+      ? await matchSlotForEvent({ eventId: event.id, requestedLabel: norm.requestedSlot })
       : null;
 
     let booking = await upsertBookingFromLuma({
@@ -96,6 +72,12 @@ export async function POST(req: Request) {
       role: norm.role,
       company: norm.company,
       challenge: norm.challenge,
+      notionEmail: norm.notionEmail,
+      notionPlan: norm.notionPlan,
+      experienceLevel: norm.experienceLevel,
+      attendReasons: norm.attendReasons,
+      requestedSlot: norm.requestedSlot,
+      lumaStatus: approvalStatusToLumaStatus(norm.approvalStatus),
     });
 
     // Check-in transition → flip status; the helper is notified in Notion (a

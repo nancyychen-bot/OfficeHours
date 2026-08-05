@@ -1,5 +1,6 @@
 import { env } from "../env";
 import type { LumaEventDetail, LumaRegistrationQuestion } from "./types";
+import type { LumaStatus } from "../sync/types";
 
 const BASE = "https://public-api.luma.com";
 const SLOT_HINT = /slot|time|session/i;
@@ -52,4 +53,45 @@ export async function getLumaEvent(eventId: string): Promise<LumaEventDetail> {
   const ev = body.event ?? (body as LumaEventDetail);
   if (!ev?.id) throw new Error(`Luma getEvent ${eventId}: unexpected response shape`);
   return ev;
+}
+
+/**
+ * The value Luma's update-guest-status endpoint expects for each hub status.
+ * Verified against the live OpenAPI (POST /v1/events/guests/update-status):
+ * status ∈ approved | declined | pending_approval | waitlist.
+ */
+const LUMA_API_STATUS: Record<LumaStatus, string> = {
+  approved: "approved",
+  declined: "declined",
+  waitlist: "waitlist",
+  pending: "pending_approval",
+};
+
+/**
+ * Push an approval decision back to Luma (Notion-originated changes only).
+ * Throws on non-2xx so the caller can log it; Luma reconciles via its own webhook
+ * on the next guest.updated.
+ */
+export async function updateGuestStatus(params: {
+  eventLumaId: string; // evt-…
+  guestLumaId: string; // gst-…
+  status: LumaStatus;
+}): Promise<void> {
+  const res = await fetch(`${BASE}/v1/events/guests/update-status`, {
+    method: "POST",
+    headers: {
+      "x-luma-api-key": env.luma.apiKey(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      event_id: params.eventLumaId,
+      guest_id: params.guestLumaId,
+      status: LUMA_API_STATUS[params.status],
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(
+      `Luma update-guest-status failed: HTTP ${res.status} ${await res.text().catch(() => "")}`.trim(),
+    );
+  }
 }

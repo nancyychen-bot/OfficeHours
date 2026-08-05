@@ -1,8 +1,8 @@
 {
-  "name": "office-hours-hub",
+  "name": "notion-build-bar-hub",
   "version": "0.1.0",
   "private": true,
-  "description": "Notion Office Hours — cross-workspace booking sync hub (source of truth + sync engine + admin UI)",
+  "description": "Notion Build Bar — cross-workspace booking sync hub (source of truth + sync engine + admin UI)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "setup:notion": "tsx --env-file=.env.local scripts/create-notion-databases.ts",
+    "rebuild:notion": "tsx --env-file=.env.local scripts/rebuild-notion-schema.ts",
     "register:event": "tsx --env-file=.env.local scripts/register-event.ts",
     "gen:types": "supabase gen types typescript --project-id jldgxdaemtdqcfrdzeby --schema public > lib/supabase/types.ts"
   },

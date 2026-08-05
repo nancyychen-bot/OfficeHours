@@ -3,6 +3,8 @@ import {
   statusToLabel,
   labelToStatus,
   labelToBookedByType,
+  lumaStatusToLabel,
+  labelToLumaStatus,
   syncedFieldsToUpdateProperties,
   pagePropertiesToSyncedFields,
   bookingToPageProperties,
@@ -34,6 +36,7 @@ describe("syncedFieldsToUpdateProperties (hub -> Notion)", () => {
   it("builds select + rich_text for an assigned booking", () => {
     const fields: SyncedFields = {
       status: "assigned",
+      luma_status: "approved",
       booked_by_display_name: "Jane Doe",
       booked_by_type: "ambassador",
     };
@@ -46,6 +49,7 @@ describe("syncedFieldsToUpdateProperties (hub -> Notion)", () => {
   it("nulls the select when unassigned/empty", () => {
     const fields: SyncedFields = {
       status: "unassigned",
+      luma_status: "pending",
       booked_by_display_name: null,
       booked_by_type: null,
     };
@@ -66,6 +70,7 @@ describe("pagePropertiesToSyncedFields (Notion -> hub)", () => {
     const fields = pagePropertiesToSyncedFields(properties as any);
     expect(fields).toEqual({
       status: "assigned",
+      luma_status: "pending",
       booked_by_display_name: "Alex Kim",
       booked_by_type: "employee",
     });
@@ -124,15 +129,34 @@ describe("bookingToPageProperties event fields", () => {
 
   it("sets Event name and Event date", () => {
     const props = bookingToPageProperties(booking, {
-      eventName: "Office Hours — SF — Aug 2026",
+      eventName: "Notion Build Bar — SF — Aug 2026",
       eventDate: "2026-08-26",
     }) as Record<string, any>;
-    expect(props["Event"].rich_text[0].text.content).toBe("Office Hours — SF — Aug 2026");
+    expect(props["Event"].rich_text[0].text.content).toBe("Notion Build Bar — SF — Aug 2026");
     expect(props["Event date"].date.start).toBe("2026-08-26");
   });
 
   it("nulls Event date when absent", () => {
     const props = bookingToPageProperties(booking, {}) as Record<string, any>;
     expect(props["Event date"].date).toBeNull();
+  });
+});
+
+describe("luma status + no_help_needed mapping", () => {
+  it("round-trips luma status", () => {
+    expect(lumaStatusToLabel("waitlist")).toBe("Waitlist");
+    expect(labelToLumaStatus("Approved")).toBe("approved");
+    expect(labelToLumaStatus("nonsense")).toBeNull();
+  });
+  it("round-trips no_help_needed", () => {
+    expect(statusToLabel("no_help_needed")).toBe("No help needed");
+    expect(labelToStatus("No help needed")).toBe("no_help_needed");
+  });
+  it("reads luma_status back from a page", () => {
+    const props = { "Luma Status": { select: { name: "Waitlist" } } };
+    expect(pagePropertiesToSyncedFields(props).luma_status).toBe("waitlist");
+  });
+  it("defaults luma_status to pending when absent", () => {
+    expect(pagePropertiesToSyncedFields({}).luma_status).toBe("pending");
   });
 });

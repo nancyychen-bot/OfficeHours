@@ -20,7 +20,7 @@ function makeDeps(over: Partial<CommsDeps> = {}, f: CommsFields | null = fields(
     finalize: async (_b, _k, email, o) => { recorded.push({ email, status: o.status }); },
     send: async (i) => { sent.push({ to: i.to, hasAttachment: !!i.attachments?.length }); return { id: "re_1" }; },
     enabled: () => true,
-    from: () => "Office Hours <hello@oh.com>",
+    from: () => "Notion Build Bar <hello@oh.com>",
     now: () => "2026-07-31T00:00:00Z",
     ...over,
   };

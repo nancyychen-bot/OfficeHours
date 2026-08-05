@@ -8,6 +8,7 @@ export type SlotRow = Tables<"slots">;
 export type BookingStatus = Enums<"booking_status">;
 export type BookedByType = Enums<"booked_by_type">;
 export type SyncDirection = Enums<"sync_direction">;
+export type LumaStatus = Enums<"luma_status">;
 
 /**
  * The subset of a booking that actually crosses the sync boundary and can be
@@ -17,6 +18,7 @@ export type SyncDirection = Enums<"sync_direction">;
  */
 export interface SyncedFields {
   status: BookingStatus;
+  luma_status: LumaStatus;
   booked_by_display_name: string | null;
   booked_by_type: BookedByType | null;
 }
@@ -24,6 +26,7 @@ export interface SyncedFields {
 export function pickSyncedFields(b: Pick<Booking, keyof SyncedFields>): SyncedFields {
   return {
     status: b.status,
+    luma_status: b.luma_status,
     booked_by_display_name: b.booked_by_display_name,
     booked_by_type: b.booked_by_type,
   };

@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable";
 export type Recipient = "helper" | "guest";
 
 export interface CommsFields {
@@ -58,11 +58,11 @@ export function renderComms(
   const details = guestDetailsLines(f);
   if (kind === "assigned" && role === "helper") {
     return {
-      subject: `Office Hours booking confirmed — ${f.guestName}`,
+      subject: `Notion Build Bar booking confirmed — ${f.guestName}`,
       ...wrap([
         `Hi ${f.helperName ?? "there"},`,
         "",
-        "Your Office Hours booking has been confirmed.",
+        "Your Notion Build Bar booking has been confirmed.",
         "",
         ...details,
         "",
@@ -74,11 +74,11 @@ export function renderComms(
   }
   if (kind === "assigned" && role === "guest") {
     return {
-      subject: `Your Office Hours slot is confirmed${f.eventDate ? ` — ${f.eventDate}` : ""}`,
+      subject: `Your Notion Build Bar slot is confirmed${f.eventDate ? ` — ${f.eventDate}` : ""}`,
       ...wrap([
         `Hi ${f.guestName},`,
         "",
-        `Your Office Hours slot is confirmed with ${f.helperName ?? "your host"}.`,
+        `Your Notion Build Bar slot is confirmed with ${f.helperName ?? "your host"}.`,
         "",
         ...details,
         "",
@@ -100,7 +100,7 @@ export function renderComms(
   }
   if (kind === "checked_in" && role === "guest") {
     return {
-      subject: `You're checked in — ${f.eventName ?? "Office Hours"}`,
+      subject: `You're checked in — ${f.eventName ?? "Notion Build Bar"}`,
       ...wrap([
         `Hi ${f.guestName},`,
         "",
@@ -117,6 +117,42 @@ export function renderComms(
         `Hi ${f.helperName ?? "there"},`,
         "",
         "This booking has been marked as a no-show.",
+        "",
+        ...details,
+      ]),
+    };
+  }
+  if (kind === "cancelled" && role === "guest") {
+    return {
+      subject: `Your Notion Build Bar 1:1 booking was cancelled — ${f.guestName}`,
+      ...wrap([
+        `Hi ${f.guestName},`,
+        "",
+        "Your 1:1 booking has been cancelled. If this was unexpected, just reply and we'll help.",
+        "",
+        ...details,
+      ]),
+    };
+  }
+  if (kind === "cancelled" && role === "helper") {
+    return {
+      subject: `Booking released — ${f.guestName}`,
+      ...wrap([
+        `Hi ${f.helperName ?? "there"},`,
+        "",
+        "The booking you claimed has been released — no action needed.",
+        "",
+        ...details,
+      ]),
+    };
+  }
+  if (kind === "expert_unavailable" && role === "guest") {
+    return {
+      subject: `Update on your Notion Build Bar 1:1 — ${f.guestName}`,
+      ...wrap([
+        `Hi ${f.guestName},`,
+        "",
+        "Your Notion expert is unavailable. We're finding a replacement for you soon and will confirm shortly.",
         "",
         ...details,
       ]),

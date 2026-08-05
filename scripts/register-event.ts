@@ -1,5 +1,5 @@
 /**
- * Register an Office Hours event from Luma.
+ * Register a Notion Build Bar event from Luma.
  *
  * Usage:
  *   npx tsx --env-file=.env.local scripts/register-event.ts \

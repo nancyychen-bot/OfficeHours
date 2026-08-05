@@ -6,7 +6,7 @@ export default async function LoginPage({
   const { error } = await searchParams;
   return (
     <main className="mx-auto mt-[15vh] w-full max-w-sm px-6">
-      <h1 className="text-xl font-semibold">Office Hours Hub</h1>
+      <h1 className="text-xl font-semibold">Notion Build Bar Hub</h1>
       <p className="mt-1 text-sm text-neutral-500">Enter the password to continue.</p>
       <form method="POST" action="/api/hub/login" className="mt-6 space-y-3">
         <input

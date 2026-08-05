@@ -14,6 +14,7 @@ export function hashSyncedFields(fields: SyncedFields): string {
   // Canonical, key-ordered serialization so equal states always hash equally.
   const canonical = JSON.stringify({
     status: fields.status,
+    luma_status: fields.luma_status,
     booked_by_display_name: fields.booked_by_display_name ?? null,
     booked_by_type: fields.booked_by_type ?? null,
   });

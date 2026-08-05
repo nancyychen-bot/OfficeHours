@@ -75,6 +75,12 @@ export async function upsertBookingFromLuma(input: {
   role?: string | null;
   company?: string | null;
   challenge?: string | null;
+  notionEmail?: string | null;
+  notionPlan?: string | null;
+  experienceLevel?: string | null;
+  attendReasons?: string | null;
+  requestedSlot?: string | null;
+  lumaStatus: import("../sync/types").LumaStatus;
 }): Promise<Booking> {
   const supabase = getAdminClient();
   // Re-registration reuses the same Luma guest id. If the existing booking was
@@ -83,6 +89,9 @@ export async function upsertBookingFromLuma(input: {
   // a normal guest.updated must never un-claim an active booking.
   const existing = await getBookingByLumaGuestId(input.lumaGuestId);
   const reactivate = existing?.status === "cancelled";
+  // Initial assignment status on CREATE only: guests who requested a 1:1 slot
+  // need a helper (unassigned); everyone else is "no help needed".
+  const initialStatus = input.requestedSlot ? "unassigned" : "no_help_needed";
   const row = {
     luma_guest_id: input.lumaGuestId,
     event_id: input.eventId,
@@ -93,9 +102,20 @@ export async function upsertBookingFromLuma(input: {
     role: input.role ?? null,
     company: input.company ?? null,
     challenge: input.challenge ?? null,
+    notion_email: input.notionEmail ?? null,
+    notion_plan: input.notionPlan ?? null,
+    experience_level: input.experienceLevel ?? null,
+    attend_reasons: input.attendReasons ?? null,
+    requested_slot: input.requestedSlot ?? null,
+    luma_status: input.lumaStatus,
+    ...(existing
+      ? {}
+      : { status: initialStatus as "unassigned" | "no_help_needed" }),
     ...(reactivate
       ? {
-          status: "unassigned" as const,
+          status: (input.requestedSlot ? "unassigned" : "no_help_needed") as
+            | "unassigned"
+            | "no_help_needed",
           booked_by_display_name: null,
           booked_by_type: null,
           booked_by_email: null,
@@ -171,6 +191,7 @@ export async function releaseBooking(bookingId: string): Promise<Booking | null>
       status: "unassigned",
       booked_by_display_name: null,
       booked_by_type: null,
+      booked_by_email: null,
     })
     .eq("id", bookingId)
     .select("*")
@@ -268,19 +289,6 @@ export async function listBookingsForEvent(eventId: string): Promise<Booking[]> 
   return data ?? [];
 }
 
-/** Cancel an approved booking: mark cancelled and free its slot (kept for reporting). */
-export async function cancelBooking(bookingId: string): Promise<Booking | null> {
-  const supabase = getAdminClient();
-  const { data, error } = await supabase
-    .from("bookings")
-    .update({ status: "cancelled", slot_id: null })
-    .eq("id", bookingId)
-    .select("*")
-    .maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
 /** Store the assigned helper's email (from their Notion Person) for notifications. */
 export async function setBookedByEmail(bookingId: string, email: string): Promise<void> {
   const supabase = getAdminClient();
@@ -289,4 +297,46 @@ export async function setBookedByEmail(bookingId: string, email: string): Promis
     .update({ booked_by_email: email })
     .eq("id", bookingId);
   if (error) throw error;
+}
+
+/** Update only the approval axis. Returns the updated row. */
+export async function setLumaStatus(
+  bookingId: string,
+  next: import("../sync/types").LumaStatus,
+): Promise<Booking | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({ luma_status: next })
+    .eq("id", bookingId)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Reset the assignment axis on an approval downgrade: clear helper + slot and set
+ * the assignment status back to open. `toStatus` is 'unassigned' if the guest had
+ * requested a slot, else 'no_help_needed'.
+ */
+export async function resetAssignment(
+  bookingId: string,
+  toStatus: "unassigned" | "no_help_needed",
+): Promise<Booking | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({
+      status: toStatus,
+      slot_id: null,
+      booked_by_display_name: null,
+      booked_by_type: null,
+      booked_by_email: null,
+    })
+    .eq("id", bookingId)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }

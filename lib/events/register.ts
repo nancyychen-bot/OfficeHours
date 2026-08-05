@@ -22,7 +22,7 @@ export interface RegisterResult {
 }
 
 /**
- * Register an Office Hours event from Luma: upsert the event, then generate its
+ * Register a Notion Build Bar event from Luma: upsert the event, then generate its
  * slots from the Luma slot dropdown (labels verbatim, times from start+length).
  * Idempotent — safe to re-run when the form changes.
  */

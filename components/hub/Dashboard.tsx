@@ -24,7 +24,7 @@ export function Dashboard({
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
       <div className="mb-1 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Office Hours Hub</h1>
+        <h1 className="text-2xl font-bold">Notion Build Bar Hub</h1>
         <div className="flex items-center gap-2">
           <Link
             href="/add-event"
@@ -42,7 +42,7 @@ export function Dashboard({
         </div>
       </div>
       <p className="mb-5 max-w-2xl text-sm text-neutral-500">
-        Every Office Hours booking across cities. Filter by event or status, or search a guest.
+        Every Notion Build Bar booking across cities. Filter by event or status, or search a guest.
       </p>
 
       <SyncStrip summary={summary} nowMs={nowMs} />

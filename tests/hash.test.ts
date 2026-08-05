@@ -21,6 +21,9 @@ describe("hashSyncedFields", () => {
     expect(hashSyncedFields(assigned)).not.toBe(
       hashSyncedFields({ ...assigned, booked_by_display_name: "Someone Else" }),
     );
+    expect(hashSyncedFields(assigned)).not.toBe(
+      hashSyncedFields({ ...assigned, luma_status: "waitlist" }),
+    );
   });
 
   it("treats undefined and null nullable fields as equal", () => {

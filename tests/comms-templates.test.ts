@@ -69,10 +69,12 @@ describe("renderComms", () => {
     const h = renderComms("cancelled", "helper", fields())!;
     expect(h.subject.toLowerCase()).toContain("freed");
   });
-  it("expert_unavailable → guest only", () => {
+  it("expert_unavailable → guest (replacement coming) and helper (hold removed)", () => {
     const g = renderComms("expert_unavailable", "guest", fields())!;
     expect(g.text).toContain("no longer available");
-    expect(renderComms("expert_unavailable", "helper", fields())).toBeNull();
+    const h = renderComms("expert_unavailable", "helper", fields())!;
+    expect(h.text).toContain("back in the queue");
+    expect(h.text).toContain("calendar hold has been removed");
   });
   it("declined → guest gets the at-capacity note with the calendar link", () => {
     const g = renderComms("declined", "guest", fields())!;

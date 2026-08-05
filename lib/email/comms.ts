@@ -72,7 +72,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   checked_in: ["helper", "guest"],
   no_show: ["helper"],
   cancelled: ["guest", "helper"],
-  expert_unavailable: ["guest"],
+  expert_unavailable: ["guest", "helper"],
   declined: ["guest", "helper"],
 };
 

@@ -59,6 +59,8 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   assigned: ["helper", "guest"],
   checked_in: ["helper", "guest"],
   no_show: ["helper"],
+  cancelled: ["guest", "helper"],
+  expert_unavailable: ["guest"],
 };
 
 /**

@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable";
 export type Recipient = "helper" | "guest";
 
 export interface CommsFields {
@@ -117,6 +117,42 @@ export function renderComms(
         `Hi ${f.helperName ?? "there"},`,
         "",
         "This booking has been marked as a no-show.",
+        "",
+        ...details,
+      ]),
+    };
+  }
+  if (kind === "cancelled" && role === "guest") {
+    return {
+      subject: `Your Notion Build Bar 1:1 booking was cancelled — ${f.guestName}`,
+      ...wrap([
+        `Hi ${f.guestName},`,
+        "",
+        "Your 1:1 booking has been cancelled. If this was unexpected, just reply and we'll help.",
+        "",
+        ...details,
+      ]),
+    };
+  }
+  if (kind === "cancelled" && role === "helper") {
+    return {
+      subject: `Booking released — ${f.guestName}`,
+      ...wrap([
+        `Hi ${f.helperName ?? "there"},`,
+        "",
+        "The booking you claimed has been released — no action needed.",
+        "",
+        ...details,
+      ]),
+    };
+  }
+  if (kind === "expert_unavailable" && role === "guest") {
+    return {
+      subject: `Update on your Notion Build Bar 1:1 — ${f.guestName}`,
+      ...wrap([
+        `Hi ${f.guestName},`,
+        "",
+        "Your Notion expert is unavailable. We're finding a replacement for you soon and will confirm shortly.",
         "",
         ...details,
       ]),

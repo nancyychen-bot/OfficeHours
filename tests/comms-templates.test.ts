@@ -59,4 +59,16 @@ describe("renderComms", () => {
   it("guest still gets nothing for no_show", () => {
     expect(renderComms("no_show", "guest", fields())).toBeNull();
   });
+  it("cancelled → guest and helper", () => {
+    const g = renderComms("cancelled", "guest", fields())!;
+    expect(g.subject.toLowerCase()).toContain("cancelled");
+    expect(g.text).toContain("Hi Ada Lovelace,");
+    const h = renderComms("cancelled", "helper", fields())!;
+    expect(h.subject.toLowerCase()).toContain("released");
+  });
+  it("expert_unavailable → guest only", () => {
+    const g = renderComms("expert_unavailable", "guest", fields())!;
+    expect(g.text).toContain("expert is unavailable");
+    expect(renderComms("expert_unavailable", "helper", fields())).toBeNull();
+  });
 });

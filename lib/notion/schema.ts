@@ -29,15 +29,29 @@ export const PROP = {
   bookedByName: "Booked by (name)", // text mirror that DOES cross
   bookedByType: "Booked by type",
   lumaGuestId: "Luma guest id",
+  lumaStatus: "Luma Status",
+  notionEmail: "Notion email",
+  notionPlan: "Notion plan",
+  experienceLevel: "Experience level",
+  reasons: "Reasons",
+  requestedSlot: "Requested slot",
 } as const;
 
 /** Status select labels (map to booking_status enum in mappers.ts). */
 export const STATUS_LABEL = {
+  no_help_needed: "No help needed",
   unassigned: "Unassigned",
   assigned: "Assigned",
   checked_in: "Checked In",
   no_show: "No-show",
   cancelled: "Cancelled",
+} as const;
+
+export const LUMA_STATUS_LABEL = {
+  pending: "Pending",
+  approved: "Approved",
+  waitlist: "Waitlist",
+  declined: "Declined",
 } as const;
 
 export const BOOKED_BY_TYPE_LABEL = {
@@ -66,6 +80,7 @@ export function buildBookingsProperties(cities: string[] = ["SF", "NYC"]) {
     [PROP.status]: {
       select: {
         options: [
+          { name: STATUS_LABEL.no_help_needed, color: "red" },
           { name: STATUS_LABEL.unassigned, color: "gray" },
           { name: STATUS_LABEL.assigned, color: "blue" },
           { name: STATUS_LABEL.checked_in, color: "green" },
@@ -84,6 +99,27 @@ export function buildBookingsProperties(cities: string[] = ["SF", "NYC"]) {
         ],
       },
     },
+    [PROP.lumaStatus]: {
+      select: {
+        options: [
+          { name: LUMA_STATUS_LABEL.pending, color: "blue" },
+          { name: LUMA_STATUS_LABEL.approved, color: "green" },
+          { name: LUMA_STATUS_LABEL.waitlist, color: "yellow" },
+          { name: LUMA_STATUS_LABEL.declined, color: "red" },
+        ],
+      },
+    },
+    [PROP.notionEmail]: { rich_text: {} },
+    [PROP.notionPlan]: {
+      select: { options: [
+        { name: "Enterprise" }, { name: "Business" }, { name: "Plus" }, { name: "Free" },
+      ] },
+    },
+    [PROP.experienceLevel]: { select: { options: [] } },
+    [PROP.reasons]: { multi_select: { options: [
+      { name: "I need 1:1 help" }, { name: "I want to cowork" }, { name: "Just checking it out" },
+    ] } },
+    [PROP.requestedSlot]: { rich_text: {} },
     [PROP.lumaGuestId]: { rich_text: {} },
   } as const;
 }

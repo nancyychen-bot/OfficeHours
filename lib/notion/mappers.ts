@@ -1,5 +1,5 @@
-import type { Booking, BookingStatus, BookedByType, SyncedFields } from "../sync/types";
-import { PROP, STATUS_LABEL, BOOKED_BY_TYPE_LABEL } from "./schema";
+import type { Booking, BookingStatus, BookedByType, SyncedFields, LumaStatus } from "../sync/types";
+import { PROP, STATUS_LABEL, BOOKED_BY_TYPE_LABEL, LUMA_STATUS_LABEL } from "./schema";
 
 /**
  * Translate between the hub's canonical booking and Notion page properties.
@@ -31,6 +31,17 @@ export function labelToBookedByType(label: string | null | undefined): BookedByT
   return TYPE_FROM_LABEL[label] ?? null;
 }
 
+const LUMA_STATUS_FROM_LABEL: Record<string, LumaStatus> = Object.fromEntries(
+  Object.entries(LUMA_STATUS_LABEL).map(([k, v]) => [v, k as LumaStatus]),
+);
+export function lumaStatusToLabel(s: LumaStatus): string {
+  return LUMA_STATUS_LABEL[s];
+}
+export function labelToLumaStatus(label: string | null | undefined): LumaStatus | null {
+  if (!label) return null;
+  return LUMA_STATUS_FROM_LABEL[label] ?? null;
+}
+
 // ---- small Notion property builders ----------------------------------------
 
 const richText = (v: string | null | undefined) => ({
@@ -41,6 +52,11 @@ const title = (v: string) => ({
 });
 const select = (name: string | null | undefined) => ({ select: name ? { name } : null });
 const dateProp = (v: string | null | undefined) => ({ date: v ? { start: v } : null });
+const multiSelect = (csv: string | null | undefined) => ({
+  multi_select: csv
+    ? csv.split(",").map((s) => s.trim()).filter(Boolean).map((name) => ({ name }))
+    : [],
+});
 
 // ---- hub -> Notion ----------------------------------------------------------
 
@@ -74,6 +90,12 @@ export function bookingToPageProperties(booking: Booking, opts: PushOptions = {}
       booking.booked_by_type ? bookedByTypeToLabel(booking.booked_by_type) : null,
     ),
     [PROP.lumaGuestId]: richText(booking.luma_guest_id),
+    [PROP.lumaStatus]: select(lumaStatusToLabel(booking.luma_status)),
+    [PROP.notionEmail]: richText(booking.notion_email),
+    [PROP.notionPlan]: select(booking.notion_plan),
+    [PROP.experienceLevel]: select(booking.experience_level),
+    [PROP.reasons]: multiSelect(booking.attend_reasons),
+    [PROP.requestedSlot]: richText(booking.requested_slot),
   };
   if (!opts.omitPhone) props[PROP.guestPhone] = richText(booking.guest_phone);
   if (!opts.omitChallenge) props[PROP.challenge] = richText(booking.challenge);
@@ -88,6 +110,7 @@ export function syncedFieldsToUpdateProperties(fields: SyncedFields) {
     [PROP.bookedByType]: select(
       fields.booked_by_type ? bookedByTypeToLabel(fields.booked_by_type) : null,
     ),
+    [PROP.lumaStatus]: select(lumaStatusToLabel(fields.luma_status)),
   };
 }
 
@@ -155,6 +178,7 @@ export function pagePropertiesToSyncedFields(
 ): SyncedFields {
   return {
     status: labelToStatus(readSelect(properties[PROP.status])) ?? "unassigned",
+    luma_status: labelToLumaStatus(readSelect(properties[PROP.lumaStatus])) ?? "pending",
     // Prefer the explicit text mirror; fall back to the native "Booked by"
     // Person's name so a "Claim" button (which sets only the Person) works.
     booked_by_display_name:

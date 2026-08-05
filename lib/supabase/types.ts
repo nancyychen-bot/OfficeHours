@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       bookings: {
         Row: {
+          attend_reasons: string | null
           booked_by_display_name: string | null
           booked_by_email: string | null
           booked_by_type: Database["public"]["Enums"]["booked_by_type"] | null
@@ -23,6 +24,7 @@ export type Database = {
           company: string | null
           created_at: string
           event_id: string
+          experience_level: string | null
           guest_email: string
           guest_name: string
           guest_phone: string | null
@@ -30,14 +32,19 @@ export type Database = {
           last_synced_at: string | null
           last_synced_hash: string | null
           luma_guest_id: string | null
+          luma_status: Database["public"]["Enums"]["luma_status"]
           notion_ambassador_page_id: string | null
           notion_dev_page_id: string | null
+          notion_email: string | null
+          notion_plan: string | null
+          requested_slot: string | null
           role: string | null
           slot_id: string | null
           status: Database["public"]["Enums"]["booking_status"]
           updated_at: string
         }
         Insert: {
+          attend_reasons?: string | null
           booked_by_display_name?: string | null
           booked_by_email?: string | null
           booked_by_type?: Database["public"]["Enums"]["booked_by_type"] | null
@@ -45,6 +52,7 @@ export type Database = {
           company?: string | null
           created_at?: string
           event_id: string
+          experience_level?: string | null
           guest_email: string
           guest_name: string
           guest_phone?: string | null
@@ -52,14 +60,19 @@ export type Database = {
           last_synced_at?: string | null
           last_synced_hash?: string | null
           luma_guest_id?: string | null
+          luma_status?: Database["public"]["Enums"]["luma_status"]
           notion_ambassador_page_id?: string | null
           notion_dev_page_id?: string | null
+          notion_email?: string | null
+          notion_plan?: string | null
+          requested_slot?: string | null
           role?: string | null
           slot_id?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string
         }
         Update: {
+          attend_reasons?: string | null
           booked_by_display_name?: string | null
           booked_by_email?: string | null
           booked_by_type?: Database["public"]["Enums"]["booked_by_type"] | null
@@ -67,6 +80,7 @@ export type Database = {
           company?: string | null
           created_at?: string
           event_id?: string
+          experience_level?: string | null
           guest_email?: string
           guest_name?: string
           guest_phone?: string | null
@@ -74,8 +88,12 @@ export type Database = {
           last_synced_at?: string | null
           last_synced_hash?: string | null
           luma_guest_id?: string | null
+          luma_status?: Database["public"]["Enums"]["luma_status"]
           notion_ambassador_page_id?: string | null
           notion_dev_page_id?: string | null
+          notion_email?: string | null
+          notion_plan?: string | null
+          requested_slot?: string | null
           role?: string | null
           slot_id?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
@@ -94,6 +112,54 @@ export type Database = {
             columns: ["slot_id"]
             isOneToOne: false
             referencedRelation: "slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_log: {
+        Row: {
+          booking_id: string
+          created_at: string
+          event_kind: string
+          id: string
+          recipient_email: string
+          recipient_role: string
+          resend_id: string | null
+          status: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          event_kind: string
+          id?: string
+          recipient_email: string
+          recipient_role: string
+          resend_id?: string | null
+          status: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          event_kind?: string
+          id?: string
+          recipient_email?: string
+          recipient_role?: string
+          resend_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_log_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "booking_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_log_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
         ]
@@ -227,6 +293,7 @@ export type Database = {
     Views: {
       booking_details: {
         Row: {
+          attend_reasons: string | null
           booked_by_display_name: string | null
           booked_by_email: string | null
           booked_by_type: Database["public"]["Enums"]["booked_by_type"] | null
@@ -236,6 +303,7 @@ export type Database = {
           event_date: string | null
           event_id: string | null
           event_name: string | null
+          experience_level: string | null
           guest_email: string | null
           guest_name: string | null
           guest_phone: string | null
@@ -244,8 +312,12 @@ export type Database = {
           last_synced_hash: string | null
           location: string | null
           luma_guest_id: string | null
+          luma_status: Database["public"]["Enums"]["luma_status"] | null
           notion_ambassador_page_id: string | null
           notion_dev_page_id: string | null
+          notion_email: string | null
+          notion_plan: string | null
+          requested_slot: string | null
           role: string | null
           slot_ends_at: string | null
           slot_id: string | null
@@ -278,8 +350,15 @@ export type Database = {
     }
     Enums: {
       booked_by_type: "employee" | "ambassador"
-      booking_status: "unassigned" | "assigned" | "checked_in" | "no_show" | "cancelled"
+      booking_status:
+        | "unassigned"
+        | "assigned"
+        | "checked_in"
+        | "no_show"
+        | "cancelled"
+        | "no_help_needed"
       event_status: "planned" | "live" | "completed" | "cancelled"
+      luma_status: "pending" | "approved" | "waitlist" | "declined"
       sync_direction:
         | "luma_in"
         | "notion_dev_in"
@@ -414,8 +493,16 @@ export const Constants = {
   public: {
     Enums: {
       booked_by_type: ["employee", "ambassador"],
-      booking_status: ["unassigned", "assigned", "checked_in", "no_show", "cancelled"],
+      booking_status: [
+        "unassigned",
+        "assigned",
+        "checked_in",
+        "no_show",
+        "cancelled",
+        "no_help_needed",
+      ],
       event_status: ["planned", "live", "completed", "cancelled"],
+      luma_status: ["pending", "approved", "waitlist", "declined"],
       sync_direction: [
         "luma_in",
         "notion_dev_in",

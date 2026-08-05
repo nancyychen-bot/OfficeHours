@@ -7,6 +7,18 @@ import { env } from "../env";
 import { logSync } from "../sync/log";
 import type { BookingDetails } from "../sync/types";
 
+/** Readable message for logs — Supabase/PG errors are plain objects, not Errors. */
+function errText(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") {
+    const o = err as { message?: unknown; details?: unknown; code?: unknown };
+    const parts = [o.message, o.details, o.code].filter(Boolean).map(String);
+    if (parts.length) return parts.join(" | ");
+    try { return JSON.stringify(err); } catch { return String(err); }
+  }
+  return String(err);
+}
+
 /** Injectable side-effects so the orchestrator is unit-testable. */
 export interface CommsDeps {
   getFields: (bookingId: string) => Promise<CommsFields | null>;
@@ -134,11 +146,11 @@ export async function sendBookingComms(
       } catch (err) {
         // Leave the row as `failed` (retryable) and surface it.
         await deps.finalize(bookingId, kind, to, { resendId: null, status: "failed" });
-        await logSync({ direction: "luma_in", result: "error", bookingId, action: `comms_${kind}_${role}`, note: err instanceof Error ? err.message : String(err) });
+        await logSync({ direction: "luma_in", result: "error", bookingId, action: `comms_${kind}_${role}`, note: errText(err) });
       }
     }
   } catch (err) {
     // Never let comms break the booking sync.
-    await logSync({ direction: "luma_in", result: "error", bookingId, action: `comms_${kind}`, note: err instanceof Error ? err.message : String(err) });
+    await logSync({ direction: "luma_in", result: "error", bookingId, action: `comms_${kind}`, note: errText(err) });
   }
 }

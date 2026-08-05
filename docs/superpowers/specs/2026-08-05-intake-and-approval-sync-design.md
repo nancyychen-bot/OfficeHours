@@ -133,7 +133,22 @@ automation *"When Luma Status changes → Send webhook"* per workspace.
 2. Loop-prevention: if incoming hashes to `last_synced_hash`, drop as echo.
 3. If `incoming.luma_status !== booking.luma_status` → `applyLumaStatus(booking,
    incoming.luma_status, { source: workspace })`.
-4. Else fall through to existing claim/release handling.
+4. Else fall through to existing claim/release handling, with two additions:
+   - **Claim auto-approval** — when a claim advances `unassigned → assigned` and
+     the booking's `luma_status` is `pending`, promote it to `approved` in the
+     same transaction (folded into the claim's single push so one write carries
+     both `Status = Assigned` and `Luma Status = Approved`, plus one Luma
+     writeback via `applyLumaStatus(..., { source: workspace })`). Only `pending`
+     is promoted; `waitlist`/`declined` are deliberate states and are left
+     untouched (an organizer re-approves explicitly). A claim implicitly triages
+     an untriaged guest, and — because approval writes back to Luma — the guest
+     gets their Luma confirmation the moment a helper picks them up.
+   - **Unclaim/release email** — when a booking goes `assigned → unassigned`
+     (either the Unclaim button / `x-action: unclaim`, or an assignee cleared
+     manually), send the guest a **"expert unavailable"** email: *"Your Notion
+     expert is unavailable; we'll find a replacement for you soon."* `luma_status`
+     stays `approved` (the guest is still in); only the helper assignment is
+     cleared. Helper is not emailed (they initiated the release).
 
 ### `applyLumaStatus(booking, next, opts)` (shared by both inbound legs)
 
@@ -194,14 +209,26 @@ missing ones). Existing rows/pages are untouched; new props are simply added.
 
 ## Comms (`lib/email/templates.ts`, `lib/email/comms.ts`)
 
-New `cancelled` comms kind (or reuse the existing cancellation path) that emails
-**both** guest and helper when a claimed booking is waitlisted/declined:
-- guest: "your Notion Build Bar 1:1 booking was cancelled";
-- helper: "the booking you claimed has been released".
+Two new comms kinds:
+
+1. **Cancellation** (waitlist/declined after a claim) — emails **both** guest and
+   helper:
+   - guest: "your Notion Build Bar 1:1 booking was cancelled";
+   - helper: "the booking you claimed has been released".
+
+2. **Expert-unavailable** (unclaim/release of an assigned booking) — emails the
+   **guest only**:
+   - guest: "Your Notion expert is unavailable; we'll find a replacement for you
+     soon." The guest remains `approved` and returns to the open queue
+     (`unassigned`) for a new helper to claim.
+
+These are distinct: cancellation removes the guest from the 1:1 (approval
+downgraded); expert-unavailable keeps them in and reassures them a replacement is
+coming.
 
 Caveat to surface in rollout: pushing `declined` to Luma may also trigger Luma's
-own guest email — a possible duplicate to the guest. Acceptable for now; revisit
-if noisy.
+own guest email — a possible duplicate to the guest on cancellation. Acceptable
+for now; revisit if noisy.
 
 ## Testing
 
@@ -212,8 +239,12 @@ if noisy.
   initial `status` chosen by presence of `requested_slot`.
 - Notion webhook: Luma Status diff triggers `applyLumaStatus`; echo dropped;
   claim/release still works.
-- `applyLumaStatus`: downgrade releases helper+slot and sends both emails; Luma
-  writeback called only for Notion-origin changes, not Luma-origin.
+- Claim auto-approval: `unassigned → assigned` promotes `pending → approved`
+  (with Luma writeback) but leaves `waitlist`/`declined` untouched.
+- Unclaim/release: `assigned → unassigned` sends the guest the expert-unavailable
+  email, keeps `luma_status = approved`, and does not email the helper.
+- `applyLumaStatus`: downgrade releases helper+slot and sends both cancellation
+  emails; Luma writeback called only for Notion-origin changes, not Luma-origin.
 - mappers: round-trip Luma Status + `no_help_needed`; hash includes `luma_status`.
 - comms templates: cancellation subject/body for guest and helper.
 

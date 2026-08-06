@@ -44,7 +44,7 @@ describe("monthLabel", () => {
 describe("eventChips", () => {
   it("builds one chip per event with city + month label", () => {
     const events: HubEvent[] = [
-      { id: "e1", name: "OH SF", city: "SF", event_date: "2026-08-26", luma_event_id: "evt-1", status: "active", slot_count: 6, booking_count: 2 },
+      { id: "e1", name: "OH SF", city: "SF", event_date: "2026-08-26", luma_event_id: "evt-1", status: "active", slot_count: 6, booking_count: 2, luma_stats: null, luma_synced_at: null },
     ];
     const chips = eventChips(events);
     expect(chips[0]).toEqual({ key: "evt-1", label: "SF — Aug 2026" });

@@ -27,6 +27,9 @@ export interface CommsFields {
   helperName: string | null;
   helperEmail: string | null;
   status: string;
+  slotId: string | null;
+  /** Other bookings the expert holds in this slot (populated for the double-booked email). */
+  conflicts?: Array<{ name: string; challenge: string | null; role: string | null; company: string | null }>;
 }
 
 // ---- shared helpers ---------------------------------------------------------
@@ -139,6 +142,7 @@ export interface TemplateDef {
 
 const SIGNOFF = "The Notion Community Team";
 const SUPPORT = `If you have any questions please email ${SUPPORT_EMAIL}`;
+const SUPPORT_HELPER = "If you have any questions, please talk to Nancy Chen";
 const b = (...lines: string[]) => lines.join("\n");
 
 export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
@@ -180,7 +184,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "{{guestDetails}}", "",
       "📅 A calendar hold is attached for the scheduled time.", "",
       "Come ready to help them leave with something that actually works. If anything changes, unclaim the card and we'll find them a new match.", "",
-      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   checked_in__guest__matched: {
@@ -220,7 +224,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "Your guest {{guestName}} has arrived and is checked in. A quick refresher before you meet:", "",
       "{{guestDetails}}", "",
-      SUPPORT, "", "Head over whenever you're ready. Thanks for building with us,", SIGNOFF,
+      SUPPORT_HELPER, "", "Head over whenever you're ready. Thanks for building with us,", SIGNOFF,
     ),
   },
   arrived_after_no_show__guest__matched: {
@@ -250,7 +254,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "Update: {{guestName}} was marked a no-show, but they've now checked in and are here after all. If you're still around, head over whenever you're ready.", "",
       "{{guestDetails}}", "",
-      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   no_show__helper: {
@@ -260,7 +264,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "Heads up — {{guestName}} didn't check in for their slot, so we've marked it as a no-show. Nothing you need to do; the slot has been freed up.", "",
       "{{guestDetails}}", "",
-      SUPPORT, "", "Thanks for being here,", SIGNOFF,
+      SUPPORT_HELPER, "", "Thanks for being here,", SIGNOFF,
     ),
   },
   expert_unavailable__guest: {
@@ -279,7 +283,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "You've unclaimed {{guestName}}'s 1:1, so it's back in the queue for another Notion expert. The calendar hold has been removed from your calendar — nothing else to do.", "",
-      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   double_booked__helper: {
@@ -287,9 +291,9 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     subject: "Heads up — you've double-booked at {{slotName}}",
     body: b(
       "Hi {{firstName}},", "",
-      "Quick heads-up: you've now claimed more than one guest for the same time ({{slotName}}). Since you can only meet one guest at a time, please unclaim one so another Notion expert can pick it up.", "",
-      "{{guestDetails}}", "",
-      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
+      "You've claimed more than one guest at {{slotName}}. You can only meet one at a time — please unclaim one so another Notion expert can take it:", "",
+      "{{conflictSummary}}", "",
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   waitlisted__guest: {
@@ -309,7 +313,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Quick update: {{guestName}} has been moved to the waitlist, so the slot you'd claimed has been released. Nothing you need to do.", "",
-      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   declined__guest: {
@@ -329,7 +333,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Quick update: {{guestName}}'s 1:1 has been cancelled (we're at capacity and they won't be joining), so the slot you'd claimed has been released. Nothing you need to do.", "",
-      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   cancelled__guest: {
@@ -348,7 +352,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Quick update: the 1:1 you'd claimed with {{guestName}} has been cancelled, so the slot has been released. Nothing you need to do.", "",
-      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   event_cancelled__guest: {
@@ -368,7 +372,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Notion Build Bar has been cancelled, so your 1:1 with {{guestName}} won't happen. The calendar hold has been removed — nothing you need to do.", "",
-      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   feedback_request__guest: {
@@ -396,6 +400,7 @@ export const PLACEHOLDERS: Array<{ token: string; desc: string }> = [
   { token: "{{location}}", desc: "Address or city" },
   { token: "{{sessionDetails}}", desc: "Guest session summary block (date/time/place/expert)" },
   { token: "{{guestDetails}}", desc: "Full guest details block (for expert emails)" },
+  { token: "{{conflictSummary}}", desc: "Overlapping bookings for the double-booked email (name — role, company — challenge)" },
   { token: "{{feedbackLink}}", desc: "Feedback form URL" },
   { token: "{{trialLink}}", desc: "Notion AI trial URL" },
   { token: "{{calendarLink}}", desc: "Notion community calendar URL" },
@@ -406,7 +411,20 @@ export const PLACEHOLDERS: Array<{ token: string; desc: string }> = [
 
 /** Build the placeholder values for a given recipient + booking. */
 export function buildVars(role: Recipient, f: CommsFields): Record<string, string> {
+  const conflicts = f.conflicts && f.conflicts.length
+    ? f.conflicts
+    : [{ name: f.guestName, challenge: f.challenge, role: f.role, company: f.company }];
+  const conflictSummary = conflicts
+    .map((c) => {
+      const who = [c.role, c.company].filter(Boolean).join(", ");
+      const parts = [c.name];
+      if (who) parts.push(who);
+      if (c.challenge) parts.push(`Challenge: ${c.challenge}`);
+      return `• ${parts.join(" — ")}`;
+    })
+    .join("\n");
   return {
+    conflictSummary,
     firstName: firstName(role === "helper" ? f.helperName : f.guestName),
     guestName: f.guestName,
     expertName: f.helperName ?? "your Notion expert",
@@ -489,4 +507,9 @@ export const SAMPLE_FIELDS: CommsFields = {
   helperName: "Alex Rivera",
   helperEmail: "alex@example.com",
   status: "assigned",
+  slotId: "slot-preview",
+  conflicts: [
+    { name: "Nancy Chen", role: "Community", company: "Notion", challenge: "Automating my team's roadmap" },
+    { name: "Jordan Lee", role: "PM", company: "Acme", challenge: "Setting up a CRM in Notion" },
+  ],
 };

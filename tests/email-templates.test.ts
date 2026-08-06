@@ -67,4 +67,17 @@ describe("renderComms", () => {
   it("returns null for an undefined kind×role", () => {
     expect(renderComms("no_show", "guest", f())).toBeNull();
   });
+
+  it("double-booked lists all overlapping bookings (key info) + expert support line", () => {
+    const r = renderComms("double_booked", "helper", f({
+      conflicts: [
+        { name: "Nancy Chen", role: "Community", company: "Notion", challenge: "Roadmap" },
+        { name: "Jordan Lee", role: "PM", company: "Acme", challenge: "CRM" },
+      ],
+    }))!;
+    expect(r.text).toContain("• Nancy Chen — Community, Notion — Challenge: Roadmap");
+    expect(r.text).toContain("• Jordan Lee — PM, Acme — Challenge: CRM");
+    expect(r.text).toContain("talk to Nancy Chen");
+    expect(r.text).not.toContain("Guest Email:"); // no full details dump
+  });
 });

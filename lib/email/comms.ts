@@ -1,4 +1,4 @@
-import { getBookingDetailsById } from "../db/bookings";
+import { getBookingDetailsById, listHelperBookingsInSlot } from "../db/bookings";
 import { reserveCommsSlot, finalizeComms, type CommsStatus } from "../db/email-log";
 import { sendEmail, type EmailAttachment } from "./resend";
 import { buildInvite, buildCancel, inviteAttachment, fromAddressEmail } from "./ics";
@@ -55,6 +55,7 @@ export function toCommsFields(d: BookingDetails): CommsFields {
     helperName: (d.booked_by_display_name as string) ?? null,
     helperEmail: (d.booked_by_email as string) ?? null,
     status: d.status as string,
+    slotId: (d.slot_id as string) ?? null,
   };
 }
 
@@ -117,6 +118,15 @@ export async function sendBookingComms(
       if (deps.getOverrides) overrides = await deps.getOverrides();
     } catch (err) {
       await logSync({ direction: "luma_in", result: "applied", bookingId, action: "comms_overrides_skipped", note: errText(err) });
+    }
+
+    // Double-booked email lists every guest this expert holds in the slot.
+    if (kind === "double_booked" && f.slotId && f.helperEmail) {
+      try {
+        f.conflicts = await listHelperBookingsInSlot(f.helperEmail, f.slotId);
+      } catch (err) {
+        await logSync({ direction: "luma_in", result: "applied", bookingId, action: "comms_conflicts_skipped", note: errText(err) });
+      }
     }
 
     // Whether this kind carries a calendar file (invite on assigned; CANCEL on teardowns).

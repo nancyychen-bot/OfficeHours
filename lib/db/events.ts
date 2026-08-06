@@ -83,6 +83,7 @@ export async function upsertEvent(input: {
   name: string;
   city: string;
   address?: string | null;
+  publicUrl?: string | null;
   eventDate: string; // YYYY-MM-DD
   timezone: string;
   status?: Enums<"event_status">;
@@ -96,6 +97,8 @@ export async function upsertEvent(input: {
         name: input.name,
         city: input.city,
         address: input.address ?? null,
+        // Only overwrite public_url when we actually have one (don't clobber on re-register).
+        ...(input.publicUrl ? { public_url: input.publicUrl } : {}),
         event_date: input.eventDate,
         timezone: input.timezone,
         status: input.status ?? "planned",

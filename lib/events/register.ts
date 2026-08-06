@@ -11,6 +11,13 @@ export interface RegisterInput {
   city?: string; // optional override; defaults to the Luma event's city
   slotStart?: string; // ISO instant for first slot; defaults to event start_at
   slotLengthMinutes?: number; // default 30
+  publicUrl?: string; // explicit public URL override
+}
+
+/** If the value looks like a public event URL, normalize it; else null. */
+function publicUrlFrom(input: string): string | null {
+  const s = input.trim();
+  return /^https?:\/\//i.test(s) ? s : null;
 }
 
 export interface RegisterResult {
@@ -45,12 +52,20 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     );
   }
 
+  // Public URL: an explicit override, else the URL they registered with (the
+  // add-event form / script usually gets the lu.ma link), else whatever Luma returns.
+  const publicUrl =
+    input.publicUrl ??
+    publicUrlFrom(input.lumaEvent) ??
+    ((detail as { url?: string }).url ?? null);
+
   const event = await upsertEvent({
     lumaEventId: detail.id,
     name: detail.name,
     city,
     // Specific street address for calendar invites (falls back to city if absent).
     address: detail.geo_address_json?.full_address ?? null,
+    publicUrl,
     eventDate,
     timezone,
     status: "planned",

@@ -32,5 +32,6 @@ next-env.d.ts
 /add-event.png
 /add-event-page.png
 
-# Local DB snapshots (contain PII — never commit)
-backups/
+# Local DB snapshots (contain PII — never commit). Anchored to repo root so it
+# doesn't also ignore app routes like app/settings/backups or app/api/hub/backups.
+/backups/

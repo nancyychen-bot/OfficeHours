@@ -21,6 +21,7 @@ import type { SyncDirection } from "@/lib/sync/types";
 import { pushBookingToWorkspaces, clearBookingInWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
 import { sendBookingComms } from "@/lib/email/comms";
+import { clearCommsForKinds } from "@/lib/db/email-log";
 
 export const runtime = "nodejs";
 export const maxDuration = 30; // allow the button-settle delay + processing
@@ -198,6 +199,10 @@ export async function POST(
       if (claim.booking.luma_status === "pending" || claim.booking.luma_status === "waitlist") {
         await applyLumaStatus(claim.booking, "approved", { source: workspace }, approvalDeps(direction, claim.booking.id));
       }
+      // A (re)claim is a fresh assignment: clear any prior 'assigned' send so a
+      // guest cycling claimed → waitlist/cancel → claimed gets a new invite
+      // (the per-booking dedup would otherwise suppress it).
+      await clearCommsForKinds(claim.booking.id, ["assigned"]);
       await sendBookingComms(claim.booking.id, "assigned");
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "claimed" });
       return NextResponse.json({ received: true });

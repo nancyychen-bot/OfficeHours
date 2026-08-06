@@ -81,6 +81,18 @@ export async function listRetriableComms(): Promise<Array<{ bookingId: string; k
   return out;
 }
 
+/**
+ * Delete the send records for a booking + kinds, so those emails can be sent
+ * again as a NEW episode. Used on (re)claim: a guest going claimed → waitlist →
+ * claimed (or claimed → self-cancel → re-register → claimed) should get a fresh
+ * invite, which the per-booking dedup would otherwise suppress.
+ */
+export async function clearCommsForKinds(bookingId: string, kinds: string[]): Promise<void> {
+  if (kinds.length === 0) return;
+  const { error } = await table().delete().eq("booking_id", bookingId).in("event_kind", kinds);
+  if (error) throw error;
+}
+
 /** Finalize a reserved slot (keyed on recipient email) with its terminal status. */
 export async function finalizeComms(
   bookingId: string,

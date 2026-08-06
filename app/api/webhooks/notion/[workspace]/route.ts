@@ -24,7 +24,7 @@ import { applyLumaStatus, type ApplyDeps } from "@/lib/sync/approval";
 import type { SyncDirection } from "@/lib/sync/types";
 import { pushBookingToWorkspaces, clearBookingInWorkspaces } from "@/lib/notion/push";
 import { logSync } from "@/lib/sync/log";
-import { sendBookingComms } from "@/lib/email/comms";
+import { sendBookingComms, sendCommsToEmail } from "@/lib/email/comms";
 import { clearCommsForKinds } from "@/lib/db/email-log";
 
 export const runtime = "nodejs";
@@ -192,14 +192,37 @@ export async function POST(
     // cleared by the hub — so a differing Person here is a genuine, human reassign.
     const other: NotionWorkspace = workspace === "dev" ? "ambassador" : "dev";
     const personName = readFirstPersonName(page.properties?.[PROP.bookedByPerson]);
-    // Reassign requires the explicit "reassign" action (from a dedicated automation),
-    // so a Claim button that sets "Booked by" can NEVER accidentally reassign a taken slot.
+
+    // ALREADY CLAIMED — someone clicked Claim (X-Action: claim) on a slot that's
+    // already assigned to someone else. Tell them it's taken; keep the original.
+    if (action === "claim" && booking.status === "assigned" && personName && personName !== booking.booked_by_display_name) {
+      const clickerEmail = readFirstPersonEmail(page.properties?.[PROP.bookedByPerson]);
+      if (clickerEmail) await sendCommsToEmail(booking.id, "already_claimed", "helper", clickerEmail);
+      // Revert their stray chip on both sides — the original expert (text mirror) stands.
+      await pushBookingToWorkspaces(booking, { clearPersonOn: ["dev", "ambassador"] });
+      await logSync({ direction, result: "applied", bookingId: booking.id, action: "claim_rejected_taken", note: personName });
+      return NextResponse.json({ received: true, conflict: true });
+    }
+
+    // REASSIGN — you changed "Booked by" on an assigned booking (X-Action: reassign).
+    // Requires the explicit action so a Claim button can never reassign a taken slot.
     if (action === "reassign" && booking.status === "assigned" && personName && personName !== booking.booked_by_display_name) {
-      // Tell the PREVIOUS expert first (reads the current DB = old expert) + drop their hold.
-      await sendBookingComms(booking.id, "reassigned_off");
-      const type = incoming.booked_by_type ?? booking.booked_by_type ?? (workspace === "dev" ? "employee" : "ambassador");
-      const updated = (await reassignBooking(booking.id, personName, type)) ?? booking;
-      const helperEmail = readFirstPersonEmail(page.properties?.[PROP.bookedByPerson]);
+      // Re-verify after a beat so a concurrent claim-reject (which clears the stray
+      // chip) settles first — we never reassign to someone who was just rejected.
+      await new Promise((r) => setTimeout(r, 3000));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fresh = (await notion.pages.retrieve({ page_id: pageId })) as any;
+      const freshPerson = readFirstPersonName(fresh.properties?.[PROP.bookedByPerson]);
+      const freshBooking = (await getBookingById(booking.id)) ?? booking;
+      if (!freshPerson || freshBooking.status !== "assigned" || freshPerson === freshBooking.booked_by_display_name) {
+        await logSync({ direction, result: "applied", bookingId: booking.id, action: "reassign_noop" });
+        return NextResponse.json({ received: true });
+      }
+      // Tell the PREVIOUS expert first (reads current DB = old expert) + drop their hold.
+      await sendBookingComms(freshBooking.id, "reassigned_off");
+      const type = incoming.booked_by_type ?? freshBooking.booked_by_type ?? (workspace === "dev" ? "employee" : "ambassador");
+      const updated = (await reassignBooking(freshBooking.id, freshPerson, type)) ?? freshBooking;
+      const helperEmail = readFirstPersonEmail(fresh.properties?.[PROP.bookedByPerson]);
       if (helperEmail) {
         await setBookedByEmail(updated.id, helperEmail);
         if (await helperHasSlotConflict(updated.id, helperEmail, updated.slot_id)) {
@@ -212,7 +235,7 @@ export async function POST(
       await sendBookingComms(updated.id, "assigned");
       const current = (await getBookingById(updated.id)) ?? updated;
       await pushBookingToWorkspaces(current, { clearPersonOn: [other] });
-      await logSync({ direction, result: "applied", bookingId: booking.id, action: `reassigned:${personName}` });
+      await logSync({ direction, result: "applied", bookingId: booking.id, action: `reassigned:${freshPerson}` });
       return NextResponse.json({ received: true });
     }
 

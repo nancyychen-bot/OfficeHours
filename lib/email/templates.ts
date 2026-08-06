@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -136,7 +136,7 @@ export type TemplateKey =
   | "arrived_after_no_show__guest__matched" | "arrived_after_no_show__guest__nohelp" | "arrived_after_no_show__helper"
   | "no_show__helper"
   | "rematch_pending__guest" | "unmatched_notice__guest" | "expert_unavailable__helper"
-  | "double_booked__helper" | "reassigned_off__helper"
+  | "double_booked__helper" | "reassigned_off__helper" | "already_claimed__helper"
   | "waitlisted__guest" | "waitlisted__helper"
   | "declined__guest" | "declined__helper"
   | "cancelled__guest" | "cancelled__helper"
@@ -297,6 +297,16 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "You're very welcome to still come and cowork out of the space with us. And to catch a 1:1 at a future event, follow our Notion calendar:", "",
       "👉 {{calendarLink}}", "",
       SUPPORT, "", "See you soon,", SIGNOFF,
+    ),
+  },
+  already_claimed__helper: {
+    label: "Already claimed", description: "someone clicked Claim on a slot that's already taken", role: "helper",
+    subject: "That Notion Build Bar slot is already claimed",
+    body: b(
+      "Hi there,", "",
+      "Thanks for jumping in! That 1:1 slot at Notion Build Bar is already claimed by {{expertName}}, so you're not booked for it.", "",
+      "If you'd like to take it, ask {{expertName}} to unclaim it first — then it'll open up and you can claim it.", "",
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   reassigned_off__helper: {

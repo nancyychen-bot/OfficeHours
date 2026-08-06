@@ -98,6 +98,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   feedback_request: ["guest"],
   prep_reminder: ["guest"],
   reassigned_off: ["helper"],
+  already_claimed: [], // sent directly to the would-be claimer via sendCommsToEmail
 };
 
 /** Kinds that tear down a booking → attach a calendar CANCEL to remove the hold. */
@@ -217,5 +218,44 @@ export async function sendBookingComms(
   } catch (err) {
     // Never let comms break the booking sync.
     await logSync({ direction: "luma_in", result: "error", bookingId, action: `comms_${kind}`, note: errText(err) });
+  }
+}
+
+/**
+ * Send a booking-contextual email to an ARBITRARY address (e.g. a would-be
+ * claimer who isn't the booking's guest/helper). Best-effort; deduped per
+ * (booking, kind, email) like the rest.
+ */
+export async function sendCommsToEmail(
+  bookingId: string,
+  kind: CommsKind,
+  role: Recipient,
+  toEmail: string,
+  deps: CommsDeps = defaultDeps,
+): Promise<void> {
+  try {
+    const f = await deps.getFields(bookingId);
+    if (!f) return;
+    let overrides: OverrideMap = new Map();
+    try {
+      if (deps.getOverrides) overrides = await deps.getOverrides();
+    } catch { /* fall back to defaults */ }
+    const rendered = renderComms(kind, role, f, overrides);
+    if (!rendered) return;
+    if (!(await deps.reserve(bookingId, kind, role, toEmail))) return;
+    if (!deps.enabled()) {
+      await deps.finalize(bookingId, kind, toEmail, { resendId: null, status: "skipped" });
+      return;
+    }
+    try {
+      const { id } = await deps.send({ to: toEmail, subject: rendered.subject, html: rendered.html, text: rendered.text });
+      if (!id) throw new Error("Resend returned no message id");
+      await deps.finalize(bookingId, kind, toEmail, { resendId: id, status: "sent" });
+    } catch (err) {
+      await deps.finalize(bookingId, kind, toEmail, { resendId: null, status: "failed" });
+      await logSync({ direction: "luma_in", result: "error", bookingId, action: `comms_${kind}_direct`, note: errText(err) });
+    }
+  } catch (err) {
+    await logSync({ direction: "luma_in", result: "error", bookingId, action: `comms_${kind}_direct`, note: errText(err) });
   }
 }

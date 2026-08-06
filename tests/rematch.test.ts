@@ -35,6 +35,13 @@ describe("day-before template routing", () => {
     expect(r.text).toContain("cowork");
   });
 
+  it("already_claimed tells the would-be claimer it's taken + ask to unclaim", () => {
+    const r = renderComms("already_claimed", "helper", { ...SAMPLE_FIELDS, helperName: "Alex Rivera" })!;
+    expect(r.text).toContain("already claimed by Alex Rivera");
+    expect(r.text).toContain("unclaim");
+    expect(r.text).toContain("talk to Nancy Chen");
+  });
+
   it("reassigned_off tells the previous expert they've been taken off", () => {
     expect(templateKeyFor("reassigned_off", "helper", SAMPLE_FIELDS)).toBe("reassigned_off__helper");
     const r = renderComms("reassigned_off", "helper", SAMPLE_FIELDS)!;

@@ -8,7 +8,7 @@
  */
 import { listBookingsForEvent } from "../lib/db/bookings";
 import { getEventById } from "../lib/db/events";
-import { sendBookingComms } from "../lib/email/comms";
+import { isEligibleForFeedback, sendFeedbackForEvent } from "../lib/events/feedback";
 
 function arg(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);
@@ -29,8 +29,7 @@ async function main() {
     process.exit(1);
   }
 
-  const bookings = await listBookingsForEvent(eventId);
-  const checkedIn = bookings.filter((b) => b.status === "checked_in" && b.guest_email);
+  const checkedIn = (await listBookingsForEvent(eventId)).filter(isEligibleForFeedback);
   console.log(`Event: ${event.name} (${event.event_date})`);
   console.log(`Checked-in guests: ${checkedIn.length}`);
   for (const b of checkedIn) console.log(`  - ${b.guest_name} <${b.guest_email}>`);
@@ -40,11 +39,7 @@ async function main() {
     return;
   }
 
-  let sent = 0;
-  for (const b of checkedIn) {
-    await sendBookingComms(b.id, "feedback_request");
-    sent++;
-  }
+  const sent = await sendFeedbackForEvent(eventId);
   console.log(`\nRequested feedback emails for ${sent} guest(s). (Dedup skips anyone already emailed.)`);
 }
 

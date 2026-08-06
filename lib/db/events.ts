@@ -49,6 +49,25 @@ export async function listEventsByDate(dateISO: string): Promise<EventRow[]> {
   return data ?? [];
 }
 
+/** Events not yet feedback-dispatched (feedback_sent_at null, not cancelled). */
+export async function listEventsPendingFeedback(): Promise<EventRow[]> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .is("feedback_sent_at", null)
+    .neq("status", "cancelled");
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Mark an event's post-event feedback as dispatched so it never re-sends. */
+export async function markFeedbackSent(eventId: string, at: string): Promise<void> {
+  const supabase = getAdminClient();
+  const { error } = await supabase.from("events").update({ feedback_sent_at: at }).eq("id", eventId);
+  if (error) throw error;
+}
+
 export async function listEvents(): Promise<EventRow[]> {
   const supabase = getAdminClient();
   const { data, error } = await supabase

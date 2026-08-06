@@ -316,6 +316,30 @@ export type Database = {
           },
         ]
       }
+      slack_channels: {
+        Row: {
+          channel_name: string | null
+          city: string
+          created_at: string
+          updated_at: string
+          webhook_url: string
+        }
+        Insert: {
+          channel_name?: string | null
+          city: string
+          created_at?: string
+          updated_at?: string
+          webhook_url: string
+        }
+        Update: {
+          channel_name?: string | null
+          city?: string
+          created_at?: string
+          updated_at?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       slots: {
         Row: {
           capacity: number

@@ -26,6 +26,7 @@ import { pushBookingToWorkspaces, clearBookingInWorkspaces } from "@/lib/notion/
 import { logSync } from "@/lib/sync/log";
 import { sendBookingComms, sendCommsToEmail } from "@/lib/email/comms";
 import { clearCommsForKinds } from "@/lib/db/email-log";
+import { postSlackRecruit } from "@/lib/slack/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 30; // allow the button-settle delay + processing
@@ -148,6 +149,8 @@ export async function POST(
       // the hub's clear writes last and wins on the origin card too.
       await new Promise((resolve) => setTimeout(resolve, BUTTON_EDIT_SETTLE_MS));
       await clearBookingInWorkspaces(released);
+      // Recruit a replacement in the city's Slack channel (best-effort, no-op if unset).
+      await postSlackRecruit(booking.id);
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "unclaimed" });
       return NextResponse.json({ received: true });
     }
@@ -311,6 +314,8 @@ export async function POST(
       await sendBookingComms(booking.id, "expert_unavailable");
       const released = await releaseBooking(booking.id);
       if (released) await pushBookingToWorkspaces(released);
+      // Recruit a replacement in the city's Slack channel (best-effort, no-op if unset).
+      await postSlackRecruit(booking.id);
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "released" });
       return NextResponse.json({ received: true });
     }

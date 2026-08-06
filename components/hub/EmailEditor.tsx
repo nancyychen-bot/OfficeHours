@@ -126,14 +126,14 @@ export function EmailEditor({ overrides }: { overrides: OverrideRow[] }) {
 
   const pendingCount = (Object.keys(TEMPLATE_REGISTRY) as TemplateKey[]).filter((k) => effective(k, rows.get(k)).pending).length;
 
-  function Card({ k }: { k: TemplateKey }) {
+  const renderCard = (k: TemplateKey) => {
     const row = rows.get(k);
     const e = effective(k, row);
     const isOpen = openKey === k;
     const previewFrom = { subject: isOpen ? subject : e.draftSubject, body: isOpen ? body : e.draftBody };
     const preview = renderTemplate(previewFrom, buildVars((e.def as TemplateDef).role, SAMPLE_FIELDS));
     return (
-      <div className="rounded-xl border border-line bg-white shadow-sm">
+      <div key={k} className="rounded-xl border border-line bg-white shadow-sm">
         <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
           <span className="font-medium text-neutral-800">{e.def.label}</span>
           {e.pending ? <span className="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">Pending</span> : null}
@@ -202,7 +202,7 @@ export function EmailEditor({ overrides }: { overrides: OverrideRow[] }) {
         )}
       </div>
     );
-  }
+  };
 
   return (
     <div>
@@ -221,7 +221,7 @@ export function EmailEditor({ overrides }: { overrides: OverrideRow[] }) {
               <span className="text-sm text-neutral-400">{stage.blurb}</span>
             </div>
             <div className="space-y-3">
-              {stage.keys.map((k) => <Card key={k} k={k} />)}
+              {stage.keys.map((k) => renderCard(k))}
             </div>
           </section>
         ))}

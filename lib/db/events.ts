@@ -37,6 +37,18 @@ export async function setEventStatus(
   if (error) throw error;
 }
 
+/** Events happening on a specific calendar date (YYYY-MM-DD). Used by the T-3 prep cron. */
+export async function listEventsByDate(dateISO: string): Promise<EventRow[]> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .eq("event_date", dateISO)
+    .neq("status", "cancelled");
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function listEvents(): Promise<EventRow[]> {
   const supabase = getAdminClient();
   const { data, error } = await supabase

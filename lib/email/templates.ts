@@ -1,7 +1,10 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
 export const FEEDBACK_FORM_URL = "https://notionambassadors.notion.site/ef74dccc30f7477fac1136b4ff7faeb7?pvs=105";
+
+/** Notion AI free-trial claim link (pre-event prep email). */
+export const NOTION_AI_TRIAL_URL = "http://ntn.so/community-biz";
 export type Recipient = "helper" | "guest";
 
 export interface CommsFields {
@@ -381,6 +384,35 @@ export function renderComms(
         SUPPORT,
         "",
         "See you inside,",
+        SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "prep_reminder" && role === "guest") {
+    return {
+      subject: "One thing to do before Notion Build Bar ✨",
+      ...wrap([
+        `Hi ${firstName(f.guestName)},`,
+        "",
+        "You're confirmed for Notion Build Bar. We can't wait to build with you!",
+        "",
+        "One thing to do before you arrive if you do not have Notion AI activated in your workspace: start your free Notion AI trial.",
+        "",
+        "If you already have a Business or Enterprise plan, you do not need to sign up for the trial. If you've previously signed up for a trial, your account will not be eligible for the upgrade.",
+        "",
+        "Why Notion AI? Your host will likely use Notion AI to help you draft, summarize, and structure your workspace faster — and you'll get way more out of your session if it's already switched on.",
+        "",
+        `👉 Claim Notion AI Free Trial: ${NOTION_AI_TRIAL_URL} — takes about 1 minute.`,
+        "",
+        "Quick checklist:",
+        "✅ Double-check your 1:1 slot — if you have one, you should have a calendar invite",
+        "✅ Notion AI activated",
+        "✅ Laptop ready",
+        "✅ Your question or workspace",
+        "",
+        "Please cancel your registration if you plan on not attending so we can free up the spot for someone else.",
+        "",
+        "See you soon,",
         SIGNOFF,
       ]),
     };

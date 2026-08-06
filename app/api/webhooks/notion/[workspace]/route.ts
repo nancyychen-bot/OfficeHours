@@ -197,9 +197,12 @@ export async function POST(
     // already assigned to someone else. Tell them it's taken; keep the original.
     if (action === "claim" && booking.status === "assigned" && personName && personName !== booking.booked_by_display_name) {
       const clickerEmail = readFirstPersonEmail(page.properties?.[PROP.bookedByPerson]);
-      if (clickerEmail) await sendCommsToEmail(booking.id, "already_claimed", "helper", clickerEmail);
-      // Revert their stray chip on both sides — the original expert (text mirror) stands.
+      // Revert their stray chip on both sides FIRST — this is fast and deterministic,
+      // and the concurrent reassign webhook's 3s re-verify must see the revert and
+      // no-op. Emailing first would let variable Resend latency delay the revert past
+      // that window and wrongly hand the slot to the intruder. THEN email.
       await pushBookingToWorkspaces(booking, { clearPersonOn: ["dev", "ambassador"] });
+      if (clickerEmail) await sendCommsToEmail(booking.id, "already_claimed", "helper", clickerEmail);
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "claim_rejected_taken", note: personName });
       return NextResponse.json({ received: true, conflict: true });
     }

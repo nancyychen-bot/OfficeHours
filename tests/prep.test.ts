@@ -11,17 +11,17 @@ const base = (over: Partial<Booking>): Booking =>
   } as Booking);
 
 describe("isEligibleForPrep", () => {
-  it("includes going guests with an email (pending or approved)", () => {
-    expect(isEligibleForPrep(base({ luma_status: "approved" }))).toBe(true);
-    expect(isEligibleForPrep(base({ luma_status: "pending" }))).toBe(true);
-    expect(isEligibleForPrep(base({ status: "assigned" }))).toBe(true);
-    expect(isEligibleForPrep(base({ status: "no_help_needed" }))).toBe(true);
+  it("includes approved guests with an email, regardless of assignment", () => {
+    expect(isEligibleForPrep(base({ luma_status: "approved", status: "assigned" }))).toBe(true);
+    expect(isEligibleForPrep(base({ luma_status: "approved", status: "no_help_needed" }))).toBe(true);
+    expect(isEligibleForPrep(base({ luma_status: "approved", status: "unassigned" }))).toBe(true);
   });
-  it("excludes cancelled, declined, waitlisted, or no email", () => {
-    expect(isEligibleForPrep(base({ status: "cancelled" }))).toBe(false);
-    expect(isEligibleForPrep(base({ luma_status: "declined" }))).toBe(false);
+  it("excludes non-approved, cancelled, or no email", () => {
+    expect(isEligibleForPrep(base({ luma_status: "pending" }))).toBe(false);
     expect(isEligibleForPrep(base({ luma_status: "waitlist" }))).toBe(false);
-    expect(isEligibleForPrep(base({ guest_email: "" }))).toBe(false);
+    expect(isEligibleForPrep(base({ luma_status: "declined" }))).toBe(false);
+    expect(isEligibleForPrep(base({ luma_status: "approved", status: "cancelled" }))).toBe(false);
+    expect(isEligibleForPrep(base({ luma_status: "approved", guest_email: "" }))).toBe(false);
   });
 });
 

@@ -100,7 +100,7 @@ describe("renderComms", () => {
   });
   it("rematch_pending → guest gets the day-before apology + cowork offer", () => {
     const g = renderComms("rematch_pending", "guest", fields())!;
-    expect(g.text).toContain("haven't been able to match you");
+    expect(g.text).toContain("no longer able to help");
     expect(g.text).toContain("cowork");
   });
   it("declined → guest gets the at-capacity note with the calendar link", () => {

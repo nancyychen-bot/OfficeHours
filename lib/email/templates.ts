@@ -283,8 +283,8 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     subject: "An update on your Notion Build Bar 1:1",
     body: b(
       "Hi {{firstName}},", "",
-      "Quick heads-up ahead of tomorrow: we haven't been able to match you with a Notion expert for your 1:1 yet. We're still trying to find someone before the event — but we can't promise a match this time.", "",
-      "Either way, you're very welcome to come cowork out of the space with us — we'd still love to have you.", "",
+      "We're really sorry — the Notion expert for your 1:1 is no longer able to help at Notion Build Bar. We know that's disappointing, and we apologize for the change.", "",
+      "You're very welcome to still come and cowork out of the space with us — we'd love to have you.", "",
       SUPPORT, "", "See you soon,", SIGNOFF,
     ),
   },

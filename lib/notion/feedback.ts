@@ -9,7 +9,7 @@ export const FB = {
   email: "What email do you use for Notion?",
   eventDate: "Event Date",
   location: "Location",
-  helper: "Helper",
+  helper: "Notion Expert",
   needsReview: "Needs review",
   satisfaction: "How satisfied were you with this event?",
   satisfactionScore: "Satisfaction score",

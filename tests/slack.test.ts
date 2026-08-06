@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildRecruitBlocks, type RecruitInput } from "../lib/slack/client";
+import { buildRecruitBlocks, buildClaimedBlocks, type RecruitInput } from "../lib/slack/client";
 
 const base: RecruitInput = {
   guestName: "Ada Lovelace",
@@ -53,5 +53,19 @@ describe("buildRecruitBlocks", () => {
     );
     expect(json).toContain("Ada Lovelace");
     expect(json).toContain("—"); // em-dash fallbacks
+  });
+});
+
+describe("buildClaimedBlocks", () => {
+  it("names the claimer, guest, and slot", () => {
+    const json = JSON.stringify(buildClaimedBlocks({ claimerName: "Grace Hopper", guestName: "Ada Lovelace", slotName: "2:00–2:30 PM" }));
+    expect(json).toContain("Covered");
+    expect(json).toContain("Grace Hopper");
+    expect(json).toContain("Ada Lovelace");
+    expect(json).toContain("(2:00–2:30 PM)");
+  });
+  it("omits the slot parens when there's no slot", () => {
+    const json = JSON.stringify(buildClaimedBlocks({ claimerName: "Grace", guestName: "Ada", slotName: null }));
+    expect(json).not.toContain("(");
   });
 });

@@ -1,5 +1,5 @@
 import { getBookingById, getBookingDetailsById } from "../db/bookings";
-import { getSlackChannelForCity } from "../db/slack";
+import { getSlackChannelForCity, setRecruitPostedAt } from "../db/slack";
 import { getNotionClient, type NotionWorkspace } from "../notion/client";
 import { toCommsFields } from "../email/comms";
 import type { CommsFields } from "../email/templates";
@@ -130,8 +130,46 @@ export async function postSlackRecruit(bookingId: string): Promise<void> {
       ambassadorCardUrl,
     });
     await postBlocks(channel.webhookUrl, blocks);
+    await setRecruitPostedAt(bookingId, new Date().toISOString());
     await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_posted", note: channel.channelName ?? undefined });
   } catch (err) {
     await logSync({ direction: "luma_in", result: "error", bookingId, action: "slack_recruit", note: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+/** Blocks for a short "covered" follow-up once a recruited slot is claimed. Pure. */
+export function buildClaimedBlocks(i: { claimerName: string; guestName: string; slotName: string | null }): unknown[] {
+  const slot = i.slotName ? ` (${i.slotName})` : "";
+  return [
+    { type: "section", text: { type: "mrkdwn", text: `✅ *Covered* — ${i.claimerName} took ${i.guestName}'s 1:1${slot}. Thanks! 🙌` } },
+  ];
+}
+
+/**
+ * Post a "covered" follow-up to the city channel when a previously-recruited slot
+ * is claimed, then clear the recruit marker. Best-effort; no-op if this booking
+ * wasn't recruited or the city has no channel. Editing/greying the original
+ * recruit message isn't possible via an incoming webhook — that needs a Slack app.
+ */
+export async function postSlackClaimed(bookingId: string): Promise<void> {
+  try {
+    const booking = await getBookingById(bookingId);
+    if (!booking || !booking.slack_recruit_posted_at) return; // only for recruited slots
+    const details = await getBookingDetailsById(bookingId);
+    if (!details) return;
+    const f: CommsFields = toCommsFields(details);
+    const channel = await getSlackChannelForCity(f.location);
+    // Clear the marker regardless so we never double-post on re-claims.
+    await setRecruitPostedAt(bookingId, null);
+    if (!channel) return;
+    const blocks = buildClaimedBlocks({
+      claimerName: f.helperName ?? "Someone",
+      guestName: f.guestName,
+      slotName: f.slotName,
+    });
+    await postBlocks(channel.webhookUrl, blocks);
+    await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_claimed_posted", note: channel.channelName ?? undefined });
+  } catch (err) {
+    await logSync({ direction: "luma_in", result: "error", bookingId, action: "slack_claimed", note: err instanceof Error ? err.message : String(err) });
   }
 }

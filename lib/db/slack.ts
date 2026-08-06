@@ -25,3 +25,9 @@ export async function getSlackChannelForCity(city: string | null | undefined): P
   if (!match?.webhook_url) return null;
   return { webhookUrl: match.webhook_url, channelName: match.channel_name };
 }
+
+/** Mark that a recruit post went out for this booking (so a later claim can
+ * post a "covered" follow-up). Pass null to clear once the follow-up is sent. */
+export async function setRecruitPostedAt(bookingId: string, at: string | null): Promise<void> {
+  await getAdminClient().from("bookings").update({ slack_recruit_posted_at: at }).eq("id", bookingId);
+}

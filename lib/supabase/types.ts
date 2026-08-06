@@ -40,6 +40,7 @@ export type Database = {
           notion_plan: string | null
           requested_slot: string | null
           role: string | null
+          slack_recruit_posted_at: string | null
           slot_id: string | null
           status: Database["public"]["Enums"]["booking_status"]
           updated_at: string
@@ -69,6 +70,7 @@ export type Database = {
           notion_plan?: string | null
           requested_slot?: string | null
           role?: string | null
+          slack_recruit_posted_at?: string | null
           slot_id?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string
@@ -98,6 +100,7 @@ export type Database = {
           notion_plan?: string | null
           requested_slot?: string | null
           role?: string | null
+          slack_recruit_posted_at?: string | null
           slot_id?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string

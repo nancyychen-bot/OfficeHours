@@ -26,7 +26,7 @@ import { pushBookingToWorkspaces, clearBookingInWorkspaces } from "@/lib/notion/
 import { logSync } from "@/lib/sync/log";
 import { sendBookingComms, sendCommsToEmail } from "@/lib/email/comms";
 import { clearCommsForKinds } from "@/lib/db/email-log";
-import { postSlackRecruit } from "@/lib/slack/client";
+import { postSlackRecruit, postSlackClaimed } from "@/lib/slack/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 30; // allow the button-settle delay + processing
@@ -302,6 +302,8 @@ export async function POST(
       // (the per-booking dedup would otherwise suppress it).
       await clearCommsForKinds(claim.booking.id, ["assigned"]);
       await sendBookingComms(claim.booking.id, "assigned");
+      // If this slot was recruited in Slack, tell the channel it's covered (no-op otherwise).
+      await postSlackClaimed(claim.booking.id);
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "claimed" });
       return NextResponse.json({ received: true });
     }

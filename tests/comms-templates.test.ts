@@ -7,7 +7,7 @@ function fields(p: Partial<CommsFields> = {}): CommsFields {
     company: "Analytical", role: "Engineer", challenge: "Scaling", guestPhone: null,
     slotName: "2:00–2:30 PM", slotStartsAt: "2026-08-26T21:00:00Z", slotEndsAt: "2026-08-26T21:30:00Z",
     eventName: "Notion Build Bar (SF)", eventDate: "2026-08-26", location: "San Francisco", address: null,
-    helperName: "Grace Hopper", helperEmail: "grace@x.com", status: "assigned", ...p,
+    helperName: "Grace Hopper", helperEmail: "grace@x.com", status: "assigned", slotId: null, ...p,
   };
 }
 

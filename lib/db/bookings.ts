@@ -419,6 +419,28 @@ export async function helperHasSlotConflict(
   return (data?.length ?? 0) > 0;
 }
 
+/** Key info for every live booking an expert holds in a slot (double-booked email). */
+export async function listHelperBookingsInSlot(
+  helperEmail: string,
+  slotId: string,
+): Promise<Array<{ name: string; challenge: string | null; role: string | null; company: string | null }>> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("guest_name, challenge, role, company, created_at")
+    .eq("slot_id", slotId)
+    .eq("booked_by_email", helperEmail)
+    .in("status", ["assigned", "checked_in"])
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((b) => ({
+    name: b.guest_name as string,
+    challenge: (b.challenge as string) ?? null,
+    role: (b.role as string) ?? null,
+    company: (b.company as string) ?? null,
+  }));
+}
+
 /** Update only the approval axis. Returns the updated row. */
 export async function setLumaStatus(
   bookingId: string,

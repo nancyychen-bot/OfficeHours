@@ -7,6 +7,7 @@ const TABS = [
   { href: "/", label: "Dashboard" },
   { href: "/bookings", label: "Bookings" },
   { href: "/feedback", label: "Feedback" },
+  { href: "/emails", label: "Emails" },
 ];
 
 export function HubNav() {

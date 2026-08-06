@@ -58,8 +58,9 @@ async function main() {
     console.log(`[dev] aligned options for: ${Object.keys(devUpdate).join(", ")}`);
   }
 
-  // 2) Ensure Needs review (checkbox) + Satisfaction score (number) on BOTH.
-  const additions: Record<string, { checkbox: object } | { number: object }> = {
+  // 2) Ensure backend-enriched props exist on BOTH (Helper, Needs review, Score).
+  const additions: Record<string, { checkbox: object } | { number: object } | { rich_text: object }> = {
+    [FB.helper]: { rich_text: {} },
     [FB.needsReview]: { checkbox: {} },
     [FB.satisfactionScore]: { number: {} },
   };

@@ -9,6 +9,7 @@ export const FB = {
   email: "What email do you use for Notion?",
   eventDate: "Event Date",
   location: "Location",
+  helper: "Helper",
   needsReview: "Needs review",
   satisfaction: "How satisfied were you with this event?",
   satisfactionScore: "Satisfaction score",
@@ -44,6 +45,7 @@ export function readSatisfactionSelect(props: Props): string | null {
 export function enrichmentProperties(input: {
   eventDate: string | null;
   city: string | null;
+  helperName: string | null;
   needsReview: boolean;
   satisfactionScore: number | null;
 }): Props {
@@ -51,6 +53,9 @@ export function enrichmentProperties(input: {
     [FB.eventDate]: { date: input.eventDate ? { start: input.eventDate } : null },
     // Location is a select; Notion auto-creates the option if the city is new.
     [FB.location]: { select: input.city ? { name: input.city } : null },
+    [FB.helper]: {
+      rich_text: input.helperName ? [{ type: "text", text: { content: input.helperName.slice(0, 2000) } }] : [],
+    },
     [FB.needsReview]: { checkbox: input.needsReview },
   };
   if (input.satisfactionScore != null) {

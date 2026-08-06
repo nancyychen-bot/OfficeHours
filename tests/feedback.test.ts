@@ -29,6 +29,7 @@ describe("selectEventForFeedback", () => {
     eventId: id,
     eventDate: date,
     city,
+    helperName: null,
   });
 
   it("returns null when there are no candidates", () => {

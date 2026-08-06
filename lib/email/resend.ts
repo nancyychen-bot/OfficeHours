@@ -4,6 +4,8 @@ import { env } from "../env";
 export interface EmailAttachment {
   filename: string;
   content: Buffer;
+  /** MIME type, e.g. "text/calendar; method=REQUEST" so clients render an invite. */
+  contentType?: string;
 }
 
 /**
@@ -27,7 +29,13 @@ export async function sendEmail(input: {
     text: input.text,
     ...(replyTo ? { replyTo } : {}),
     ...(input.attachments?.length
-      ? { attachments: input.attachments.map((a) => ({ filename: a.filename, content: a.content })) }
+      ? {
+          attachments: input.attachments.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            ...(a.contentType ? { content_type: a.contentType } : {}),
+          })),
+        }
       : {}),
   });
   if (error) throw new Error(`Resend send failed: ${error.message ?? String(error)}`);

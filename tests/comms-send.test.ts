@@ -6,7 +6,7 @@ function fields(p: Partial<CommsFields> = {}): CommsFields {
   return {
     bookingId: "b1", guestName: "Ada", guestEmail: "ada@x.com", company: null, role: null,
     challenge: null, guestPhone: null, slotName: "2:00 PM", slotStartsAt: "2026-08-26T21:00:00Z",
-    slotEndsAt: "2026-08-26T21:30:00Z", eventName: "OH", eventDate: "2026-08-26", location: "SF",
+    slotEndsAt: "2026-08-26T21:30:00Z", eventName: "OH", eventDate: "2026-08-26", location: "SF", address: null,
     helperName: "Grace", helperEmail: "grace@x.com", status: "assigned", ...p,
   };
 }

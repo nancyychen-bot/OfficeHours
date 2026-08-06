@@ -15,6 +15,8 @@ export interface CommsFields {
   eventName: string | null;
   eventDate: string | null;
   location: string | null;
+  /** Specific street address (from the Luma event); preferred over city in the invite. */
+  address: string | null;
   helperName: string | null;
   helperEmail: string | null;
   status: string;
@@ -48,7 +50,8 @@ function guestSessionLines(f: CommsFields): string[] {
   const lines: string[] = [];
   if (f.eventDate) lines.push(`🗓  ${f.eventDate}`);
   if (f.slotName) lines.push(`⏰  ${f.slotName}`);
-  if (f.location) lines.push(`📍  ${f.location}`);
+  const place = f.address ?? f.location;
+  if (place) lines.push(`📍  ${place}`);
   if (f.helperName) lines.push(`🧑‍💻  With ${f.helperName}`);
   return lines;
 }

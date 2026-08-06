@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -136,7 +136,7 @@ export type TemplateKey =
   | "arrived_after_no_show__guest__matched" | "arrived_after_no_show__guest__nohelp" | "arrived_after_no_show__helper"
   | "no_show__helper"
   | "rematch_pending__guest" | "unmatched_notice__guest" | "expert_unavailable__helper"
-  | "double_booked__helper"
+  | "double_booked__helper" | "reassigned_off__helper"
   | "waitlisted__guest" | "waitlisted__helper"
   | "declined__guest" | "declined__helper"
   | "cancelled__guest" | "cancelled__helper"
@@ -297,6 +297,15 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "You're very welcome to still come and cowork out of the space with us. And to catch a 1:1 at a future event, follow our Notion calendar:", "",
       "👉 {{calendarLink}}", "",
       SUPPORT, "", "See you soon,", SIGNOFF,
+    ),
+  },
+  reassigned_off__helper: {
+    label: "Reassigned off", description: "you changed 'Booked by' to a different expert", role: "helper",
+    subject: "You've been taken off {{guestName}}'s 1:1",
+    body: b(
+      "Hi {{firstName}},", "",
+      "{{guestName}}'s 1:1 at Notion Build Bar has been reassigned to another Notion expert, so it's no longer on your plate. The calendar hold has been removed — nothing you need to do.", "",
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   expert_unavailable__helper: {

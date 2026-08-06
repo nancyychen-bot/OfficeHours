@@ -97,6 +97,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   double_booked: ["helper"],
   feedback_request: ["guest"],
   prep_reminder: ["guest"],
+  reassigned_off: ["helper"],
 };
 
 /** Kinds that tear down a booking → attach a calendar CANCEL to remove the hold. */
@@ -107,6 +108,7 @@ const CANCEL_CALENDAR_KINDS = new Set<CommsKind>([
   "waitlisted",
   "no_show",
   "event_cancelled",
+  "reassigned_off",
 ]);
 
 /**

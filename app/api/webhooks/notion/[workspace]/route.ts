@@ -3,12 +3,13 @@ import { env } from "@/lib/env";
 import { isEcho } from "@/lib/sync/hash";
 import type { NotionWorkspace } from "@/lib/notion/client";
 import { getNotionClient } from "@/lib/notion/client";
-import { pagePropertiesToSyncedFields, readFirstPersonEmail, readSlotLabelFromPage } from "@/lib/notion/mappers";
+import { pagePropertiesToSyncedFields, readFirstPersonEmail, readFirstPersonName, readSlotLabelFromPage } from "@/lib/notion/mappers";
 import { PROP } from "@/lib/notion/schema";
 import {
   getBookingByNotionPageId,
   getBookingById,
   claimBooking,
+  reassignBooking,
   releaseBooking,
   setBookedByEmail,
   setBookingSlot,
@@ -185,6 +186,34 @@ export async function POST(
       return NextResponse.json({ received: true });
     }
 
+    // REASSIGN — the organizer changed "Booked by" (Person) on an already-assigned
+    // booking to a DIFFERENT expert. The text mirror still shows the old name (so
+    // this would otherwise read as an echo), and the mirror workspace's Person is
+    // cleared by the hub — so a differing Person here is a genuine, human reassign.
+    const other: NotionWorkspace = workspace === "dev" ? "ambassador" : "dev";
+    const personName = readFirstPersonName(page.properties?.[PROP.bookedByPerson]);
+    if (booking.status === "assigned" && personName && personName !== booking.booked_by_display_name) {
+      // Tell the PREVIOUS expert first (reads the current DB = old expert) + drop their hold.
+      await sendBookingComms(booking.id, "reassigned_off");
+      const type = incoming.booked_by_type ?? booking.booked_by_type ?? (workspace === "dev" ? "employee" : "ambassador");
+      const updated = (await reassignBooking(booking.id, personName, type)) ?? booking;
+      const helperEmail = readFirstPersonEmail(page.properties?.[PROP.bookedByPerson]);
+      if (helperEmail) {
+        await setBookedByEmail(updated.id, helperEmail);
+        if (await helperHasSlotConflict(updated.id, helperEmail, updated.slot_id)) {
+          await sendBookingComms(updated.id, "double_booked");
+        }
+      }
+      // Fresh assignment → new expert + guest get the invite (updated with the new
+      // expert's name); clear the prior 'assigned' send so the dedup doesn't suppress it.
+      await clearCommsForKinds(updated.id, ["assigned"]);
+      await sendBookingComms(updated.id, "assigned");
+      const current = (await getBookingById(updated.id)) ?? updated;
+      await pushBookingToWorkspaces(current, { clearPersonOn: [other] });
+      await logSync({ direction, result: "applied", bookingId: booking.id, action: `reassigned:${personName}` });
+      return NextResponse.json({ received: true });
+    }
+
     // Loop prevention (PRD §7.3): drop echoes of the hub's own last write.
     if (isEcho(incoming, booking.last_synced_hash)) {
       await logSync({ direction, result: "skipped_echo", bookingId: booking.id, action: "echo" });
@@ -229,8 +258,9 @@ export async function POST(
         }
       }
       // Push to BOTH: flip Status → Assigned on the origin card too (the button
-      // may not have) and mirror to the other workspace.
-      await pushBookingToWorkspaces(claim.booking);
+      // may not have) and mirror to the other workspace. Clear the mirror's Person
+      // chip so it never holds a stale assignee (text mirror carries the name).
+      await pushBookingToWorkspaces(claim.booking, { clearPersonOn: [other] });
       // A claim pulls a guest in: pending OR waitlisted -> approved (writes back
       // to Luma + mirrors). Already-approved guests are left as-is.
       if (claim.booking.luma_status === "pending" || claim.booking.luma_status === "waitlist") {

@@ -33,7 +33,7 @@ const STAGES: Array<{ title: string; blurb: string; keys: TemplateKey[] }> = [
   {
     title: "Booking a 1:1",
     blurb: "When a Notion expert claims (or releases) a guest's 1:1.",
-    keys: ["assigned__guest", "assigned__helper", "expert_unavailable__helper", "rematch_pending__guest", "unmatched_notice__guest", "double_booked__helper"],
+    keys: ["assigned__guest", "assigned__helper", "reassigned_off__helper", "expert_unavailable__helper", "rematch_pending__guest", "unmatched_notice__guest", "double_booked__helper"],
   },
   {
     title: "At the event",

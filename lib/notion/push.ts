@@ -59,6 +59,7 @@ async function pushToWorkspace(
   booking: Booking,
   opts: PushOptions,
   fullUpdate: boolean,
+  clearPerson: boolean,
 ): Promise<"created" | "updated" | "skipped"> {
   if (!isConfigured(workspace)) return "skipped";
 
@@ -84,9 +85,13 @@ async function pushToWorkspace(
     if (live) {
       // fullUpdate (Luma-driven): refresh ALL guest fields. Otherwise
       // (claim/status mirror): touch only status + booked-by.
-      const properties = fullUpdate
+      const properties: Record<string, unknown> = fullUpdate
         ? bookingToPageProperties(booking, opts)
         : syncedFieldsToUpdateProperties(pickSyncedFields(booking));
+      // Clear the native "Booked by" Person on the mirror workspace so it never
+      // holds a stale chip (the hub can't set arbitrary Notion users there; the
+      // text mirror carries the name). Keeps reassign-detection unambiguous.
+      if (clearPerson) properties[PROP.bookedByPerson] = { people: [] as unknown[] };
       await notion.pages.update({
         page_id: existingPageId,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -152,10 +157,13 @@ export async function pushBookingToWorkspaces(
     skip?: NotionWorkspace[];
     /** Refresh all guest fields on existing cards (use for Luma-driven pushes). */
     fullUpdate?: boolean;
+    /** Clear the native "Booked by" Person on these workspaces (mirror side). */
+    clearPersonOn?: NotionWorkspace[];
   } = {},
 ): Promise<PushResult> {
   const result: PushResult = { dev: "skipped", ambassador: "skipped" };
   const skip = new Set(opts.skip ?? []);
+  const clearPerson = new Set(opts.clearPersonOn ?? []);
 
   for (const workspace of ["dev", "ambassador"] as const) {
     if (skip.has(workspace)) continue;
@@ -165,6 +173,7 @@ export async function pushBookingToWorkspaces(
         booking,
         opts[workspace] ?? {},
         opts.fullUpdate ?? false,
+        clearPerson.has(workspace),
       );
     } catch (err) {
       result[workspace] = "error";

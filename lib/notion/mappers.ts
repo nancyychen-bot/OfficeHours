@@ -150,7 +150,7 @@ function readRichText(prop: unknown): string | null {
  * sets the native `Booked by` Person to "whoever clicked" is enough — the hub
  * derives the display name that crosses the boundary from it.
  */
-function readFirstPersonName(prop: unknown): string | null {
+export function readFirstPersonName(prop: unknown): string | null {
   const p = prop as { people?: Array<{ name?: string }> } | undefined;
   if (!p?.people?.length) return null;
   return p.people[0]?.name ?? null;

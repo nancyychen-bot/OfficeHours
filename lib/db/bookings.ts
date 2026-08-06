@@ -218,6 +218,29 @@ export async function claimBooking(params: {
   return { ok: false, reason: "already_claimed", current };
 }
 
+/** Reassign an already-assigned booking to a different expert (stays 'assigned'). */
+export async function reassignBooking(
+  bookingId: string,
+  displayName: string,
+  bookedByType: BookedByType,
+): Promise<Booking | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({
+      status: "assigned",
+      booked_by_display_name: displayName,
+      booked_by_type: bookedByType,
+      booked_by_email: null, // re-set from the new expert's Notion Person
+      previously_matched: true,
+    })
+    .eq("id", bookingId)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /** Revert a claim back to open (used for the losing side of a race, or admin). */
 export async function releaseBooking(bookingId: string): Promise<Booking | null> {
   const supabase = getAdminClient();

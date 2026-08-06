@@ -58,10 +58,18 @@ export function buildRecruitBlocks(i: RecruitInput): unknown[] {
     elements.push({ type: "button", text: { type: "plain_text", text: "Claim — Ambassador", emoji: true }, url: i.ambassadorCardUrl, style: "primary" });
   }
   if (i.devCardUrl) {
-    elements.push({ type: "button", text: { type: "plain_text", text: "Claim — Notion staff", emoji: true }, url: i.devCardUrl });
+    elements.push({ type: "button", text: { type: "plain_text", text: "Claim — Notino", emoji: true }, url: i.devCardUrl });
   }
   if (elements.length) {
-    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Tap the button for how you're attending — an Ambassador or Notion staff." }] });
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: "Pick the button that's *you*: tap *Claim — Ambassador* if you're a Notion Ambassador, or *Claim — Notino* if you work at Notion. It opens the right card — hit *Claim* there to lock it in.",
+        },
+      ],
+    });
     blocks.push({ type: "actions", elements });
   }
   return blocks;

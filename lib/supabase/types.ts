@@ -318,6 +318,7 @@ export type Database = {
       }
       slack_channels: {
         Row: {
+          aliases: string[]
           channel_name: string | null
           city: string
           created_at: string
@@ -325,6 +326,7 @@ export type Database = {
           webhook_url: string
         }
         Insert: {
+          aliases?: string[]
           channel_name?: string | null
           city: string
           created_at?: string
@@ -332,6 +334,7 @@ export type Database = {
           webhook_url: string
         }
         Update: {
+          aliases?: string[]
           channel_name?: string | null
           city?: string
           created_at?: string

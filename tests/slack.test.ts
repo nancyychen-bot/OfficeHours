@@ -33,7 +33,7 @@ describe("buildRecruitBlocks", () => {
     expect(urls).toContain("https://www.notion.so/dev123");
     const labels = actions?.elements?.map((e) => e.text?.text);
     expect(labels).toContain("Claim — Ambassador");
-    expect(labels).toContain("Claim — Notion staff");
+    expect(labels).toContain("Claim — Notino");
   });
 
   it("shows only the ambassador button when there is no dev card", () => {

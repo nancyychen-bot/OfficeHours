@@ -2,7 +2,9 @@
 // unclaim a 1:1 they personally claimed. Extend via UNCLAIM_ADMIN_EMAILS (comma-
 // separated) without a code change, or edit this list.
 const DEFAULT_ADMINS = [
-  "nchen@makenotion.com",
+  // TEMP (refusal test 2026-08-06): nchen removed so Nancy can experience a refusal.
+  // RESTORE this line right after the test.
+  // "nchen@makenotion.com",
   "eyy@makenotion.com",
   "vanessa.intan@makenotion.com",
   "faisa.mohamed@makenotion.com",

@@ -32,8 +32,8 @@ describe("buildRecruitBlocks", () => {
     expect(urls).toContain("https://www.notion.so/amb123");
     expect(urls).toContain("https://www.notion.so/dev123");
     const labels = actions?.elements?.map((e) => e.text?.text);
-    expect(labels).toContain("Claim — Ambassador");
-    expect(labels).toContain("Claim — Notino");
+    expect(labels).toContain("Open Ambassador card");
+    expect(labels).toContain("Open Notino card");
   });
 
   it("shows only the ambassador button when there is no dev card", () => {

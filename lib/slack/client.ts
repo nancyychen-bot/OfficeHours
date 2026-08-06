@@ -67,20 +67,18 @@ export function buildRecruitBlocks(i: RecruitInput): unknown[] {
   // to claim wins; the other gets an "already claimed" reply (cross-workspace arbiter).
   const elements: unknown[] = [];
   if (i.ambassadorCardUrl) {
-    elements.push({ type: "button", text: { type: "plain_text", text: "Claim — Ambassador", emoji: true }, url: i.ambassadorCardUrl, style: "primary" });
+    elements.push({ type: "button", text: { type: "plain_text", text: "Open Ambassador card", emoji: true }, url: i.ambassadorCardUrl });
   }
   if (i.devCardUrl) {
-    elements.push({ type: "button", text: { type: "plain_text", text: "Claim — Notino", emoji: true }, url: i.devCardUrl });
+    elements.push({ type: "button", text: { type: "plain_text", text: "Open Notino card", emoji: true }, url: i.devCardUrl });
   }
   if (elements.length) {
     blocks.push({
-      type: "context",
-      elements: [
-        {
-          type: "mrkdwn",
-          text: "Pick the button that's *you*: tap *Claim — Ambassador* if you're a Notion Ambassador, or *Claim — Notino* if you work at Notion. It opens the right card — hit *Claim* there to lock it in.",
-        },
-      ],
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: "Want it? Open your card below — *Ambassador* if you're a Notion Ambassador, *Notino* if you work at Notion — then press *Claim* inside the card to lock it in.",
+      },
     });
     blocks.push({ type: "actions", elements });
   }

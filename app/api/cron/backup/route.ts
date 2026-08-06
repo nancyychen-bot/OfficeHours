@@ -21,12 +21,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    await logSync({ direction: "luma_in", result: "skipped_echo", action: "backup_cron", note: "no blob store connected" });
-    return NextResponse.json({ skipped: "no blob store" });
-  }
-
+  const token = process.env.BLOB_READ_WRITE_TOKEN; // optional: SDK also resolves from a linked store
   try {
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const snapshot = await buildSnapshot(stamp);
@@ -34,7 +29,7 @@ export async function POST(req: Request) {
       access: "private", // PII — requires authentication to read
       addRandomSuffix: false,
       contentType: "application/json",
-      token,
+      ...(token ? { token } : {}),
     });
     await logSync({
       direction: "luma_in",

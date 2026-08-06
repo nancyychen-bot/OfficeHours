@@ -2,7 +2,7 @@ import { getBookingDetailsById } from "../db/bookings";
 import { reserveCommsSlot, finalizeComms, type CommsStatus } from "../db/email-log";
 import { sendEmail, type EmailAttachment } from "./resend";
 import { buildInvite, buildCancel, inviteAttachment, fromAddressEmail } from "./ics";
-import { renderComms, guestDetailsLines, type CommsFields, type CommsKind, type Recipient } from "./templates";
+import { renderComms, inviteDescription, type CommsFields, type CommsKind, type Recipient } from "./templates";
 import { env } from "../env";
 import { logSync } from "../sync/log";
 import type { BookingDetails } from "../sync/types";
@@ -118,7 +118,7 @@ export async function sendBookingComms(
         slotEndsAt: f.slotEndsAt,
         // Prefer the specific street address for the calendar invite; fall back to city.
         location: f.address ?? f.location,
-        descriptionText: guestDetailsLines(f).join("\n"),
+        descriptionText: inviteDescription(f),
       };
       const ics =
         kind === "assigned"

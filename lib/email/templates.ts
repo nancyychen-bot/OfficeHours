@@ -56,6 +56,21 @@ function guestSessionLines(f: CommsFields): string[] {
   return lines;
 }
 
+/**
+ * Clean, guest-facing calendar-invite body (the .ics DESCRIPTION) — NOT the
+ * internal details dump. Confirmation + slot, address, expert, and an arrival nudge.
+ */
+export function inviteDescription(f: CommsFields): string {
+  const place = f.address ?? f.location;
+  const lines = ["You're confirmed for your Notion Build Bar 1:1! Details:", ""];
+  if (f.slotName) lines.push(`Time slot: ${f.slotName}`);
+  if (place) lines.push(`Location: ${place}`);
+  if (f.helperName) lines.push(`Your Notion expert: ${f.helperName}`);
+  lines.push("");
+  lines.push("Please arrive 5 minutes before the start of your booking.");
+  return lines.join("\n");
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

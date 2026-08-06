@@ -53,7 +53,8 @@ describe("renderComms", () => {
   });
   it("assigned→guest confirms with the helper name", () => {
     const r = renderComms("assigned", "guest", fields())!;
-    expect(r.subject).toContain("booked for Notion Build Bar");
+    expect(r.subject).toContain("Invitation");
+    expect(r.subject).toContain("Aug 26"); // eventDate 2026-08-26 formatted
     expect(r.text).toContain("Hi Ada,");
     expect(r.text).toContain("Grace Hopper will be your Notion expert");
     expect(r.text).toContain("The Notion Community Team");

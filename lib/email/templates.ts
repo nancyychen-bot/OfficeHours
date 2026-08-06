@@ -45,6 +45,14 @@ function firstName(full: string | null | undefined, fallback = "there"): string 
   return n || fallback;
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** "2026-08-28" → "Aug 28" (no timezone parsing so the date never shifts). */
+function shortDate(isoDate: string): string {
+  const m = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return isoDate;
+  return `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}`;
+}
+
 /** A warm, guest-facing session summary — only the lines we actually have. */
 function guestSessionLines(f: CommsFields): string[] {
   const lines: string[] = [];
@@ -115,7 +123,7 @@ export function renderComms(
   }
   if (kind === "assigned" && role === "guest") {
     return {
-      subject: `You're booked for Notion Build Bar${f.eventDate ? ` — ${f.eventDate}` : ""} 🎉`,
+      subject: `📅 Invitation: your Notion Build Bar 1:1${f.eventDate ? ` — ${shortDate(f.eventDate)}` : ""}`,
       ...wrap([
         `Hi ${firstName(f.guestName)},`,
         "",

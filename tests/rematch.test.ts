@@ -34,4 +34,11 @@ describe("day-before template routing", () => {
     expect(r.text).toContain("weren't able to match you");
     expect(r.text).toContain("cowork");
   });
+
+  it("reassigned_off tells the previous expert they've been taken off", () => {
+    expect(templateKeyFor("reassigned_off", "helper", SAMPLE_FIELDS)).toBe("reassigned_off__helper");
+    const r = renderComms("reassigned_off", "helper", SAMPLE_FIELDS)!;
+    expect(r.text).toContain("reassigned to another Notion expert");
+    expect(r.text).toContain("talk to Nancy Chen");
+  });
 });

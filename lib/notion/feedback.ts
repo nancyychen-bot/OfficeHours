@@ -15,6 +15,10 @@ export const FB = {
   needsReview: "Needs review",
   satisfaction: "How satisfied were you with this event?",
   satisfactionScore: "Satisfaction score",
+  confidence: "How confident are you using Notion after this event vs. before?",
+  featureIntent: "Which feature or workflow will you try this week?",
+  highlight: "What was the highlight, and anything we should improve?",
+  interests: "Would you be interested in any of these?",
 } as const;
 
 // Database + data-source ids (v2025-09-03: pages are created under a data source).
@@ -46,8 +50,47 @@ export function readFeedbackName(props: Props): string | null {
 
 /** Read the satisfaction select option name (used to derive the numeric score). */
 export function readSatisfactionSelect(props: Props): string | null {
-  const p = props[FB.satisfaction] as { select?: { name?: string } | null } | undefined;
+  return readSelectName(props, FB.satisfaction);
+}
+
+/** Read a named select property's option name. */
+export function readSelectName(props: Props, name: string): string | null {
+  const p = props[name] as { select?: { name?: string } | null } | undefined;
   return p?.select?.name ?? null;
+}
+
+/** Read a named rich_text property's plain text. */
+export function readRichTextProp(props: Props, name: string): string | null {
+  const p = props[name] as { rich_text?: Array<{ plain_text?: string }> } | undefined;
+  if (!p?.rich_text?.length) return null;
+  return p.rich_text.map((r) => r.plain_text ?? "").join("") || null;
+}
+
+/** Read a named multi_select property's option names. */
+export function readMultiSelect(props: Props, name: string): string[] {
+  const p = props[name] as { multi_select?: Array<{ name: string }> } | undefined;
+  return (p?.multi_select ?? []).map((o) => o.name);
+}
+
+/** All feedback content parsed off the page (for persisting to Supabase). */
+export interface FeedbackContent {
+  satisfactionLabel: string | null;
+  satisfactionScore: number | null;
+  confidence: string | null;
+  interests: string[];
+  featureIntent: string | null;
+  highlight: string | null;
+}
+export function readFeedbackContent(props: Props): FeedbackContent {
+  const satisfactionLabel = readSatisfactionSelect(props);
+  return {
+    satisfactionLabel,
+    satisfactionScore: parseSatisfactionScore(satisfactionLabel),
+    confidence: readSelectName(props, FB.confidence),
+    interests: readMultiSelect(props, FB.interests),
+    featureIntent: readRichTextProp(props, FB.featureIntent),
+    highlight: readRichTextProp(props, FB.highlight),
+  };
 }
 
 /** Build the enrichment write payload for a feedback row. */

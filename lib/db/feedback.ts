@@ -103,12 +103,22 @@ export async function getFeedbackMirror(ambassadorPageId: string): Promise<Feedb
   return data ?? null;
 }
 
-/** Record/refresh the Ambassador→Dev mapping after mirroring a response. */
+/** Record/refresh the mapping + response content after processing a response. */
 export async function upsertFeedbackMirror(input: {
   ambassadorPageId: string;
   devPageId: string | null;
   matchedEventId: string | null;
   needsReview: boolean;
+  guestName?: string | null;
+  guestEmail?: string | null;
+  satisfactionScore?: number | null;
+  satisfactionLabel?: string | null;
+  confidence?: string | null;
+  interests?: string[];
+  featureIntent?: string | null;
+  highlight?: string | null;
+  notionExpert?: string | null;
+  submittedAt?: string | null;
 }): Promise<void> {
   const { error } = await table().upsert(
     {
@@ -116,6 +126,16 @@ export async function upsertFeedbackMirror(input: {
       dev_page_id: input.devPageId,
       matched_event_id: input.matchedEventId,
       needs_review: input.needsReview,
+      guest_name: input.guestName ?? null,
+      guest_email: input.guestEmail ?? null,
+      satisfaction_score: input.satisfactionScore ?? null,
+      satisfaction_label: input.satisfactionLabel ?? null,
+      confidence: input.confidence ?? null,
+      interests: input.interests ?? null,
+      feature_intent: input.featureIntent ?? null,
+      highlight: input.highlight ?? null,
+      notion_expert: input.notionExpert ?? null,
+      submitted_at: input.submittedAt ?? null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "ambassador_page_id" },

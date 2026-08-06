@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import type { HubBooking } from "@/lib/hub/queries";
-import { filterBookings, groupByCity, STATUS_FILTERS, type Chip } from "@/lib/hub/format";
+import { filterBookings, groupByCity, lumaStatusPill, STATUS_FILTERS, type Chip } from "@/lib/hub/format";
 import { StatusPill } from "./StatusPill";
+
+const COLS = 16;
 
 export function BookingsTab({ bookings, chips }: { bookings: HubBooking[]; chips: Chip[] }) {
   const [chip, setChip] = useState("all");
@@ -57,17 +59,16 @@ export function BookingsTab({ bookings, chips }: { bookings: HubBooking[]; chips
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-line bg-white">
+      <div className="overflow-x-auto rounded-lg border border-line bg-white">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-line text-xs uppercase tracking-wide text-neutral-400">
             <tr>
-              <th className="px-3 py-2 font-medium whitespace-nowrap">Guest</th>
-              <th className="px-3 py-2 font-medium whitespace-nowrap">Status</th>
-              <th className="px-3 py-2 font-medium whitespace-nowrap">Slot</th>
-              <th className="px-3 py-2 font-medium whitespace-nowrap">City</th>
-              <th className="px-3 py-2 font-medium whitespace-nowrap">Booked by</th>
-              <th className="px-3 py-2 font-medium whitespace-nowrap">Helper type</th>
-              <th className="w-[40%] min-w-[320px] px-3 py-2 font-medium">Challenge</th>
+              {[
+                "Guest", "Status", "Luma", "Slot", "Requested", "City", "Booked by", "Type",
+                "Role", "Company", "Plan", "Experience", "Reasons", "Notion email", "Phone", "Challenge",
+              ].map((h) => (
+                <th key={h} className="px-3 py-2 font-medium whitespace-nowrap">{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -76,7 +77,7 @@ export function BookingsTab({ bookings, chips }: { bookings: HubBooking[]; chips
             ))}
             {groups.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-neutral-400">
+                <td colSpan={COLS} className="px-3 py-6 text-center text-neutral-400">
                   No bookings match.
                 </td>
               </tr>
@@ -88,25 +89,43 @@ export function BookingsTab({ bookings, chips }: { bookings: HubBooking[]; chips
   );
 }
 
+function Cell({ children }: { children: React.ReactNode }) {
+  return <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{children ?? "—"}</td>;
+}
+
 function RowsForCity({ city, rows }: { city: string; rows: HubBooking[] }) {
   return (
     <>
       <tr className="bg-neutral-50/60">
-        <td colSpan={7} className="px-3 py-1.5 text-xs font-semibold text-neutral-500">
+        <td colSpan={COLS} className="px-3 py-1.5 text-xs font-semibold text-neutral-500">
           {city} · {rows.length}
         </td>
       </tr>
-      {rows.map((r) => (
-        <tr key={r.id} className="border-b border-line align-top last:border-0">
-          <td className="whitespace-nowrap px-3 py-2 font-medium text-neutral-800">{r.guest_name}</td>
-          <td className="px-3 py-2"><StatusPill status={r.status} /></td>
-          <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{r.slot_name ?? "—"}</td>
-          <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{r.location ?? "—"}</td>
-          <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{r.booked_by_display_name ?? "Empty"}</td>
-          <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{r.booked_by_type ?? "—"}</td>
-          <td className="px-3 py-2 text-neutral-600">{r.challenge ?? "—"}</td>
-        </tr>
-      ))}
+      {rows.map((r) => {
+        const luma = lumaStatusPill(r.luma_status);
+        return (
+          <tr key={r.id} className="border-b border-line align-top last:border-0">
+            <td className="whitespace-nowrap px-3 py-2 font-medium text-neutral-800">{r.guest_name}</td>
+            <td className="px-3 py-2"><StatusPill status={r.status} /></td>
+            <td className="px-3 py-2">
+              <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${luma.className}`}>{luma.label}</span>
+            </td>
+            <Cell>{r.slot_name}</Cell>
+            <Cell>{r.requested_slot}</Cell>
+            <Cell>{r.location}</Cell>
+            <Cell>{r.booked_by_display_name ?? "Empty"}</Cell>
+            <Cell>{r.booked_by_type}</Cell>
+            <Cell>{r.role}</Cell>
+            <Cell>{r.company}</Cell>
+            <Cell>{r.notion_plan}</Cell>
+            <Cell>{r.experience_level}</Cell>
+            <td className="max-w-[220px] truncate px-3 py-2 text-neutral-600" title={r.attend_reasons ?? ""}>{r.attend_reasons ?? "—"}</td>
+            <Cell>{r.notion_email}</Cell>
+            <Cell>{r.guest_phone}</Cell>
+            <td className="max-w-[320px] px-3 py-2 text-neutral-600">{r.challenge ?? "—"}</td>
+          </tr>
+        );
+      })}
     </>
   );
 }

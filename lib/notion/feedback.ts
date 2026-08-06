@@ -7,7 +7,7 @@ import type { getNotionClient } from "./client";
 
 export const FB = {
   name: "What is your name?",
-  title: "Submission",
+  title: "Name",
   email: "What email do you use for Notion?",
   eventDate: "Event Date",
   location: "Location",

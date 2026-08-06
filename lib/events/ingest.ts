@@ -3,6 +3,7 @@ import { matchSlotForEvent } from "../db/slots";
 import { upsertBookingFromLuma, checkInByLumaGuestId, getBookingByLumaGuestId } from "../db/bookings";
 import { pushBookingToWorkspaces } from "../notion/push";
 import { sendBookingComms } from "../email/comms";
+import { clearAllComms } from "../db/email-log";
 import { approvalStatusToLumaStatus } from "../luma/approval";
 import type { NormalizedRegistration } from "../luma/parse";
 import type { Booking } from "../sync/types";
@@ -29,17 +30,15 @@ export async function ingestRegistration(
   }
 
   const nextLumaStatus = approvalStatusToLumaStatus(norm.approvalStatus);
+  const prior = await getBookingByLumaGuestId(norm.lumaGuestId);
 
   // Approval change made in Luma (a guest self-cancel, or an organizer acting in
   // Luma instead of Notion): send the same downgrade emails as the Notion path,
   // BEFORE the upsert releases the helper (which clears booked_by_email). Gated on
   // an actual transition so it never duplicates the Notion path's echo. Live only.
-  if (opts.live) {
-    const prior = await getBookingByLumaGuestId(norm.lumaGuestId);
-    if (prior && prior.luma_status !== nextLumaStatus) {
-      if (nextLumaStatus === "declined") await sendBookingComms(prior.id, "declined");
-      else if (nextLumaStatus === "waitlist") await sendBookingComms(prior.id, "waitlisted");
-    }
+  if (opts.live && prior && prior.luma_status !== nextLumaStatus) {
+    if (nextLumaStatus === "declined") await sendBookingComms(prior.id, "declined");
+    else if (nextLumaStatus === "waitlist") await sendBookingComms(prior.id, "waitlisted");
   }
 
   const slot = norm.requestedSlot
@@ -63,6 +62,13 @@ export async function ingestRegistration(
     requestedSlot: norm.requestedSlot,
     lumaStatus: nextLumaStatus,
   });
+
+  // Reactivation (a cancelled booking re-registering) is a fresh episode — clear
+  // its stale send records so the next round of comms (invite on claim, another
+  // decline/waitlist notice, etc.) isn't suppressed by the per-booking dedup.
+  if (prior?.status === "cancelled" && booking.status !== "cancelled") {
+    await clearAllComms(booking.id);
+  }
 
   let checkedIn = false;
   if (norm.isCheckedIn && booking.status !== "checked_in") {

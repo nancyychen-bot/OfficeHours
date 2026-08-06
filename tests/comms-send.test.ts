@@ -12,13 +12,16 @@ function fields(p: Partial<CommsFields> = {}): CommsFields {
 }
 
 function makeDeps(over: Partial<CommsDeps> = {}, f: CommsFields | null = fields()) {
-  const sent: Array<{ to: string; hasAttachment: boolean }> = [];
+  const sent: Array<{ to: string; hasAttachment: boolean; ics: string }> = [];
   const recorded: Array<{ email: string; status: string }> = [];
   const deps: CommsDeps = {
     getFields: async () => f,
     reserve: async () => true,
     finalize: async (_b, _k, email, o) => { recorded.push({ email, status: o.status }); },
-    send: async (i) => { sent.push({ to: i.to, hasAttachment: !!i.attachments?.length }); return { id: "re_1" }; },
+    send: async (i) => {
+      sent.push({ to: i.to, hasAttachment: !!i.attachments?.length, ics: i.attachments?.[0]?.content?.toString("utf8") ?? "" });
+      return { id: "re_1" };
+    },
     enabled: () => true,
     from: () => "Notion Build Bar <hello@oh.com>",
     now: () => "2026-07-31T00:00:00Z",
@@ -33,6 +36,15 @@ describe("sendBookingComms", () => {
     await sendBookingComms("b1", "assigned", deps);
     expect(sent.map((s) => s.to).sort()).toEqual(["ada@x.com", "grace@x.com"]);
     expect(sent.every((s) => s.hasAttachment)).toBe(true);
+  });
+
+  it("invite title is personalized per recipient (guest sees the expert, helper sees the guest)", async () => {
+    const { deps, sent } = makeDeps();
+    await sendBookingComms("b1", "assigned", deps);
+    const guest = sent.find((s) => s.to === "ada@x.com")!;
+    const helper = sent.find((s) => s.to === "grace@x.com")!;
+    expect(guest.ics).toContain("SUMMARY:Notion Build Bar - Meet Grace");
+    expect(helper.ics).toContain("SUMMARY:Notion Build Bar - Meet Ada");
   });
 
   it("assigned with no helper email → guest only", async () => {

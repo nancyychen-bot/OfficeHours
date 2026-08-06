@@ -8,6 +8,8 @@ export interface IcsFields {
   slotEndsAt: string | null;
   location: string | null;
   descriptionText: string;
+  /** Calendar event title; defaults to "Notion Build Bar — {guest}" if unset. */
+  summary?: string;
 }
 
 /** Extract the bare email from a "Name <email>" (or plain email) string. */
@@ -63,7 +65,7 @@ function buildEvent(
     `DTSTAMP:${stamp(stampISO)}`,
     `DTSTART:${stamp(start.toISOString())}`,
     `DTEND:${stamp(endDate.toISOString())}`,
-    `SUMMARY:${esc(`Notion Build Bar — ${f.guestName}`)}`,
+    `SUMMARY:${esc(f.summary ?? `Notion Build Bar — ${f.guestName}`)}`,
     f.location ? `LOCATION:${esc(f.location)}` : null,
     `DESCRIPTION:${esc(f.descriptionText)}`,
     `ORGANIZER;CN=Notion Build Bar:mailto:${fromEmail}`,

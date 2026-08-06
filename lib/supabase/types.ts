@@ -348,7 +348,6 @@ export type Database = {
       }
       slots: {
         Row: {
-          capacity: number
           created_at: string
           ends_at: string
           event_id: string
@@ -358,7 +357,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          capacity?: number
           created_at?: string
           ends_at: string
           event_id: string
@@ -368,7 +366,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          capacity?: number
           created_at?: string
           ends_at?: string
           event_id?: string

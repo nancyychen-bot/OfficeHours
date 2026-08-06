@@ -9,7 +9,6 @@ function slot(partial: Partial<SlotRow>): SlotRow {
     name: partial.name ?? "2:00–2:30 PM",
     starts_at: partial.starts_at ?? "2026-08-15T21:00:00.000Z",
     ends_at: partial.ends_at ?? "2026-08-15T21:30:00.000Z",
-    capacity: partial.capacity ?? 1,
     created_at: partial.created_at ?? "2026-07-29T00:00:00.000Z",
     updated_at: partial.updated_at ?? "2026-07-29T00:00:00.000Z",
   };

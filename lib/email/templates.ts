@@ -327,7 +327,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi there,", "",
       "It looks like you tried to unclaim a 1:1 at Notion Build Bar that's currently claimed by {{expertName}}. Only the person who claimed a spot can unclaim it, so nothing has changed.", "",
-      "If you need this spot changed, please talk to Nancy Chen.", "",
+      "If you'd like this spot, ask {{expertName}} to unclaim it — or talk to Nancy Chen to have it changed.", "",
       "Thanks for building with us,", SIGNOFF,
     ),
   },

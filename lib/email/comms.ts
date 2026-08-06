@@ -2,7 +2,8 @@ import { getBookingDetailsById } from "../db/bookings";
 import { reserveCommsSlot, finalizeComms, type CommsStatus } from "../db/email-log";
 import { sendEmail, type EmailAttachment } from "./resend";
 import { buildInvite, buildCancel, inviteAttachment, fromAddressEmail } from "./ics";
-import { renderComms, inviteDescription, type CommsFields, type CommsKind, type Recipient } from "./templates";
+import { renderComms, inviteDescription, type CommsFields, type CommsKind, type Recipient, type OverrideMap } from "./templates";
+import { getLiveOverrideMap } from "../db/email-overrides";
 import { env } from "../env";
 import { logSync } from "../sync/log";
 import type { BookingDetails } from "../sync/types";
@@ -30,6 +31,8 @@ export interface CommsDeps {
   enabled: () => boolean;
   from: () => string;
   now: () => string;
+  /** Published copy overrides (falls back to built-in defaults). Optional in tests. */
+  getOverrides?: () => Promise<OverrideMap>;
 }
 
 /** Map an enriched booking_details row to the template's CommsFields. */
@@ -66,6 +69,7 @@ const defaultDeps: CommsDeps = {
   enabled: () => env.comms.enabled(),
   from: () => env.comms.from(),
   now: () => new Date().toISOString(),
+  getOverrides: getLiveOverrideMap,
 };
 
 const RECIPIENTS: Record<CommsKind, Recipient[]> = {
@@ -107,6 +111,14 @@ export async function sendBookingComms(
     const f = await deps.getFields(bookingId);
     if (!f) return;
 
+    // Published copy overrides (best-effort — fall back to built-in defaults).
+    let overrides: OverrideMap = new Map();
+    try {
+      if (deps.getOverrides) overrides = await deps.getOverrides();
+    } catch (err) {
+      await logSync({ direction: "luma_in", result: "applied", bookingId, action: "comms_overrides_skipped", note: errText(err) });
+    }
+
     // Whether this kind carries a calendar file (invite on assigned; CANCEL on teardowns).
     const isCalendarKind = kind === "assigned" || CANCEL_CALENDAR_KINDS.has(kind);
     if (isCalendarKind && kind === "assigned" && !f.slotStartsAt) {
@@ -123,7 +135,7 @@ export async function sendBookingComms(
         }
         continue;
       }
-      const rendered = renderComms(kind, role, f);
+      const rendered = renderComms(kind, role, f, overrides);
       if (!rendered) continue;
 
       // Per-recipient calendar file: the guest's title names their Notion expert;

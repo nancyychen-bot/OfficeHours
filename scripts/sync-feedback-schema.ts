@@ -60,6 +60,7 @@ async function main() {
 
   // 2) Ensure backend-enriched props exist on BOTH (Helper, Needs review, Score).
   const additions: Record<string, { checkbox: object } | { number: object } | { rich_text: object }> = {
+    [FB.name]: { rich_text: {} },
     [FB.helper]: { rich_text: {} },
     [FB.needsReview]: { checkbox: {} },
     [FB.satisfactionScore]: { number: {} },

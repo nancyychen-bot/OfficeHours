@@ -4,6 +4,7 @@ import { getNotionClient } from "@/lib/notion/client";
 import {
   FEEDBACK_DEV_DS,
   readFeedbackEmail,
+  readFeedbackName,
   readSatisfactionSelect,
   parseSatisfactionScore,
   enrichmentProperties,
@@ -63,6 +64,7 @@ export async function POST(req: Request) {
     const props = page.properties ?? {};
 
     const email = readFeedbackEmail(props);
+    const guestName = readFeedbackName(props);
     const submittedAt: string = page.created_time ?? new Date().toISOString();
     const satisfactionScore = parseSatisfactionScore(readSatisfactionSelect(props));
 
@@ -70,6 +72,7 @@ export async function POST(req: Request) {
     const needsReview = !match;
 
     const enrichment = enrichmentProperties({
+      guestName,
       eventDate: match?.eventDate ?? null,
       city: match?.city ?? null,
       helperName: match?.helperName ?? null,

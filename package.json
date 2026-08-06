@@ -16,6 +16,7 @@
     "register:event": "tsx --env-file=.env.local scripts/register-event.ts",
     "send:feedback": "tsx --env-file=.env.local scripts/send-feedback.ts",
     "send:prep": "tsx --env-file=.env.local scripts/send-prep.ts",
+    "sync:luma-stats": "tsx --env-file=.env.local scripts/sync-luma-stats.ts",
     "gen:types": "supabase gen types typescript --project-id jldgxdaemtdqcfrdzeby --schema public > lib/supabase/types.ts"
   },
   "dependencies": {

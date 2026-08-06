@@ -72,6 +72,31 @@ export async function listEventGuests(eventId: string): Promise<LumaGuestListEnt
   return out;
 }
 
+export interface LumaEventStats {
+  registered: number;
+  approved: number;
+  checkedIn: number;
+  waitlist: number;
+  pending: number;
+  capacity: number | null;
+}
+
+/** Authoritative per-event counts straight from Luma's guest list. */
+export async function fetchEventStats(eventId: string): Promise<LumaEventStats> {
+  const guests = await listEventGuests(eventId);
+  const stats: LumaEventStats = { registered: 0, approved: 0, checkedIn: 0, waitlist: 0, pending: 0, capacity: null };
+  for (const g of guests) {
+    const st = g.approval_status;
+    if (st === "declined") continue; // declined aren't "registered" attendees
+    stats.registered++;
+    if (st === "approved") stats.approved++;
+    else if (st === "waitlist") stats.waitlist++;
+    else if (st === "pending_approval") stats.pending++;
+    if ((g.event_tickets ?? []).some((t) => t.checked_in_at)) stats.checkedIn++;
+  }
+  return stats;
+}
+
 function optionLabel(o: unknown): string {
   if (typeof o === "string") return o;
   if (o && typeof o === "object") {

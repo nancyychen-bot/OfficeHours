@@ -44,6 +44,15 @@ export interface HubFeedback {
   event_date: string | null;
 }
 
+export interface LumaStats {
+  registered: number;
+  approved: number;
+  checkedIn: number;
+  waitlist: number;
+  pending: number;
+  capacity: number | null;
+}
+
 export interface HubEvent {
   id: string;
   name: string;
@@ -53,6 +62,8 @@ export interface HubEvent {
   status: string;
   slot_count: number;
   booking_count: number;
+  luma_stats: LumaStats | null;
+  luma_synced_at: string | null;
 }
 
 export interface SyncSummary {
@@ -149,7 +160,7 @@ export async function listEvents(): Promise<HubEvent[]> {
   const supabase = getAdminClient();
   const { data: events, error } = await supabase
     .from("events")
-    .select("id,name,city,event_date,luma_event_id,status")
+    .select("id,name,city,event_date,luma_event_id,status,luma_stats,luma_synced_at")
     .order("event_date", { ascending: true });
   if (error) throw error;
   const { data: slots, error: sErr } = await supabase.from("slots").select("event_id");
@@ -174,6 +185,8 @@ export async function listEvents(): Promise<HubEvent[]> {
     status: e.status as string,
     slot_count: slotCount.get(e.id as string) ?? 0,
     booking_count: bookCount.get(e.id as string) ?? 0,
+    luma_stats: ((e as { luma_stats?: unknown }).luma_stats as LumaStats | null) ?? null,
+    luma_synced_at: ((e as { luma_synced_at?: string }).luma_synced_at as string) ?? null,
   }));
 }
 

@@ -179,3 +179,33 @@ export function computeCommunity(bookings: HubBooking[]): Community {
     top: people.filter((p) => p.events >= 2).sort((a, b) => b.events - a.events).slice(0, 10),
   };
 }
+
+// ---- Contributors ("Voluntinos") -------------------------------------------
+
+export interface Contributor {
+  name: string;
+  type: string | null; // employee | ambassador
+  sessions: number; // completed (checked-in) 1:1s they hosted
+  events: number; // distinct events they helped at
+}
+
+/** Top experts by completed 1:1s: checked-in bookings grouped by the person who
+ * claimed them (booked_by). Counts real sessions (guest showed), not just claims. */
+export function computeContributors(bookings: HubBooking[]): Contributor[] {
+  const byKey = new Map<string, { name: string; type: string | null; sessions: number; events: Set<string> }>();
+  for (const b of bookings) {
+    if (b.status !== "checked_in") continue; // an actual, completed 1:1
+    const name = (b.booked_by_display_name ?? "").trim();
+    if (!name) continue;
+    const key = (b.booked_by_email ?? name).trim().toLowerCase();
+    const rec = byKey.get(key) ?? { name, type: b.booked_by_type ?? null, sessions: 0, events: new Set<string>() };
+    rec.sessions += 1;
+    rec.events.add(b.luma_event_id);
+    if (!rec.type && b.booked_by_type) rec.type = b.booked_by_type;
+    byKey.set(key, rec);
+  }
+  return [...byKey.values()]
+    .map((r) => ({ name: r.name, type: r.type, sessions: r.sessions, events: r.events.size }))
+    .sort((a, b) => b.sessions - a.sessions)
+    .slice(0, 10);
+}

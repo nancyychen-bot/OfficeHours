@@ -108,3 +108,31 @@ describe("computeCommunity repeat attendance", () => {
     expect(c.uniqueAttendees).toBe(0);
   });
 });
+
+describe("computeContributors", () => {
+  it("ranks experts by completed (checked-in) 1:1s across events", async () => {
+    const { computeContributors } = await import("../lib/hub/results");
+    const bookings = [
+      bk("A", { status: "checked_in", booked_by_display_name: "Grace Hopper", booked_by_email: "grace@x.com", booked_by_type: "ambassador" }),
+      bk("B", { status: "checked_in", booked_by_display_name: "Grace Hopper", booked_by_email: "grace@x.com", booked_by_type: "ambassador" }),
+      bk("A", { status: "checked_in", booked_by_display_name: "Ada Lovelace", booked_by_email: "ada@x.com", booked_by_type: "employee" }),
+      bk("A", { status: "assigned", booked_by_display_name: "Ada Lovelace", booked_by_email: "ada@x.com" }), // not counted (not checked in)
+      bk("A", { status: "no_show", booked_by_display_name: "Ada Lovelace", booked_by_email: "ada@x.com" }), // not counted
+    ];
+    const top = computeContributors(bookings);
+    expect(top[0]).toMatchObject({ name: "Grace Hopper", type: "ambassador", sessions: 2, events: 2 });
+    expect(top[1]).toMatchObject({ name: "Ada Lovelace", type: "employee", sessions: 1, events: 1 });
+  });
+
+  it("ignores unclaimed bookings and dedupes by email", async () => {
+    const { computeContributors } = await import("../lib/hub/results");
+    const bookings = [
+      bk("A", { status: "checked_in" }), // no booked_by → skipped
+      bk("A", { status: "checked_in", booked_by_display_name: "Grace", booked_by_email: "grace@x.com" }),
+      bk("A", { status: "checked_in", booked_by_display_name: "Grace", booked_by_email: "grace@x.com" }),
+    ];
+    const top = computeContributors(bookings);
+    expect(top).toHaveLength(1);
+    expect(top[0].sessions).toBe(2);
+  });
+});

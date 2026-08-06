@@ -1,9 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import type { EventResult, Community } from "@/lib/hub/results";
+import type { EventResult, Community, Contributor } from "@/lib/hub/results";
 import { pct } from "@/lib/hub/format";
 import { ResultCard, Stat, SectionLabel } from "./ResultCard";
+
+function ContributorsCard({ contributors }: { contributors: Contributor[] }) {
+  return (
+    <div className="rounded-xl border border-line bg-white p-5 shadow-sm">
+      <SectionLabel dot="bg-amber-500">Top Voluntinos — 1:1s hosted</SectionLabel>
+      {contributors.length ? (
+        <ul className="space-y-1 text-sm">
+          {contributors.map((c, i) => (
+            <li key={`${c.name}-${i}`} className="flex items-center justify-between border-b border-line py-1 last:border-0">
+              <span className="text-neutral-700">
+                <span className="mr-2 text-neutral-400">{i + 1}.</span>
+                {c.name}
+                {c.type ? <span className="ml-2 rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-500">{c.type === "employee" ? "Notino" : "Ambassador"}</span> : null}
+              </span>
+              <span className="text-neutral-500">
+                {c.sessions} 1:1{c.sessions === 1 ? "" : "s"}
+                <span className="ml-2 text-neutral-400">· {c.events} event{c.events === 1 ? "" : "s"}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="text-xs text-neutral-400">No completed 1:1s yet.</p>}
+    </div>
+  );
+}
 
 function CommunityCard({ community }: { community: Community }) {
   return (
@@ -28,7 +53,7 @@ function CommunityCard({ community }: { community: Community }) {
   );
 }
 
-export function ResultsTab({ overall, perEvent, community }: { overall: EventResult; perEvent: EventResult[]; community: Community }) {
+export function ResultsTab({ overall, perEvent, community, contributors }: { overall: EventResult; perEvent: EventResult[]; community: Community; contributors: Contributor[] }) {
   const tabs = [overall, ...perEvent];
   const [key, setKey] = useState(overall.key);
   const active = tabs.find((t) => t.key === key) ?? overall;
@@ -62,6 +87,7 @@ export function ResultsTab({ overall, perEvent, community }: { overall: EventRes
         {/* Comments are per-event only (not on the overall roll-up). */}
         <ResultCard r={active} highlight={isOverall} showComments={!isOverall} />
         {isOverall ? <CommunityCard community={community} /> : null}
+        {isOverall ? <ContributorsCard contributors={contributors} /> : null}
       </div>
     </div>
   );

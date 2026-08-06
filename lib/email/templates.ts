@@ -97,6 +97,33 @@ function wrap(bodyLines: string[]): { html: string; text: string } {
   return { html, text };
 }
 
+/** Inline markdown → HTML: [text](url), bare URLs, **bold**, *italic*. Escapes first. */
+function inlineFormat(s: string): string {
+  let out = escapeHtml(s);
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>');
+  out = out.replace(/(^|[^"=>])(https?:\/\/[^\s<]+)/g, '$1<a href="$2">$2</a>');
+  out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  return out;
+}
+
+/** Plain-text form of an inline-markdown line (strip markers, keep the URL). */
+function stripInline(s: string): string {
+  return s
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "$1: $2")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1");
+}
+
+/** Like wrap(), but supports inline **bold**, *italic*, and links. */
+function wrapRich(bodyLines: string[]): { html: string; text: string } {
+  const text = bodyLines.map(stripInline).join("\n");
+  const html = bodyLines
+    .map((l) => (l === "" ? "<br/>" : `<p style="margin:0 0 8px">${inlineFormat(l)}</p>`))
+    .join("");
+  return { html, text };
+}
+
 /** Render subject + html + text for a kind×recipient, or null if none applies. */
 export function renderComms(
   kind: CommsKind,
@@ -391,29 +418,26 @@ export function renderComms(
   if (kind === "prep_reminder" && role === "guest") {
     return {
       subject: "One thing to do before Notion Build Bar ✨",
-      ...wrap([
+      ...wrapRich([
         `Hi ${firstName(f.guestName)},`,
         "",
-        "You're confirmed for Notion Build Bar. We can't wait to build with you!",
+        "You're **confirmed for Notion Build Bar** — we can't wait to build with you!",
         "",
-        "One thing to do before you arrive if you do not have Notion AI activated in your workspace: start your free Notion AI trial.",
+        `Before you arrive, if you don't already have Notion AI on, **[start your free Notion AI trial](${NOTION_AI_TRIAL_URL})** — it takes about a minute. Your host will use Notion AI to help you draft, summarize, and structure faster, so you'll get much more out of your session with it on.`,
         "",
-        "If you already have a Business or Enterprise plan, you do not need to sign up for the trial. If you've previously signed up for a trial, your account will not be eligible for the upgrade.",
+        "*Already on a Business or Enterprise plan, or used a trial before? You're all set — no need to sign up.*",
         "",
-        "Why Notion AI? Your host will likely use Notion AI to help you draft, summarize, and structure your workspace faster — and you'll get way more out of your session if it's already switched on.",
-        "",
-        `👉 Claim Notion AI Free Trial: ${NOTION_AI_TRIAL_URL} — takes about 1 minute.`,
-        "",
-        "Quick checklist:",
-        "✅ Double-check your 1:1 slot — if you have one, you should have a calendar invite",
+        "**Quick checklist:**",
+        "✅ Your 1:1 slot — check for the calendar invite (if you have one)",
         "✅ Notion AI activated",
-        "✅ Laptop ready",
-        "✅ Your question or workspace",
+        "✅ Laptop + the question or workspace you want help with",
         "",
-        "Please cancel your registration if you plan on not attending so we can free up the spot for someone else.",
+        "*Please cancel your registration if you can't make it, so we can free up your spot.*",
         "",
         "See you soon,",
         SIGNOFF,
+        "",
+        `*${SUPPORT}*`,
       ]),
     };
   }

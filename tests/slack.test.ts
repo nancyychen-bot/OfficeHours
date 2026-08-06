@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildRecruitBlocks, notionCardUrl, type RecruitInput } from "../lib/slack/client";
+import { buildRecruitBlocks, type RecruitInput } from "../lib/slack/client";
 
 const base: RecruitInput = {
   guestName: "Ada Lovelace",
@@ -53,17 +53,5 @@ describe("buildRecruitBlocks", () => {
     );
     expect(json).toContain("Ada Lovelace");
     expect(json).toContain("—"); // em-dash fallbacks
-  });
-});
-
-describe("notionCardUrl", () => {
-  it("strips dashes from the page id", () => {
-    expect(notionCardUrl("11112222-3333-4444-5555-666677778888")).toBe(
-      "https://www.notion.so/11112222333344445555666677778888",
-    );
-  });
-  it("returns null without a page id", () => {
-    expect(notionCardUrl(null)).toBeNull();
-    expect(notionCardUrl(undefined)).toBeNull();
   });
 });

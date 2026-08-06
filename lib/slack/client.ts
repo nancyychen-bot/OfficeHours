@@ -1,5 +1,6 @@
 import { getBookingById, getBookingDetailsById } from "../db/bookings";
 import { getSlackChannelForCity } from "../db/slack";
+import { getNotionClient, type NotionWorkspace } from "../notion/client";
 import { toCommsFields } from "../email/comms";
 import type { CommsFields } from "../email/templates";
 import { logSync } from "../sync/log";
@@ -12,10 +13,21 @@ function shortDate(isoDate: string | null): string | null {
   return m ? `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}` : isoDate;
 }
 
-/** Direct link to a Notion card (experts click through and hit its Claim button). */
-export function notionCardUrl(pageId: string | null | undefined): string | null {
+/**
+ * Canonical link to a Notion card, from the API's own `page.url`. We must NOT
+ * construct `notion.so/<id>` — the dev workspace lives on app.dev.notion.com and
+ * the ambassador workspace on app.notion.com, so only the API URL resolves.
+ * Best-effort: null on any failure (the button is then omitted).
+ */
+export async function fetchCardUrl(ws: NotionWorkspace, pageId: string | null | undefined): Promise<string | null> {
   if (!pageId) return null;
-  return `https://www.notion.so/${pageId.replace(/-/g, "")}`;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const page = (await getNotionClient(ws).pages.retrieve({ page_id: pageId })) as any;
+    return typeof page.url === "string" ? page.url : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface RecruitInput {
@@ -103,6 +115,10 @@ export async function postSlackRecruit(bookingId: string): Promise<void> {
       await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_skipped", note: `no channel for ${f.location ?? "?"}` });
       return;
     }
+    const [devCardUrl, ambassadorCardUrl] = await Promise.all([
+      fetchCardUrl("dev", booking.notion_dev_page_id),
+      fetchCardUrl("ambassador", booking.notion_ambassador_page_id),
+    ]);
     const blocks = buildRecruitBlocks({
       guestName: f.guestName,
       role: f.role,
@@ -112,8 +128,8 @@ export async function postSlackRecruit(bookingId: string): Promise<void> {
       eventDate: f.eventDate,
       slotName: f.slotName,
       location: f.location,
-      devCardUrl: notionCardUrl(booking.notion_dev_page_id),
-      ambassadorCardUrl: notionCardUrl(booking.notion_ambassador_page_id),
+      devCardUrl,
+      ambassadorCardUrl,
     });
     await postBlocks(channel.webhookUrl, blocks);
     await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_posted", note: channel.channelName ?? undefined });

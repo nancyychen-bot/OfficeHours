@@ -444,25 +444,23 @@ export function renderComms(
   if (kind === "feedback_request" && role === "guest") {
     return {
       subject: "How was Notion Build Bar? (2 mins) 💜",
-      ...wrap([
+      ...wrapRich([
         `Hi ${firstName(f.guestName)},`,
         "",
-        "Thank you so much for coming to Notion Build Bar — it was so great to have you there, and we hope you left with something you're excited to build.",
+        "Thank you so much for coming to **Notion Build Bar** — it was so great to have you, and we hope you left with something you're excited to build.",
         "",
-        "We'd love to hear how it went. Your feedback directly shapes the next event, and it takes about 2 minutes:",
+        "We'd love to hear how it went — it takes about **2 minutes**, and your feedback directly shapes the next event.",
         "",
-        `👉 Share your feedback: ${FEEDBACK_FORM_URL}`,
+        `👉 **[Share your feedback](${FEEDBACK_FORM_URL})**`,
         "",
-        "If you worked one-on-one with a Notion expert, we'd especially love to hear how that went.",
+        "*If you worked one-on-one with a Notion expert, we'd especially love to hear how that went.*",
         "",
-        "Thanks again for building with us. To catch a future Build Bar or community event, follow our Notion calendar:",
-        "",
-        "👉 https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh",
+        "To catch a future Build Bar or community event, follow our **[Notion calendar](https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh)**.",
         "",
         "With gratitude,",
         SIGNOFF,
         "",
-        SUPPORT,
+        `*${SUPPORT}*`,
       ]),
     };
   }

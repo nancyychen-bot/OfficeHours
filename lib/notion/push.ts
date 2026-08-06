@@ -6,7 +6,7 @@ import {
   type PushOptions,
 } from "./mappers";
 import { PROP } from "./schema";
-import { setNotionPageId, stampSynced } from "../db/bookings";
+import { setNotionPageId, setNotionPageIdIfNull, stampSynced } from "../db/bookings";
 import { pickSyncedFields, type Booking } from "../sync/types";
 import { logSync } from "../sync/log";
 
@@ -118,7 +118,20 @@ async function pushToWorkspace(
     properties: bookingToPageProperties(booking, opts) as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
-  await setNotionPageId(booking.id, workspace, created.id);
+
+  // Race arbiter: two concurrent pushes (guest.registered + guest.updated) can
+  // both reach create. Only the one that records its id into the still-null
+  // column wins; the loser archives its duplicate so exactly one card survives.
+  const won = await setNotionPageIdIfNull(booking.id, workspace, created.id);
+  if (!won) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await notion.pages.update({ page_id: created.id, archived: true } as any);
+    } catch {
+      /* best-effort dedupe cleanup */
+    }
+    return "updated";
+  }
   return "created";
 }
 

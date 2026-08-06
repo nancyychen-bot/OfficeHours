@@ -312,6 +312,34 @@ export async function setNotionPageId(
   if (error) throw error;
 }
 
+/**
+ * Record the page id ONLY if the column is still null — the arbiter for the
+ * create race. When guest.registered + guest.updated push concurrently, both may
+ * create a Notion card; this atomic conditional UPDATE lets exactly one "win"
+ * (returns true). The loser (false) archives its duplicate card.
+ */
+export async function setNotionPageIdIfNull(
+  bookingId: string,
+  workspace: "dev" | "ambassador",
+  pageId: string,
+): Promise<boolean> {
+  const supabase = getAdminClient();
+  const col = workspace === "dev" ? "notion_dev_page_id" : "notion_ambassador_page_id";
+  const update =
+    workspace === "dev"
+      ? { notion_dev_page_id: pageId }
+      : { notion_ambassador_page_id: pageId };
+  const { data, error } = await supabase
+    .from("bookings")
+    .update(update)
+    .eq("id", bookingId)
+    .is(col, null)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  return !!data;
+}
+
 export async function listBookingsForEvent(eventId: string): Promise<Booking[]> {
   const supabase = getAdminClient();
   const { data, error } = await supabase

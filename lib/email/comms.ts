@@ -99,6 +99,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   prep_reminder: ["guest"],
   reassigned_off: ["helper"],
   already_claimed: [], // sent directly to the would-be claimer via sendCommsToEmail
+  day_of_agenda: [], // aggregate per-expert email — sent via lib/events/agenda, not here
 };
 
 /** Kinds that tear down a booking → attach a calendar CANCEL to remove the hold. */

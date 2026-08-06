@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -131,6 +131,7 @@ function wrapRich(bodyLines: string[]): { html: string; text: string } {
 
 export type TemplateKey =
   | "prep_reminder__guest"
+  | "day_of_agenda__helper"
   | "assigned__guest" | "assigned__helper"
   | "checked_in__guest__matched" | "checked_in__guest__unmatched" | "checked_in__guest__nohelp" | "checked_in__helper"
   | "arrived_after_no_show__guest__matched" | "arrived_after_no_show__guest__nohelp" | "arrived_after_no_show__helper"
@@ -196,6 +197,17 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "📅 A calendar invite (.ics) is attached — open it to add this 1:1 to your calendar.", "",
       "Come ready to help them leave with something that actually works. If anything changes, unclaim the card and we'll find them a new match.", "",
       SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  day_of_agenda__helper: {
+    label: "Day-of agenda", description: "morning-of schedule sent to each expert", role: "helper",
+    subject: "📅 Your Notion Build Bar schedule today",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Here's your 1:1 lineup for {{eventName}} today — please arrive a few minutes early.", "",
+      "{{agenda}}", "",
+      "Thanks for helping people build today!", "",
+      SUPPORT_HELPER, "", "See you there,", SIGNOFF,
     ),
   },
   checked_in__guest__matched: {
@@ -530,6 +542,40 @@ export function renderComms(
   const ov = overrides?.get(key);
   const content = { subject: ov?.subject ?? def.subject, body: ov?.body ?? def.body };
   return renderTemplate(content, buildVars(role, f));
+}
+
+export interface AgendaItem {
+  guestName: string;
+  slotName: string | null;
+  slotStartsAt: string | null;
+  challenge: string | null;
+  role: string | null;
+  company: string | null;
+}
+
+/** One expert's day-of schedule email (aggregate — not per booking). Respects
+ * a published override for `day_of_agenda__helper`, else the built-in default. */
+export function renderAgenda(
+  input: { firstName: string; eventName: string | null; eventDate: string | null; items: AgendaItem[] },
+  overrides?: OverrideMap,
+): { subject: string; html: string; text: string } {
+  const def = TEMPLATE_REGISTRY.day_of_agenda__helper;
+  const ov = overrides?.get("day_of_agenda__helper");
+  const content = { subject: ov?.subject ?? def.subject, body: ov?.body ?? def.body };
+  const agenda = input.items
+    .map((it) => {
+      const who = [it.role, it.company].filter(Boolean).join(", ");
+      const head = `• ${it.slotName ?? "TBD"} — ${it.guestName}${who ? ` (${who})` : ""}`;
+      return it.challenge ? `${head}\n   Challenge: ${it.challenge}` : head;
+    })
+    .join("\n");
+  return renderTemplate(content, {
+    firstName: input.firstName,
+    eventName: input.eventName ?? "Notion Build Bar",
+    eventDate: input.eventDate ? shortDate(input.eventDate) : "",
+    agenda,
+    supportEmail: SUPPORT_EMAIL,
+  });
 }
 
 /** Representative sample booking for previews in the editor/gallery. */

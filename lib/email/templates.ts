@@ -180,7 +180,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "{{guestDetails}}", "",
       "📅 A calendar hold is attached for the scheduled time.", "",
       "Come ready to help them leave with something that actually works. If anything changes, unclaim the card and we'll find them a new match.", "",
-      "Thanks for building with us,", SIGNOFF,
+      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   checked_in__guest__matched: {
@@ -220,7 +220,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "Your guest {{guestName}} has arrived and is checked in. A quick refresher before you meet:", "",
       "{{guestDetails}}", "",
-      "Head over whenever you're ready. Thanks for building with us,", SIGNOFF,
+      SUPPORT, "", "Head over whenever you're ready. Thanks for building with us,", SIGNOFF,
     ),
   },
   arrived_after_no_show__guest__matched: {
@@ -250,7 +250,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "Update: {{guestName}} was marked a no-show, but they've now checked in and are here after all. If you're still around, head over whenever you're ready.", "",
       "{{guestDetails}}", "",
-      "Thanks for building with us,", SIGNOFF,
+      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   no_show__helper: {
@@ -260,7 +260,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "Heads up — {{guestName}} didn't check in for their slot, so we've marked it as a no-show. Nothing you need to do; the slot has been freed up.", "",
       "{{guestDetails}}", "",
-      "Thanks for being here,", SIGNOFF,
+      SUPPORT, "", "Thanks for being here,", SIGNOFF,
     ),
   },
   expert_unavailable__guest: {
@@ -279,7 +279,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "You've unclaimed {{guestName}}'s 1:1, so it's back in the queue for another Notion expert. The calendar hold has been removed from your calendar — nothing else to do.", "",
-      "Thanks for building with us,", SIGNOFF,
+      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   double_booked__helper: {
@@ -289,7 +289,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "Quick heads-up: you've now claimed more than one guest for the same time ({{slotName}}). Since you can only meet one guest at a time, please unclaim one so another Notion expert can pick it up.", "",
       "{{guestDetails}}", "",
-      "Thanks for building with us,", SIGNOFF,
+      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   waitlisted__guest: {
@@ -309,7 +309,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Quick update: {{guestName}} has been moved to the waitlist, so the slot you'd claimed has been released. Nothing you need to do.", "",
-      "Thanks for building with us,", SIGNOFF,
+      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   declined__guest: {
@@ -329,7 +329,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Quick update: {{guestName}}'s 1:1 has been cancelled (we're at capacity and they won't be joining), so the slot you'd claimed has been released. Nothing you need to do.", "",
-      "Thanks for building with us,", SIGNOFF,
+      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   cancelled__guest: {
@@ -339,7 +339,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       `Your 1:1 at Notion Build Bar has been cancelled. If this was a surprise — or you'd like to grab another time — just email ${SUPPORT_EMAIL}.`, "",
       "You're still very welcome to come cowork with us. The door's open.", "",
-      "Thanks,", SIGNOFF,
+      SUPPORT, "", "Thanks,", SIGNOFF,
     ),
   },
   cancelled__helper: {
@@ -348,7 +348,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Quick update: the 1:1 you'd claimed with {{guestName}} has been cancelled, so the slot has been released. Nothing you need to do.", "",
-      "Thanks for building with us,", SIGNOFF,
+      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   event_cancelled__guest: {
@@ -368,7 +368,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Notion Build Bar has been cancelled, so your 1:1 with {{guestName}} won't happen. The calendar hold has been removed — nothing you need to do.", "",
-      "Thanks for building with us,", SIGNOFF,
+      SUPPORT, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   feedback_request__guest: {

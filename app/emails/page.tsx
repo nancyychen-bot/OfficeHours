@@ -42,9 +42,12 @@ const ITEMS: Array<{ kind: CommsKind; roles: Recipient[]; label: string; when: s
   { kind: "feedback_request", roles: ["guest"], label: "Feedback request", when: "the minute the event ends — checked-in guests" },
 ];
 
+function roleLabel(role: Recipient) {
+  return role === "helper" ? "Notion expert" : role;
+}
 function roleBadge(role: Recipient) {
   const cls = role === "guest" ? "bg-blue-100 text-blue-800" : "bg-violet-100 text-violet-700";
-  return <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${cls}`}>{role}</span>;
+  return <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${cls}`}>{roleLabel(role)}</span>;
 }
 
 export default function EmailsPage() {
@@ -70,7 +73,7 @@ export default function EmailsPage() {
                 return (
                   <div key={role} className="overflow-hidden rounded-xl border border-line bg-white shadow-sm">
                     <div className="border-b border-line bg-neutral-50 px-4 py-2">
-                      <div className="text-[11px] uppercase tracking-wide text-neutral-400">Subject · to {role}</div>
+                      <div className="text-[11px] uppercase tracking-wide text-neutral-400">Subject · to {roleLabel(role)}</div>
                       <div className="text-sm font-medium text-neutral-800">{rendered.subject}</div>
                     </div>
                     <div className="px-4 py-3 text-sm leading-relaxed text-neutral-700" dangerouslySetInnerHTML={{ __html: rendered.html }} />

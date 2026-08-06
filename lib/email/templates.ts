@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -135,7 +135,7 @@ export type TemplateKey =
   | "checked_in__guest__matched" | "checked_in__guest__unmatched" | "checked_in__guest__nohelp" | "checked_in__helper"
   | "arrived_after_no_show__guest__matched" | "arrived_after_no_show__guest__nohelp" | "arrived_after_no_show__helper"
   | "no_show__helper"
-  | "rematch_pending__guest" | "expert_unavailable__helper"
+  | "rematch_pending__guest" | "unmatched_notice__guest" | "expert_unavailable__helper"
   | "double_booked__helper"
   | "waitlisted__guest" | "waitlisted__helper"
   | "declined__guest" | "declined__helper"
@@ -285,6 +285,17 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "We're really sorry — the Notion expert for your 1:1 is no longer able to help at Notion Build Bar. We know that's disappointing, and we apologize for the change.", "",
       "You're very welcome to still come and cowork out of the space with us — we'd love to have you.", "",
+      SUPPORT, "", "See you soon,", SIGNOFF,
+    ),
+  },
+  unmatched_notice__guest: {
+    label: "Couldn't match (day before)", description: "the day before, an approved 1:1 guest was never matched", role: "guest",
+    subject: "An update on your Notion Build Bar 1:1",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Thank you for requesting a 1:1 at Notion Build Bar. Unfortunately, we weren't able to match you with a Notion expert this time.", "",
+      "You're very welcome to still come and cowork out of the space with us. And to catch a 1:1 at a future event, follow our Notion calendar:", "",
+      "👉 {{calendarLink}}", "",
       SUPPORT, "", "See you soon,", SIGNOFF,
     ),
   },

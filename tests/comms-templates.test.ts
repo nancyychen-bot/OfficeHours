@@ -6,7 +6,7 @@ function fields(p: Partial<CommsFields> = {}): CommsFields {
     bookingId: "b1", guestName: "Ada Lovelace", guestEmail: "ada@x.com",
     company: "Analytical", role: "Engineer", challenge: "Scaling", guestPhone: null,
     slotName: "2:00–2:30 PM", slotStartsAt: "2026-08-26T21:00:00Z", slotEndsAt: "2026-08-26T21:30:00Z",
-    eventName: "Notion Build Bar (SF)", eventDate: "2026-08-26", location: "San Francisco",
+    eventName: "Notion Build Bar (SF)", eventDate: "2026-08-26", location: "San Francisco", address: null,
     helperName: "Grace Hopper", helperEmail: "grace@x.com", status: "assigned", ...p,
   };
 }
@@ -41,6 +41,12 @@ describe("renderComms", () => {
     expect(r.text).toContain("Hi Ada,");
     expect(r.text).toContain("Grace Hopper will be your Notion expert");
     expect(r.text).toContain("The Notion Community Team");
+  });
+  it("assigned→guest shows the specific address when present (not just the city)", () => {
+    const withAddr = renderComms("assigned", "guest", fields({ address: "2300 Harrison St, San Francisco, CA" }))!;
+    expect(withAddr.text).toContain("2300 Harrison St, San Francisco, CA");
+    const noAddr = renderComms("assigned", "guest", fields({ address: null }))!;
+    expect(noAddr.text).toContain("San Francisco"); // falls back to city
   });
   it("checked_in→helper", () => {
     const r = renderComms("checked_in", "helper", fields())!;

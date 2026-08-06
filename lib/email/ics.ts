@@ -90,6 +90,18 @@ export function buildCancel(f: IcsFields, fromEmail: string, stampISO: string): 
   return buildEvent(f, fromEmail, stampISO, "cancel");
 }
 
-export function inviteAttachment(ics: string): { filename: string; content: Buffer } {
-  return { filename: "invite.ics", content: Buffer.from(ics, "utf8") };
+/**
+ * Wrap ICS text as an email attachment. The content-type MUST carry the METHOD
+ * (REQUEST/CANCEL) so mail clients render a real calendar invite/cancel (with
+ * Add-to-Calendar / RSVP) rather than a generic file.
+ */
+export function inviteAttachment(
+  ics: string,
+  method: "REQUEST" | "CANCEL" = "REQUEST",
+): { filename: string; content: Buffer; contentType: string } {
+  return {
+    filename: method === "CANCEL" ? "cancel.ics" : "invite.ics",
+    content: Buffer.from(ics, "utf8"),
+    contentType: `text/calendar; method=${method}; charset=utf-8`,
+  };
 }

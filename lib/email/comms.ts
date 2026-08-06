@@ -48,6 +48,7 @@ export function toCommsFields(d: BookingDetails): CommsFields {
     eventName: (d.event_name as string) ?? null,
     eventDate: (d.event_date as string) ?? null,
     location: (d.location as string) ?? null,
+    address: (d.address as string) ?? null,
     helperName: (d.booked_by_display_name as string) ?? null,
     helperEmail: (d.booked_by_email as string) ?? null,
     status: d.status as string,
@@ -115,14 +116,15 @@ export async function sendBookingComms(
         helperName: f.helperName,
         slotStartsAt: f.slotStartsAt,
         slotEndsAt: f.slotEndsAt,
-        location: f.location,
+        // Prefer the specific street address for the calendar invite; fall back to city.
+        location: f.address ?? f.location,
         descriptionText: guestDetailsLines(f).join("\n"),
       };
       const ics =
         kind === "assigned"
           ? buildInvite(icsFields, fromAddressEmail(deps.from()), deps.now())
           : buildCancel(icsFields, fromAddressEmail(deps.from()), deps.now());
-      if (ics) attachment = inviteAttachment(ics);
+      if (ics) attachment = inviteAttachment(ics, kind === "assigned" ? "REQUEST" : "CANCEL");
       else if (kind === "assigned") await logSync({ direction: "luma_in", result: "applied", bookingId, action: "comms_ics_skipped", note: "unparseable slot time" });
     }
 

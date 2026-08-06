@@ -166,6 +166,7 @@ export type Database = {
       }
       events: {
         Row: {
+          address: string | null
           city: string
           created_at: string
           event_date: string
@@ -177,6 +178,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          address?: string | null
           city: string
           created_at?: string
           event_date: string
@@ -188,6 +190,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          address?: string | null
           city?: string
           created_at?: string
           event_date?: string
@@ -293,6 +296,7 @@ export type Database = {
     Views: {
       booking_details: {
         Row: {
+          address: string | null
           attend_reasons: string | null
           booked_by_display_name: string | null
           booked_by_email: string | null

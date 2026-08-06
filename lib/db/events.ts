@@ -51,6 +51,7 @@ export async function upsertEvent(input: {
   lumaEventId: string;
   name: string;
   city: string;
+  address?: string | null;
   eventDate: string; // YYYY-MM-DD
   timezone: string;
   status?: Enums<"event_status">;
@@ -63,6 +64,7 @@ export async function upsertEvent(input: {
         luma_event_id: input.lumaEventId,
         name: input.name,
         city: input.city,
+        address: input.address ?? null,
         event_date: input.eventDate,
         timezone: input.timezone,
         status: input.status ?? "planned",

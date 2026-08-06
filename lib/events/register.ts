@@ -49,6 +49,8 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     lumaEventId: detail.id,
     name: detail.name,
     city,
+    // Specific street address for calendar invites (falls back to city if absent).
+    address: detail.geo_address_json?.full_address ?? null,
     eventDate,
     timezone,
     status: "planned",

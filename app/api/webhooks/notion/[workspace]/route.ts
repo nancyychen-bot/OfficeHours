@@ -192,7 +192,9 @@ export async function POST(
     // cleared by the hub — so a differing Person here is a genuine, human reassign.
     const other: NotionWorkspace = workspace === "dev" ? "ambassador" : "dev";
     const personName = readFirstPersonName(page.properties?.[PROP.bookedByPerson]);
-    if (booking.status === "assigned" && personName && personName !== booking.booked_by_display_name) {
+    // Reassign requires the explicit "reassign" action (from a dedicated automation),
+    // so a Claim button that sets "Booked by" can NEVER accidentally reassign a taken slot.
+    if (action === "reassign" && booking.status === "assigned" && personName && personName !== booking.booked_by_display_name) {
       // Tell the PREVIOUS expert first (reads the current DB = old expert) + drop their hold.
       await sendBookingComms(booking.id, "reassigned_off");
       const type = incoming.booked_by_type ?? booking.booked_by_type ?? (workspace === "dev" ? "employee" : "ambassador");

@@ -32,7 +32,8 @@ select/multi-select **options**, and neither has a Needs-review flag.
 | What email do you use for Notion? | email | **the match key** |
 | Which feature or workflow will you try this week? | rich_text | |
 | What was the highlight, and anything we should improve? | rich_text | |
-| How satisfied were you with this event? | select | options differ between DBs |
+| How satisfied were you with this event? | select | form-facing (keeps copy); options differ between DBs |
+| **Satisfaction score** | number | **to be added to both** — backend-derived from the satisfaction select (leading digit) so you can average |
 | How confident are you using Notion after this event vs. before? | select | options differ between DBs |
 | Would you be interested in any of these? | multi_select | options differ between DBs |
 | Event Date | date | already exists on both |
@@ -59,13 +60,13 @@ Feedback form submitted
   → hub verifies secret, fetches the page via the Ambassador integration
   → idempotency: look up ambassador_page_id in feedback_mirror
        already processed → update path; else create path
-  → read the response email from the page
+  → read the response email; derive Satisfaction score from the satisfaction select
   → Supabase: find the matching recent event (see Matching)
        match  → Event Date = event_date, Location = city, Needs review = false
        none   → Needs review = true, Date/Location left blank
-  → write those enrichment fields onto the Ambassador row
+  → write those enrichment fields (+ Satisfaction score, always) onto the Ambassador row
   → upsert a MIRROR row in the Dev feedback DB with all copyable form fields
-       + the same Event Date / Location / Needs review
+       + the same Event Date / Location / Needs review / Satisfaction score
   → record/refresh ambassador_page_id → dev_page_id in feedback_mirror
   → log to sync_log
 ```
@@ -110,8 +111,12 @@ Match source is the **Supabase hub** (`bookings ⋈ events`). Decisions:
 3. **`lib/notion/feedback.ts`**
    - `readFeedbackEmail(page)` — reads the `What email do you use for Notion?`
      (type `email`) property.
-   - `enrichmentProperties({ eventDate, city, needsReview })` — builds the
-     Event Date (date) / Location (select) / Needs review (checkbox) write payload.
+   - `enrichmentProperties({ eventDate, city, needsReview, satisfactionScore })`
+     — builds the Event Date (date) / Location (select) / Needs review (checkbox) /
+     Satisfaction score (number) write payload.
+   - `parseSatisfactionScore(selectValue)` — **pure**, unit-tested: extracts the
+     leading integer from the satisfaction select value (`"5 - Amazing"` → `5`,
+     `"5"` → `5`, no leading digit → `null`).
    - `copyableProperties(page)` — generic copier: reconstructs write payloads for
      the value types actually present (title, rich_text, email, select,
      multi_select, date). Skips computed/read-only types (created_time) and any
@@ -129,9 +134,9 @@ Match source is the **Supabase hub** (`bookings ⋈ events`). Decisions:
    identical using **Ambassador as canonical**. It (a) rewrites the Dev DB's
    select/multi-select options (`How satisfied…`, `How confident…`, `Would you be
    interested…`, `Location`) to match Ambassador's exactly, and (b) adds the
-   **Needs review** checkbox to both DBs. Event Date + Location already exist on
-   both, so no other property adds are needed. Writes via `dataSources.update`
-   against each DB's data source id.
+   **Needs review** checkbox and **Satisfaction score** number property to both
+   DBs. Event Date + Location already exist on both. Writes via
+   `dataSources.update` against each DB's data source id.
 
 ## Configuration / secret
 
@@ -151,10 +156,12 @@ Match source is the **Supabase hub** (`bookings ⋈ events`). Decisions:
 ## Testing
 
 Unit tests on the pure matcher `selectEventForFeedback`:
-- email-on-either-field resolution (via `findEventForFeedback` query shape)
 - 7-day window boundary (inside vs. just outside)
 - most-recent tiebreak among multiple in-window events
 - no-match → needs-review path
+
+Unit tests on `parseSatisfactionScore`: `"5 - Amazing"` → 5, `"3"` → 3,
+`"Amazing"` → null, `""`/null → null.
 
 ## Setup (prerequisites, in the plan)
 
@@ -170,4 +177,6 @@ Unit tests on the pure matcher `selectEventForFeedback`:
 - Email match property: **`What email do you use for Notion?`** (type `email`).
 - Event Date + Location already exist on both DBs.
 - Canonical dropdown options: **Ambassador**.
+- Satisfaction is stored as copy in the form-facing select; a backend-derived
+  **`Satisfaction score`** number property is added for averaging.
 ```

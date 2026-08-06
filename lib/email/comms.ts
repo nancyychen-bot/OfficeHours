@@ -80,6 +80,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   arrived_after_no_show: ["helper", "guest"],
   double_booked: ["helper"],
   feedback_request: ["guest"],
+  prep_reminder: ["guest"],
 };
 
 /** Kinds that tear down a booking → attach a calendar CANCEL to remove the hold. */

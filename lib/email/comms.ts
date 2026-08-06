@@ -103,29 +103,10 @@ export async function sendBookingComms(
     const f = await deps.getFields(bookingId);
     if (!f) return;
 
-    // Attach a calendar file: assigned → an invite that holds the slot;
-    // cancelled/declined → a CANCEL that removes the previously-sent hold from
-    // attendees' calendars. Skipped (null) when there's no parseable slot time.
-    let attachment: EmailAttachment | undefined;
-    if (kind === "assigned" || CANCEL_CALENDAR_KINDS.has(kind)) {
-      const icsFields = {
-        bookingId: f.bookingId,
-        guestName: f.guestName,
-        guestEmail: f.guestEmail,
-        helperEmail: f.helperEmail,
-        helperName: f.helperName,
-        slotStartsAt: f.slotStartsAt,
-        slotEndsAt: f.slotEndsAt,
-        // Prefer the specific street address for the calendar invite; fall back to city.
-        location: f.address ?? f.location,
-        descriptionText: inviteDescription(f),
-      };
-      const ics =
-        kind === "assigned"
-          ? buildInvite(icsFields, fromAddressEmail(deps.from()), deps.now())
-          : buildCancel(icsFields, fromAddressEmail(deps.from()), deps.now());
-      if (ics) attachment = inviteAttachment(ics, kind === "assigned" ? "REQUEST" : "CANCEL");
-      else if (kind === "assigned") await logSync({ direction: "luma_in", result: "applied", bookingId, action: "comms_ics_skipped", note: "unparseable slot time" });
+    // Whether this kind carries a calendar file (invite on assigned; CANCEL on teardowns).
+    const isCalendarKind = kind === "assigned" || CANCEL_CALENDAR_KINDS.has(kind);
+    if (isCalendarKind && kind === "assigned" && !f.slotStartsAt) {
+      await logSync({ direction: "luma_in", result: "applied", bookingId, action: "comms_ics_skipped", note: "no slot time" });
     }
 
     for (const role of RECIPIENTS[kind]) {
@@ -140,6 +121,34 @@ export async function sendBookingComms(
       }
       const rendered = renderComms(kind, role, f);
       if (!rendered) continue;
+
+      // Per-recipient calendar file: the guest's title names their Notion expert;
+      // the helper's names the guest ("Notion Build Bar - Meet …").
+      let attachment: EmailAttachment | undefined;
+      if (isCalendarKind) {
+        const summary =
+          role === "helper"
+            ? `Notion Build Bar - Meet ${f.guestName}`
+            : `Notion Build Bar - Meet ${f.helperName ?? "your Notion expert"}`;
+        const icsFields = {
+          bookingId: f.bookingId,
+          guestName: f.guestName,
+          guestEmail: f.guestEmail,
+          helperEmail: f.helperEmail,
+          helperName: f.helperName,
+          slotStartsAt: f.slotStartsAt,
+          slotEndsAt: f.slotEndsAt,
+          // Prefer the specific street address for the calendar invite; fall back to city.
+          location: f.address ?? f.location,
+          descriptionText: inviteDescription(f),
+          summary,
+        };
+        const ics =
+          kind === "assigned"
+            ? buildInvite(icsFields, fromAddressEmail(deps.from()), deps.now())
+            : buildCancel(icsFields, fromAddressEmail(deps.from()), deps.now());
+        if (ics) attachment = inviteAttachment(ics, kind === "assigned" ? "REQUEST" : "CANCEL");
+      }
 
       // Reserve BEFORE sending so concurrent retries can't both send. A false
       // means already sent, or another run owns it, or it's mid-flight.

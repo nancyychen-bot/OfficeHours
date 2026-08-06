@@ -6,6 +6,8 @@ import type { getNotionClient } from "./client";
  */
 
 export const FB = {
+  name: "What is your name?",
+  title: "Submission",
   email: "What email do you use for Notion?",
   eventDate: "Event Date",
   location: "Location",
@@ -35,6 +37,13 @@ export function readFeedbackEmail(props: Props): string | null {
   return p?.email ?? null;
 }
 
+/** Read the respondent's name from the "What is your name?" rich_text property. */
+export function readFeedbackName(props: Props): string | null {
+  const p = props[FB.name] as { rich_text?: Array<{ plain_text?: string }> } | undefined;
+  if (!p?.rich_text?.length) return null;
+  return p.rich_text.map((r) => r.plain_text ?? "").join("") || null;
+}
+
 /** Read the satisfaction select option name (used to derive the numeric score). */
 export function readSatisfactionSelect(props: Props): string | null {
   const p = props[FB.satisfaction] as { select?: { name?: string } | null } | undefined;
@@ -43,6 +52,7 @@ export function readSatisfactionSelect(props: Props): string | null {
 
 /** Build the enrichment write payload for a feedback row. */
 export function enrichmentProperties(input: {
+  guestName: string | null;
   eventDate: string | null;
   city: string | null;
   helperName: string | null;
@@ -60,6 +70,10 @@ export function enrichmentProperties(input: {
   };
   if (input.satisfactionScore != null) {
     props[FB.satisfactionScore] = { number: input.satisfactionScore };
+  }
+  // Set the page title (the "Submission" title property) to the respondent's name.
+  if (input.guestName) {
+    props[FB.title] = { title: [{ type: "text", text: { content: input.guestName.slice(0, 2000) } }] };
   }
   return props;
 }

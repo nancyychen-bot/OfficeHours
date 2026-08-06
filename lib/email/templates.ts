@@ -28,6 +28,8 @@ export interface CommsFields {
   helperEmail: string | null;
   status: string;
   slotId: string | null;
+  /** The event's public Luma URL (for "cancel your registration"). */
+  eventUrl?: string | null;
   /** Other bookings the expert holds in this slot (populated for the double-booked email). */
   conflicts?: Array<{ name: string; challenge: string | null; role: string | null; company: string | null }>;
 }
@@ -167,7 +169,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "✅ Your 1:1 slot — check for the calendar invite (if you have one)",
       "✅ Notion AI activated",
       "✅ Laptop + the question or workspace you want help with", "",
-      "*Please cancel your registration if you can't make it, so we can free up your spot.*", "",
+      "*Please [cancel your registration]({{eventUrl}}) if you can't make it, so we can free up your spot.*", "",
       "See you soon,", SIGNOFF, "", `*${SUPPORT}*`,
     ),
   },
@@ -180,7 +182,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Here's your session:",
       "{{sessionDetails}}", "",
       "📅 A calendar invite is attached so the time is locked in.", "",
-      "Can't make it? Please cancel your registration to free up the spot for someone else.", "",
+      "Can't make it? Please [cancel your registration]({{eventUrl}}) to free up the spot for someone else.", "",
       SUPPORT, "", "See you soon,", SIGNOFF,
     ),
   },
@@ -413,6 +415,7 @@ export const PLACEHOLDERS: Array<{ token: string; desc: string }> = [
   { token: "{{feedbackLink}}", desc: "Feedback form URL" },
   { token: "{{trialLink}}", desc: "Notion AI trial URL" },
   { token: "{{calendarLink}}", desc: "Notion community calendar URL" },
+  { token: "{{eventUrl}}", desc: "This event's public Luma page (for cancel/registration links)" },
   { token: "{{supportEmail}}", desc: "Community support email" },
 ];
 
@@ -445,6 +448,8 @@ export function buildVars(role: Recipient, f: CommsFields): Record<string, strin
     feedbackLink: FEEDBACK_FORM_URL,
     trialLink: NOTION_AI_TRIAL_URL,
     calendarLink: CALENDAR_URL,
+    // The event's public page; falls back to the community calendar so the link is never broken.
+    eventUrl: f.eventUrl || CALENDAR_URL,
     supportEmail: SUPPORT_EMAIL,
   };
 }
@@ -517,6 +522,7 @@ export const SAMPLE_FIELDS: CommsFields = {
   helperEmail: "alex@example.com",
   status: "assigned",
   slotId: "slot-preview",
+  eventUrl: "https://lu.ma/notion-build-bar",
   conflicts: [
     { name: "Nancy Chen", role: "Community", company: "Notion", challenge: "Automating my team's roadmap" },
     { name: "Jordan Lee", role: "PM", company: "Acme", challenge: "Setting up a CRM in Notion" },

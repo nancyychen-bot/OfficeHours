@@ -1,4 +1,5 @@
 import { getBookingDetailsById, listHelperBookingsInSlot } from "../db/bookings";
+import { getEventById } from "../db/events";
 import { reserveCommsSlot, finalizeComms, type CommsStatus } from "../db/email-log";
 import { sendEmail, type EmailAttachment } from "./resend";
 import { buildInvite, buildCancel, inviteAttachment, fromAddressEmail } from "./ics";
@@ -62,7 +63,15 @@ export function toCommsFields(d: BookingDetails): CommsFields {
 const defaultDeps: CommsDeps = {
   getFields: async (id) => {
     const d = await getBookingDetailsById(id);
-    return d ? toCommsFields(d) : null;
+    if (!d) return null;
+    const f = toCommsFields(d);
+    try {
+      const ev = d.event_id ? await getEventById(d.event_id as string) : null;
+      f.eventUrl = ev?.public_url ?? null;
+    } catch {
+      /* best-effort — falls back to the calendar link in buildVars */
+    }
+    return f;
   },
   reserve: reserveCommsSlot,
   finalize: finalizeComms,

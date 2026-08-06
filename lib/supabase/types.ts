@@ -164,6 +164,39 @@ export type Database = {
           },
         ]
       }
+      email_overrides: {
+        Row: {
+          draft_body: string | null
+          draft_note: string | null
+          draft_subject: string | null
+          draft_updated_at: string | null
+          key: string
+          live_body: string | null
+          live_subject: string | null
+          live_updated_at: string | null
+        }
+        Insert: {
+          draft_body?: string | null
+          draft_note?: string | null
+          draft_subject?: string | null
+          draft_updated_at?: string | null
+          key: string
+          live_body?: string | null
+          live_subject?: string | null
+          live_updated_at?: string | null
+        }
+        Update: {
+          draft_body?: string | null
+          draft_note?: string | null
+          draft_subject?: string | null
+          draft_updated_at?: string | null
+          key?: string
+          live_body?: string | null
+          live_subject?: string | null
+          live_updated_at?: string | null
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           address: string | null
@@ -171,11 +204,12 @@ export type Database = {
           created_at: string
           event_date: string
           feedback_sent_at: string | null
-          luma_stats: Json | null
-          luma_synced_at: string | null
           id: string
           luma_event_id: string | null
+          luma_stats: Json | null
+          luma_synced_at: string | null
           name: string
+          public_url: string | null
           status: Database["public"]["Enums"]["event_status"]
           timezone: string
           updated_at: string
@@ -188,7 +222,10 @@ export type Database = {
           feedback_sent_at?: string | null
           id?: string
           luma_event_id?: string | null
+          luma_stats?: Json | null
+          luma_synced_at?: string | null
           name: string
+          public_url?: string | null
           status?: Database["public"]["Enums"]["event_status"]
           timezone?: string
           updated_at?: string
@@ -199,16 +236,82 @@ export type Database = {
           created_at?: string
           event_date?: string
           feedback_sent_at?: string | null
-          luma_stats?: Json | null
-          luma_synced_at?: string | null
           id?: string
           luma_event_id?: string | null
+          luma_stats?: Json | null
+          luma_synced_at?: string | null
           name?: string
+          public_url?: string | null
           status?: Database["public"]["Enums"]["event_status"]
           timezone?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      feedback_mirror: {
+        Row: {
+          ambassador_page_id: string
+          confidence: string | null
+          created_at: string
+          dev_page_id: string | null
+          feature_intent: string | null
+          guest_email: string | null
+          guest_name: string | null
+          highlight: string | null
+          interests: string[] | null
+          matched_event_id: string | null
+          needs_review: boolean
+          notion_expert: string | null
+          satisfaction_label: string | null
+          satisfaction_score: number | null
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          ambassador_page_id: string
+          confidence?: string | null
+          created_at?: string
+          dev_page_id?: string | null
+          feature_intent?: string | null
+          guest_email?: string | null
+          guest_name?: string | null
+          highlight?: string | null
+          interests?: string[] | null
+          matched_event_id?: string | null
+          needs_review?: boolean
+          notion_expert?: string | null
+          satisfaction_label?: string | null
+          satisfaction_score?: number | null
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ambassador_page_id?: string
+          confidence?: string | null
+          created_at?: string
+          dev_page_id?: string | null
+          feature_intent?: string | null
+          guest_email?: string | null
+          guest_name?: string | null
+          highlight?: string | null
+          interests?: string[] | null
+          matched_event_id?: string | null
+          needs_review?: boolean
+          notion_expert?: string | null
+          satisfaction_label?: string | null
+          satisfaction_score?: number | null
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_mirror_matched_event_id_fkey"
+            columns: ["matched_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       slots: {
         Row: {

@@ -64,6 +64,12 @@ describe("renderComms", () => {
     expect(r.text).toContain("custom body");
   });
 
+  it("links 'cancel your registration' to the event's public URL", () => {
+    const r = renderComms("assigned", "guest", f({ eventUrl: "https://lu.ma/xyz" }))!;
+    expect(r.html).toContain('href="https://lu.ma/xyz"');
+    expect(r.html).toContain("cancel your registration");
+  });
+
   it("returns null for an undefined kind×role", () => {
     expect(renderComms("no_show", "guest", f())).toBeNull();
   });

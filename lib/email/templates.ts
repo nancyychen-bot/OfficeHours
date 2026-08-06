@@ -89,12 +89,17 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function wrap(bodyLines: string[]): { html: string; text: string } {
-  const text = bodyLines.join("\n");
-  const html = bodyLines
-    .map((l) => (l === "" ? "<br/>" : `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`))
+/** HTML paragraphs from body lines; blank lines are separators (spacing comes
+ * from the paragraph margins), NOT extra <br/>s — otherwise gaps double up. */
+function toParagraphs(bodyLines: string[], fmt: (s: string) => string): string {
+  return bodyLines
+    .filter((l) => l !== "")
+    .map((l) => `<p style="margin:0 0 12px;line-height:1.5">${fmt(l)}</p>`)
     .join("");
-  return { html, text };
+}
+
+function wrap(bodyLines: string[]): { html: string; text: string } {
+  return { text: bodyLines.join("\n"), html: toParagraphs(bodyLines, escapeHtml) };
 }
 
 /** Inline markdown → HTML: [text](url), bare URLs, **bold**, *italic*. Escapes first. */
@@ -117,11 +122,7 @@ function stripInline(s: string): string {
 
 /** Like wrap(), but supports inline **bold**, *italic*, and links. */
 function wrapRich(bodyLines: string[]): { html: string; text: string } {
-  const text = bodyLines.map(stripInline).join("\n");
-  const html = bodyLines
-    .map((l) => (l === "" ? "<br/>" : `<p style="margin:0 0 8px">${inlineFormat(l)}</p>`))
-    .join("");
-  return { html, text };
+  return { text: bodyLines.map(stripInline).join("\n"), html: toParagraphs(bodyLines, inlineFormat) };
 }
 
 /** Render subject + html + text for a kind×recipient, or null if none applies. */

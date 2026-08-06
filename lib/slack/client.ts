@@ -27,7 +27,10 @@ export interface RecruitInput {
   eventDate: string | null;
   slotName: string | null;
   location: string | null;
-  cardUrl: string | null;
+  /** Dev-workspace card link — Notion staff claim here (recorded as `employee`). */
+  devCardUrl: string | null;
+  /** Ambassador-workspace card link — Ambassadors claim here (recorded as `ambassador`). */
+  ambassadorCardUrl: string | null;
 }
 
 /** Block Kit blocks for a "cover this open 1:1" recruiting post. Pure/testable. */
@@ -48,13 +51,18 @@ export function buildRecruitBlocks(i: RecruitInput): unknown[] {
     },
     { type: "section", text: { type: "mrkdwn", text: `*What they want help with:*\n${i.challenge ?? "—"}` } },
   ];
-  if (i.cardUrl) {
-    blocks.push({
-      type: "actions",
-      elements: [
-        { type: "button", text: { type: "plain_text", text: "Claim this 1:1 in Notion", emoji: true }, url: i.cardUrl, style: "primary" },
-      ],
-    });
+  // Two buttons so each person claims in their own workspace → correct type. First
+  // to claim wins; the other gets an "already claimed" reply (cross-workspace arbiter).
+  const elements: unknown[] = [];
+  if (i.ambassadorCardUrl) {
+    elements.push({ type: "button", text: { type: "plain_text", text: "Claim — Ambassador", emoji: true }, url: i.ambassadorCardUrl, style: "primary" });
+  }
+  if (i.devCardUrl) {
+    elements.push({ type: "button", text: { type: "plain_text", text: "Claim — Notion staff", emoji: true }, url: i.devCardUrl });
+  }
+  if (elements.length) {
+    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Tap the button for how you're attending — an Ambassador or Notion staff." }] });
+    blocks.push({ type: "actions", elements });
   }
   return blocks;
 }
@@ -87,7 +95,6 @@ export async function postSlackRecruit(bookingId: string): Promise<void> {
       await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_skipped", note: `no channel for ${f.location ?? "?"}` });
       return;
     }
-    const cardUrl = notionCardUrl(booking.notion_ambassador_page_id ?? booking.notion_dev_page_id);
     const blocks = buildRecruitBlocks({
       guestName: f.guestName,
       role: f.role,
@@ -97,7 +104,8 @@ export async function postSlackRecruit(bookingId: string): Promise<void> {
       eventDate: f.eventDate,
       slotName: f.slotName,
       location: f.location,
-      cardUrl,
+      devCardUrl: notionCardUrl(booking.notion_dev_page_id),
+      ambassadorCardUrl: notionCardUrl(booking.notion_ambassador_page_id),
     });
     await postBlocks(channel.webhookUrl, blocks);
     await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_posted", note: channel.channelName ?? undefined });

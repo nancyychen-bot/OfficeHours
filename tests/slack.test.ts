@@ -10,7 +10,8 @@ const base: RecruitInput = {
   eventDate: "2026-08-28",
   slotName: "2:00–2:30 PM",
   location: "New York",
-  cardUrl: "https://www.notion.so/abc123",
+  devCardUrl: "https://www.notion.so/dev123",
+  ambassadorCardUrl: "https://www.notion.so/amb123",
 };
 
 describe("buildRecruitBlocks", () => {
@@ -24,14 +25,25 @@ describe("buildRecruitBlocks", () => {
     expect(json).toContain("New York");
   });
 
-  it("adds a link button when a card URL is present", () => {
-    const blocks = buildRecruitBlocks(base) as Array<{ type: string; elements?: Array<{ url?: string }> }>;
+  it("adds a button per workspace so type is attributed correctly", () => {
+    const blocks = buildRecruitBlocks(base) as Array<{ type: string; elements?: Array<{ url?: string; text?: { text?: string } }> }>;
     const actions = blocks.find((b) => b.type === "actions");
-    expect(actions?.elements?.[0]?.url).toBe("https://www.notion.so/abc123");
+    const urls = actions?.elements?.map((e) => e.url);
+    expect(urls).toContain("https://www.notion.so/amb123");
+    expect(urls).toContain("https://www.notion.so/dev123");
+    const labels = actions?.elements?.map((e) => e.text?.text);
+    expect(labels).toContain("Claim — Ambassador");
+    expect(labels).toContain("Claim — Notion staff");
   });
 
-  it("omits the actions block when there is no card URL", () => {
-    const blocks = buildRecruitBlocks({ ...base, cardUrl: null }) as Array<{ type: string }>;
+  it("shows only the ambassador button when there is no dev card", () => {
+    const blocks = buildRecruitBlocks({ ...base, devCardUrl: null }) as Array<{ type: string; elements?: Array<{ url?: string }> }>;
+    const actions = blocks.find((b) => b.type === "actions");
+    expect(actions?.elements?.map((e) => e.url)).toEqual(["https://www.notion.so/amb123"]);
+  });
+
+  it("omits the actions block when there are no card URLs", () => {
+    const blocks = buildRecruitBlocks({ ...base, devCardUrl: null, ambassadorCardUrl: null }) as Array<{ type: string }>;
     expect(blocks.some((b) => b.type === "actions")).toBe(false);
   });
 

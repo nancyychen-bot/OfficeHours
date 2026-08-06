@@ -167,6 +167,11 @@ export function readFirstPersonEmail(prop: unknown): string | null {
   return p.people[0]?.person?.email ?? null;
 }
 
+/** Read the "Slot" text mirror from a fetched Notion page (for manual slot edits). */
+export function readSlotLabelFromPage(properties: Record<string, unknown>): string | null {
+  return readRichText(properties[PROP.slot]);
+}
+
 /**
  * Parse the synced fields out of a fetched Notion page's `properties` object
  * (Notion→hub direction). We read the page via the API after a webhook rather

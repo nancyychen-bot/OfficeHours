@@ -77,6 +77,8 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   declined: ["guest", "helper"],
   waitlisted: ["guest", "helper"],
   event_cancelled: ["guest", "helper"],
+  arrived_after_no_show: ["helper", "guest"],
+  double_booked: ["helper"],
 };
 
 /** Kinds that tear down a booking → attach a calendar CANCEL to remove the hold. */

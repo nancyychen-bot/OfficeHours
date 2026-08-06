@@ -381,6 +381,44 @@ export async function setBookedByEmail(bookingId: string, email: string): Promis
   if (error) throw error;
 }
 
+/** Re-bind a booking to a different slot (a manual "Slot" edit in Notion). */
+export async function setBookingSlot(bookingId: string, slotId: string | null): Promise<Booking | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({ slot_id: slotId })
+    .eq("id", bookingId)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Does the same Notion expert already hold ANOTHER live booking in this slot?
+ * With multiple guests allowed per slot (migration 0015), an expert claiming two
+ * guests at the same time is a double-book — they can only meet one. Keyed on the
+ * helper's email (their identity across cards) + the exact slot.
+ */
+export async function helperHasSlotConflict(
+  bookingId: string,
+  helperEmail: string | null,
+  slotId: string | null,
+): Promise<boolean> {
+  if (!helperEmail || !slotId) return false;
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("slot_id", slotId)
+    .eq("booked_by_email", helperEmail)
+    .in("status", ["assigned", "checked_in"])
+    .neq("id", bookingId)
+    .limit(1);
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
 /** Update only the approval axis. Returns the updated row. */
 export async function setLumaStatus(
   bookingId: string,

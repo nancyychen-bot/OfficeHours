@@ -3,7 +3,7 @@ import { env } from "@/lib/env";
 import { isEcho } from "@/lib/sync/hash";
 import type { NotionWorkspace } from "@/lib/notion/client";
 import { getNotionClient } from "@/lib/notion/client";
-import { pagePropertiesToSyncedFields, readFirstPersonEmail } from "@/lib/notion/mappers";
+import { pagePropertiesToSyncedFields, readFirstPersonEmail, readSlotLabelFromPage } from "@/lib/notion/mappers";
 import { PROP } from "@/lib/notion/schema";
 import {
   getBookingByNotionPageId,
@@ -11,9 +11,12 @@ import {
   claimBooking,
   releaseBooking,
   setBookedByEmail,
+  setBookingSlot,
+  helperHasSlotConflict,
   setLumaStatus,
   resetAssignment,
 } from "@/lib/db/bookings";
+import { matchSlotForEvent } from "@/lib/db/slots";
 import { getEventById } from "@/lib/db/events";
 import { updateGuestStatus } from "@/lib/luma/client";
 import { applyLumaStatus, type ApplyDeps } from "@/lib/sync/approval";
@@ -157,6 +160,29 @@ export async function POST(
     const page = (await notion.pages.retrieve({ page_id: pageId })) as any;
     const incoming = pagePropertiesToSyncedFields(page.properties ?? {});
 
+    // MANUAL SLOT EDIT — the "Slot" text was changed by hand in Notion. Slot
+    // isn't part of the synced-fields hash, so a slot-only edit looks like an
+    // echo; handle it BEFORE the echo guard. Re-bind the booking to the matched
+    // slot, re-issue the calendar invite (if assigned), and mirror to both cards.
+    // Requires a Notion automation on the "Slot" property → this webhook.
+    const incomingSlotLabel = readSlotLabelFromPage(page.properties ?? {});
+    const matchedSlot = incomingSlotLabel
+      ? await matchSlotForEvent({ eventId: booking.event_id, requestedLabel: incomingSlotLabel })
+      : null;
+    if (matchedSlot && matchedSlot.id !== booking.slot_id) {
+      const updated = (await setBookingSlot(booking.id, matchedSlot.id)) ?? booking;
+      const ev = await getEventById(booking.event_id);
+      if (updated.status === "assigned") {
+        // Fresh time → re-send the invite (monotonic ICS SEQUENCE updates the hold).
+        await clearCommsForKinds(updated.id, ["assigned"]);
+        await sendBookingComms(updated.id, "assigned");
+      }
+      const pushOpts = { slotLabel: matchedSlot.name, location: ev?.city, eventName: ev?.name, eventDate: ev?.event_date };
+      await pushBookingToWorkspaces(updated, { fullUpdate: true, dev: pushOpts, ambassador: pushOpts });
+      await logSync({ direction, result: "applied", bookingId: booking.id, action: `slot_changed:${matchedSlot.name}` });
+      return NextResponse.json({ received: true });
+    }
+
     // Loop prevention (PRD §7.3): drop echoes of the hub's own last write.
     if (isEcho(incoming, booking.last_synced_hash)) {
       await logSync({ direction, result: "skipped_echo", bookingId: booking.id, action: "echo" });
@@ -190,7 +216,16 @@ export async function POST(
         return NextResponse.json({ received: true, conflict: true });
       }
       const helperEmail = readFirstPersonEmail(page.properties?.[PROP.bookedByPerson]);
-      if (helperEmail) await setBookedByEmail(claim.booking.id, helperEmail);
+      if (helperEmail) {
+        await setBookedByEmail(claim.booking.id, helperEmail);
+        // Double-book guard: same expert already holds another guest in this slot
+        // (multiple guests per slot are allowed, but one expert can't meet two at
+        // once) → warn them so they can unclaim one.
+        if (await helperHasSlotConflict(claim.booking.id, helperEmail, claim.booking.slot_id)) {
+          await sendBookingComms(claim.booking.id, "double_booked");
+          await logSync({ direction, result: "applied", bookingId: claim.booking.id, action: "double_booked" });
+        }
+      }
       // Push to BOTH: flip Status → Assigned on the origin card too (the button
       // may not have) and mirror to the other workspace.
       await pushBookingToWorkspaces(claim.booking);

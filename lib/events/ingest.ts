@@ -81,11 +81,14 @@ export async function ingestRegistration(
 
   let checkedIn = false;
   if (norm.isCheckedIn && booking.status !== "checked_in") {
+    // If the no-show cron already fired, this is a late arrival — tell the expert
+    // the guest is actually here (a distinct message from the normal check-in).
+    const wasNoShow = booking.status === "no_show";
     const updated = await checkInByLumaGuestId(norm.lumaGuestId);
     if (updated) {
       booking = updated;
       checkedIn = true;
-      if (opts.live) await sendBookingComms(updated.id, "checked_in");
+      if (opts.live) await sendBookingComms(updated.id, wasNoShow ? "arrived_after_no_show" : "checked_in");
     }
   }
 

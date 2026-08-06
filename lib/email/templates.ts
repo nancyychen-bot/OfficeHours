@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked";
 export type Recipient = "helper" | "guest";
 
 export interface CommsFields {
@@ -164,7 +164,13 @@ export function renderComms(
       ...wrap([
         `Hi ${firstName(f.guestName)},`,
         "",
-        `You're all checked in — welcome to Notion Build Bar! ${f.helperName ? `${f.helperName} will be with you shortly.` : "Feel free to cowork, grab a coffee and a snack."}`,
+        `You're all checked in — welcome to Notion Build Bar! ${
+          f.helperName
+            ? `${f.helperName} will be with you shortly.`
+            : f.slotName
+              ? "While we weren't able to find you a Notion expert this time, you are more than welcome to cowork out of this space and speak to someone from the Community team."
+              : "Feel free to cowork, grab a coffee and a snack."
+        }`,
         "",
         "Grab a seat, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.",
         "",
@@ -340,6 +346,53 @@ export function renderComms(
         SUPPORT,
         "",
         "See you soon,",
+        SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "arrived_after_no_show" && role === "helper") {
+    return {
+      subject: `${f.guestName} is actually here — they just checked in`,
+      ...wrap([
+        `Hi ${firstName(f.helperName)},`,
+        "",
+        `Update: ${f.guestName} was marked a no-show, but they've now checked in and are here after all. If you're still around, head over whenever you're ready.`,
+        "",
+        ...details,
+        "",
+        "Thanks for building with us,",
+        SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "arrived_after_no_show" && role === "guest") {
+    return {
+      subject: "You're checked in — welcome to Build Bar 👋",
+      ...wrap([
+        `Hi ${firstName(f.guestName)},`,
+        "",
+        `You're all checked in — welcome to Notion Build Bar! ${f.helperName ? `${f.helperName} will be with you shortly.` : "Grab a seat and someone from the Community team will be with you."}`,
+        "",
+        "If you need anything, just flag someone on the Community team.",
+        "",
+        SUPPORT,
+        "",
+        "See you inside,",
+        SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "double_booked" && role === "helper") {
+    return {
+      subject: `Heads up — you've double-booked${f.slotName ? ` at ${f.slotName}` : ""}`,
+      ...wrap([
+        `Hi ${firstName(f.helperName)},`,
+        "",
+        `Quick heads-up: you've now claimed more than one guest for the same time${f.slotName ? ` (${f.slotName})` : ""}. Since you can only meet one guest at a time, please unclaim one so another Notion expert can pick it up.`,
+        "",
+        ...details,
+        "",
+        "Thanks for building with us,",
         SIGNOFF,
       ]),
     };

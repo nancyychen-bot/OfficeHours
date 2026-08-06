@@ -13,12 +13,36 @@ location. The backend enriches each response with the correct **Event Date** and
 
 ## The two databases
 
-| Workspace | Feedback DB ID | Written by |
-|---|---|---|
-| Ambassador | `cf3bd8e9cf0d4594b273835809eef5ad` | the form (source of truth) + hub enrichment |
-| Dev | `d9ffd103ba354e35aeaf8e11101c2a42` | hub mirror only |
+| Workspace | Feedback DB ID | Data source ID | Written by |
+|---|---|---|---|
+| Ambassador | `cf3bd8e9cf0d4594b273835809eef5ad` | `9bfd46cd-519f-4c0b-95be-08ac97549b51` | the form (source of truth) + hub enrichment |
+| Dev | `d9ffd103ba354e35aeaf8e11101c2a42` | `3d542dad-4839-4dae-b56f-911c0e60fb11` | hub mirror only |
 
+Both are shared with their respective "Nancy's Office Hours" integrations.
 Both must be **schema-identical**. A setup script reconciles them (see Setup).
+
+### Live schema (discovered 2026-08-05)
+
+Both DBs already share the same property **names and types**; they differ only in
+select/multi-select **options**, and neither has a Needs-review flag.
+
+| Property | Type | Notes |
+|---|---|---|
+| Submission | title | |
+| What email do you use for Notion? | email | **the match key** |
+| Which feature or workflow will you try this week? | rich_text | |
+| What was the highlight, and anything we should improve? | rich_text | |
+| How satisfied were you with this event? | select | options differ between DBs |
+| How confident are you using Notion after this event vs. before? | select | options differ between DBs |
+| Would you be interested in any of these? | multi_select | options differ between DBs |
+| Event Date | date | already exists on both |
+| Location | select | already exists on both |
+| Created time | created_time | used for the 7-day window |
+| **Needs review** | checkbox | **to be added to both** |
+
+**Canonical options = Ambassador** (it's the live form, so its stored values are
+ground truth). The reconciliation script rewrites the Dev DB's select/multi-select
+options to match Ambassador exactly, and adds the Needs-review checkbox to both.
 
 ## Architecture
 
@@ -84,24 +108,30 @@ Match source is the **Supabase hub** (`bookings ⋈ events`). Decisions:
      idempotency map.
 
 3. **`lib/notion/feedback.ts`**
-   - `readFeedbackEmail(page)` — reads the form's email property.
+   - `readFeedbackEmail(page)` — reads the `What email do you use for Notion?`
+     (type `email`) property.
    - `enrichmentProperties({ eventDate, city, needsReview })` — builds the
      Event Date (date) / Location (select) / Needs review (checkbox) write payload.
    - `copyableProperties(page)` — generic copier: reconstructs write payloads for
-     the common value types (title, rich_text, select, multi_select, number, date,
-     checkbox, url, email, phone_number). Skips computed/uncopyable types
-     (formula, rollup, created_time/last_edited, people, relation) with a log.
-   - Property names live in one constants block, pinned once the DBs are shared.
+     the value types actually present (title, rich_text, email, select,
+     multi_select, date). Skips computed/read-only types (created_time) and any
+     unexpected type with a log.
+   - Property names live in one constants block (pinned from the live schema):
+     `EMAIL = "What email do you use for Notion?"`, `EVENT_DATE = "Event Date"`,
+     `LOCATION = "Location"`, `NEEDS_REVIEW = "Needs review"`.
 
 4. **Migration `0017_feedback_mirror.sql`** — table
    `feedback_mirror(ambassador_page_id text primary key, dev_page_id text,
    matched_event_id uuid null, needs_review boolean, created_at timestamptz
    default now())`. Regenerate Supabase types.
 
-5. **`scripts/sync-feedback-schema.ts`** — one-off/idempotent: reads both DB
-   schemas, takes the union, adds any missing properties to whichever DB lacks
-   them, and ensures Event Date (date), Location (select), Needs review (checkbox)
-   exist on both. Makes the two DBs identical.
+5. **`scripts/sync-feedback-schema.ts`** — one-off/idempotent: makes the two DBs
+   identical using **Ambassador as canonical**. It (a) rewrites the Dev DB's
+   select/multi-select options (`How satisfied…`, `How confident…`, `Would you be
+   interested…`, `Location`) to match Ambassador's exactly, and (b) adds the
+   **Needs review** checkbox to both DBs. Event Date + Location already exist on
+   both, so no other property adds are needed. Writes via `dataSources.update`
+   against each DB's data source id.
 
 ## Configuration / secret
 
@@ -128,16 +158,16 @@ Unit tests on the pure matcher `selectEventForFeedback`:
 
 ## Setup (prerequisites, in the plan)
 
-1. Share **cf3bd8e9…** with the **Ambassador** integration ("Nancy's Office Hours").
-2. Share **d9ffd103…** with the **Dev** integration.
-3. Run `scripts/sync-feedback-schema.ts` to make both DBs identical + add the
-   three enrichment properties.
-4. Add the Notion automation on the Ambassador DB: **When page added → Send
+1. ✅ Both DBs are shared with their "Nancy's Office Hours" integrations (done).
+2. Run `scripts/sync-feedback-schema.ts` to align Dev's dropdown options to
+   Ambassador and add the **Needs review** checkbox to both.
+3. Add the Notion automation on the Ambassador DB: **When page added → Send
    webhook** to `/api/webhooks/notion/feedback`, header
    `x-webhook-secret: <NOTION_AMBASSADOR_WEBHOOK_SECRET>`.
 
-## Open item resolved at setup
+## Resolved during exploration
 
-The exact **email property name** on the form (and confirmation one exists) is
-read from the live schema during setup and pinned in the constants block.
+- Email match property: **`What email do you use for Notion?`** (type `email`).
+- Event Date + Location already exist on both DBs.
+- Canonical dropdown options: **Ambassador**.
 ```

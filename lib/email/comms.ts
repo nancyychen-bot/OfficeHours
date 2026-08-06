@@ -89,6 +89,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   cancelled: ["guest", "helper"],
   expert_unavailable: ["helper"], // guest handled in the backend (re-match; day-before apology)
   rematch_pending: ["guest"],
+  unmatched_notice: ["guest"],
   declined: ["guest", "helper"],
   waitlisted: ["guest", "helper"],
   event_cancelled: ["guest", "helper"],

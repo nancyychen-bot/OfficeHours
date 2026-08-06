@@ -34,6 +34,7 @@ export type Database = {
           luma_guest_id: string | null
           luma_status: Database["public"]["Enums"]["luma_status"]
           notion_ambassador_page_id: string | null
+          previously_matched: boolean
           notion_dev_page_id: string | null
           notion_email: string | null
           notion_plan: string | null
@@ -62,6 +63,7 @@ export type Database = {
           luma_guest_id?: string | null
           luma_status?: Database["public"]["Enums"]["luma_status"]
           notion_ambassador_page_id?: string | null
+          previously_matched?: boolean
           notion_dev_page_id?: string | null
           notion_email?: string | null
           notion_plan?: string | null
@@ -90,6 +92,7 @@ export type Database = {
           luma_guest_id?: string | null
           luma_status?: Database["public"]["Enums"]["luma_status"]
           notion_ambassador_page_id?: string | null
+          previously_matched?: boolean
           notion_dev_page_id?: string | null
           notion_email?: string | null
           notion_plan?: string | null

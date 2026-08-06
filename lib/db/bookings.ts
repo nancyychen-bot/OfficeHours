@@ -202,6 +202,7 @@ export async function claimBooking(params: {
       status: "assigned",
       booked_by_display_name: params.displayName,
       booked_by_type: params.bookedByType,
+      previously_matched: true, // sticky: distinguishes "expert unclaimed" from "never matched"
     })
     .eq("id", params.bookingId)
     .eq("status", "unassigned") // <-- the guard that makes this first-wins

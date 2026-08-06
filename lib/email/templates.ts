@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -137,7 +137,7 @@ export type TemplateKey =
   | "arrived_after_no_show__guest__matched" | "arrived_after_no_show__guest__nohelp" | "arrived_after_no_show__helper"
   | "no_show__helper"
   | "rematch_pending__guest" | "unmatched_notice__guest" | "expert_unavailable__helper"
-  | "double_booked__helper" | "reassigned_off__helper" | "already_claimed__helper"
+  | "double_booked__helper" | "reassigned_off__helper" | "already_claimed__helper" | "unclaim_denied__helper"
   | "waitlisted__guest" | "waitlisted__helper"
   | "declined__guest" | "declined__helper"
   | "cancelled__guest" | "cancelled__helper"
@@ -319,6 +319,16 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Thanks for jumping in! That 1:1 slot at Notion Build Bar is already claimed by {{expertName}}, so you're not booked for it.", "",
       "If you'd like to take it, ask {{expertName}} to unclaim it first — then it'll open up and you can claim it.", "",
       SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  unclaim_denied__helper: {
+    label: "Unclaim refused", description: "someone who isn't the claimer tried to unclaim a spot", role: "helper",
+    subject: "That 1:1 isn't yours to unclaim",
+    body: b(
+      "Hi there,", "",
+      "It looks like you tried to unclaim a 1:1 at Notion Build Bar that's currently claimed by {{expertName}}. Only the person who claimed a spot can unclaim it, so nothing has changed.", "",
+      "If you need this spot changed, please talk to Nancy Chen.", "",
+      "Thanks for building with us,", SIGNOFF,
     ),
   },
   reassigned_off__helper: {

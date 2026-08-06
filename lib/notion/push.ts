@@ -3,6 +3,7 @@ import {
   bookingToPageProperties,
   syncedFieldsToUpdateProperties,
   releaseUpdateProperties,
+  clearUnclaimRequestedByProperties,
   type PushOptions,
 } from "./mappers";
 import { PROP } from "./schema";
@@ -233,5 +234,31 @@ export async function clearBookingInWorkspaces(released: Booking): Promise<void>
     await stampSynced(released.id, released);
   } catch (err) {
     console.error("[push] stampSynced (release) failed", err);
+  }
+}
+
+/** Clear the "Unclaim requested by" chip on both cards (used when a non-claimer's
+ * unclaim is refused — the claim itself is untouched). Best-effort; not a synced
+ * field, so no echo/stamp needed. */
+export async function clearUnclaimRequestedByInWorkspaces(booking: Booking): Promise<void> {
+  for (const workspace of ["dev", "ambassador"] as const) {
+    if (!isConfigured(workspace)) continue;
+    const pageId = workspace === "dev" ? booking.notion_dev_page_id : booking.notion_ambassador_page_id;
+    if (!pageId) continue;
+    try {
+      await getNotionClient(workspace).pages.update({
+        page_id: pageId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        properties: clearUnclaimRequestedByProperties() as any,
+      });
+    } catch (err) {
+      await logSync({
+        direction: workspace === "dev" ? "hub_to_dev" : "hub_to_amb",
+        result: "error",
+        bookingId: booking.id,
+        action: "clear_unclaim_requester",
+        note: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 }

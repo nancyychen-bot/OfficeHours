@@ -27,6 +27,7 @@ export const PROP = {
   status: "Status",
   bookedByPerson: "Booked by", // native people prop, per-workspace, NOT synced
   bookedByName: "Booked by (name)", // text mirror that DOES cross
+  unclaimRequestedBy: "Unclaim requested by", // set to "Whoever clicked" by the Unclaim button; authorises the release
   bookedByType: "Booked by type",
   lumaGuestId: "Luma guest id",
   lumaStatus: "Luma Status",
@@ -90,6 +91,7 @@ export function buildBookingsProperties(cities: string[] = ["SF", "NYC"]) {
       },
     },
     [PROP.bookedByPerson]: { people: {} },
+    [PROP.unclaimRequestedBy]: { people: {} },
     [PROP.bookedByName]: { rich_text: {} },
     [PROP.bookedByType]: {
       select: {

@@ -126,7 +126,13 @@ export function releaseUpdateProperties() {
     [PROP.bookedByName]: richText(null),
     [PROP.bookedByType]: select(null),
     [PROP.bookedByPerson]: { people: [] as unknown[] },
+    [PROP.unclaimRequestedBy]: { people: [] as unknown[] },
   };
+}
+
+/** Clear just the "Unclaim requested by" chip (deny path — keeps the claim). */
+export function clearUnclaimRequestedByProperties() {
+  return { [PROP.unclaimRequestedBy]: { people: [] as unknown[] } };
 }
 
 // ---- Notion -> hub ----------------------------------------------------------

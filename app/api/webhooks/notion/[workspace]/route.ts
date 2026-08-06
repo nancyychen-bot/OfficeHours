@@ -22,7 +22,8 @@ import { getEventById } from "@/lib/db/events";
 import { updateGuestStatus } from "@/lib/luma/client";
 import { applyLumaStatus, type ApplyDeps } from "@/lib/sync/approval";
 import type { SyncDirection } from "@/lib/sync/types";
-import { pushBookingToWorkspaces, clearBookingInWorkspaces } from "@/lib/notion/push";
+import { pushBookingToWorkspaces, clearBookingInWorkspaces, clearUnclaimRequestedByInWorkspaces } from "@/lib/notion/push";
+import { isUnclaimAdmin } from "@/lib/auth/admins";
 import { logSync } from "@/lib/sync/log";
 import { sendBookingComms, sendCommsToEmail } from "@/lib/email/comms";
 import { clearCommsForKinds } from "@/lib/db/email-log";
@@ -135,23 +136,40 @@ export async function POST(
       return NextResponse.json({ received: true, warning: "unknown page" });
     }
 
-    // UNCLAIM — explicit intent. Unconditionally release + fully clear BOTH
-    // sides (status/name/type/person). No page fetch, no echo check, no
-    // dependence on button-edit timing.
+    // UNCLAIM — explicit intent, but AUTHORISED: only the current claimer may
+    // release their own spot (plus admins, who may release any). The Unclaim
+    // button sets "Unclaim requested by" = Whoever clicked; that identity is the
+    // authorisation. The button fires the webhook before its edit commits, so we
+    // wait, then read the page to see who actually clicked.
     if (action === "unclaim") {
-      // Notify the released expert (+ drop their calendar hold). The GUEST gets
-      // nothing here — we try to re-match in the backend and only apologize the
-      // day before if still unmatched (rematch-apology cron). Email before
-      // release since it clears booked_by_email.
+      await new Promise((resolve) => setTimeout(resolve, BUTTON_EDIT_SETTLE_MS));
+      const notionU = getNotionClient(workspace);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pageU = (await notionU.pages.retrieve({ page_id: pageId })) as any;
+      const requesterName = readFirstPersonName(pageU.properties?.[PROP.unclaimRequestedBy]);
+      const requesterEmail = readFirstPersonEmail(pageU.properties?.[PROP.unclaimRequestedBy]);
+      const isAdmin = isUnclaimAdmin(requesterEmail);
+      const isClaimer =
+        (!!requesterEmail && !!booking.booked_by_email && requesterEmail.toLowerCase() === booking.booked_by_email.toLowerCase()) ||
+        (!!requesterName && !!booking.booked_by_display_name && requesterName === booking.booked_by_display_name);
+
+      if (!isAdmin && !isClaimer) {
+        // Not the claimer (or admin) → refuse. Keep the claim, revert their stray
+        // chip, and tell them (if we could read their email).
+        if (requesterEmail) await sendCommsToEmail(booking.id, "unclaim_denied", "helper", requesterEmail);
+        await clearUnclaimRequestedByInWorkspaces(booking);
+        await logSync({ direction, result: "applied", bookingId: booking.id, action: "unclaim_denied", note: requesterName ?? "unknown" });
+        return NextResponse.json({ received: true, denied: true });
+      }
+
+      // Authorised → notify the released expert (+ drop their calendar hold), then
+      // release and fully clear BOTH cards (also clears "Unclaim requested by").
       await sendBookingComms(booking.id, "expert_unavailable");
       const released = (await releaseBooking(booking.id)) ?? booking;
-      // Wait for the button's own Edit step to settle, THEN clear both cards so
-      // the hub's clear writes last and wins on the origin card too.
-      await new Promise((resolve) => setTimeout(resolve, BUTTON_EDIT_SETTLE_MS));
       await clearBookingInWorkspaces(released);
       // Recruit a replacement in the city's Slack channel (best-effort, no-op if unset).
       await postSlackRecruit(booking.id);
-      await logSync({ direction, result: "applied", bookingId: booking.id, action: "unclaimed" });
+      await logSync({ direction, result: "applied", bookingId: booking.id, action: "unclaimed", note: isAdmin ? `admin:${requesterName ?? requesterEmail}` : undefined });
       return NextResponse.json({ received: true });
     }
 

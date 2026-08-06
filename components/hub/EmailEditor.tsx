@@ -23,10 +23,45 @@ export interface OverrideRow {
   live_updated_at: string | null;
 }
 
-const KEYS = Object.keys(TEMPLATE_REGISTRY) as TemplateKey[];
+/** The attendee journey — emails grouped into lifecycle stages, in order. */
+const STAGES: Array<{ title: string; blurb: string; keys: TemplateKey[] }> = [
+  {
+    title: "Before the event",
+    blurb: "Warming guests up in the days leading up to Build Bar.",
+    keys: ["prep_reminder__guest"],
+  },
+  {
+    title: "Booking a 1:1",
+    blurb: "When a Notion expert claims (or releases) a guest's 1:1.",
+    keys: ["assigned__guest", "assigned__helper", "expert_unavailable__guest", "expert_unavailable__helper", "double_booked__helper"],
+  },
+  {
+    title: "At the event",
+    blurb: "Check-in, no-shows, and late arrivals on the day.",
+    keys: [
+      "checked_in__guest__matched", "checked_in__guest__unmatched", "checked_in__guest__nohelp", "checked_in__helper",
+      "no_show__helper", "arrived_after_no_show__guest__matched", "arrived_after_no_show__guest__nohelp", "arrived_after_no_show__helper",
+    ],
+  },
+  {
+    title: "Capacity & approval",
+    blurb: "When we're full — waitlisted or declined.",
+    keys: ["waitlisted__guest", "waitlisted__helper", "declined__guest", "declined__helper"],
+  },
+  {
+    title: "Cancellations",
+    blurb: "When a booking or the whole event falls through.",
+    keys: ["cancelled__guest", "cancelled__helper", "event_cancelled__guest", "event_cancelled__helper"],
+  },
+  {
+    title: "After the event",
+    blurb: "Closing the loop and gathering feedback.",
+    keys: ["feedback_request__guest"],
+  },
+];
 
 function roleLabel(role: string) {
-  return role === "helper" ? "Notion expert" : "guest";
+  return role === "helper" ? "the Notion expert" : "the guest";
 }
 
 export function EmailEditor({ overrides }: { overrides: OverrideRow[] }) {
@@ -77,111 +112,114 @@ export function EmailEditor({ overrides }: { overrides: OverrideRow[] }) {
   }
 
   async function save(key: TemplateKey) {
-    if (await post({ action: "save", key, subject, body, note })) {
-      setOpenKey(null);
-      router.refresh();
-    }
+    if (await post({ action: "save", key, subject, body, note })) { setOpenKey(null); router.refresh(); }
   }
   async function discard(key: TemplateKey) {
     if (!confirm("Discard this draft? The live copy stays as-is.")) return;
-    if (await post({ action: "discard", key })) {
-      if (openKey === key) setOpenKey(null);
-      router.refresh();
-    }
+    if (await post({ action: "discard", key })) { if (openKey === key) setOpenKey(null); router.refresh(); }
   }
   async function publish(key: TemplateKey) {
     const passphrase = prompt("Enter the publish passphrase to make this live:");
     if (!passphrase) return;
-    if (await post({ action: "publish", key, passphrase })) {
-      router.refresh();
-      alert("Published — this copy is now live.");
-    }
+    if (await post({ action: "publish", key, passphrase })) { router.refresh(); alert("Published — this copy is now live."); }
   }
 
-  const pendingCount = KEYS.filter((k) => effective(k, rows.get(k)).pending).length;
+  const pendingCount = (Object.keys(TEMPLATE_REGISTRY) as TemplateKey[]).filter((k) => effective(k, rows.get(k)).pending).length;
+
+  function Card({ k }: { k: TemplateKey }) {
+    const row = rows.get(k);
+    const e = effective(k, row);
+    const isOpen = openKey === k;
+    const previewFrom = { subject: isOpen ? subject : e.draftSubject, body: isOpen ? body : e.draftBody };
+    const preview = renderTemplate(previewFrom, buildVars((e.def as TemplateDef).role, SAMPLE_FIELDS));
+    return (
+      <div className="rounded-xl border border-line bg-white shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
+          <span className="font-medium text-neutral-800">{e.def.label}</span>
+          {e.pending ? <span className="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">Pending</span> : null}
+          {row?.live_updated_at ? <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-800">Customized</span> : null}
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={() => (isOpen ? setOpenKey(null) : startEdit(k))} disabled={busy} className="rounded-md border border-line px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-50">{isOpen ? "Close" : "Edit"}</button>
+            {e.pending ? (
+              <>
+                <button onClick={() => publish(k)} disabled={busy} className="rounded-md bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-neutral-800">Publish</button>
+                <button onClick={() => discard(k)} disabled={busy} className="rounded-md border border-line px-2.5 py-1 text-xs text-neutral-500 hover:bg-neutral-50">Discard</button>
+              </>
+            ) : null}
+          </div>
+        </div>
+        <div className="border-b border-line bg-neutral-50/50 px-4 py-1.5 text-xs text-neutral-500">
+          <span className="font-medium text-neutral-600">Sent to {roleLabel(e.def.role)}</span> · Sent when {e.def.description}
+        </div>
+
+        {isOpen ? (
+          <div className="grid gap-4 px-4 py-3 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-neutral-500">Subject</label>
+              <input value={subject} onChange={(ev) => setSubject(ev.target.value)} className="mb-3 w-full rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-neutral-400" />
+              <label className="mb-1 block text-xs font-medium text-neutral-500">Body</label>
+              <textarea value={body} onChange={(ev) => setBody(ev.target.value)} rows={16} className="w-full rounded-md border border-line px-2 py-1.5 font-mono text-xs leading-relaxed outline-none focus:border-neutral-400" />
+              <label className="mb-1 mt-3 block text-xs font-medium text-neutral-500">Note (optional — what changed / for review)</label>
+              <input value={note} onChange={(ev) => setNote(ev.target.value)} className="w-full rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-neutral-400" />
+              <div className="mt-3 flex gap-2">
+                <button onClick={() => save(k)} disabled={busy} className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800">Save draft</button>
+                <button onClick={() => setOpenKey(null)} disabled={busy} className="rounded-md border border-line px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50">Cancel</button>
+              </div>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs text-neutral-500">Placeholders you can use</summary>
+                <ul className="mt-1 space-y-0.5 text-[11px] text-neutral-500">
+                  {PLACEHOLDERS.map((p) => (<li key={p.token}><code className="rounded bg-neutral-100 px-1">{p.token}</code> — {p.desc}</li>))}
+                </ul>
+                <p className="mt-1 text-[11px] text-neutral-400">Formatting: <code>**bold**</code>, <code>*italic*</code>, <code>[text](https://…)</code>. Blank line = new paragraph.</p>
+              </details>
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-medium text-neutral-500">Live preview (sample data)</div>
+              <div className="rounded-md border border-line">
+                <div className="border-b border-line bg-neutral-50 px-3 py-1.5 text-sm font-medium text-neutral-800">{preview.subject}</div>
+                <div className="px-3 py-2 text-sm text-neutral-700" dangerouslySetInnerHTML={{ __html: preview.html }} />
+              </div>
+            </div>
+          </div>
+        ) : e.pending ? (
+          <div className="grid gap-4 px-4 py-3 md:grid-cols-2">
+            <div>
+              <div className="mb-1 text-xs font-medium text-neutral-500">Live now</div>
+              <div className="rounded-md border border-line bg-neutral-50/60 px-3 py-2 text-xs whitespace-pre-wrap text-neutral-500">{e.liveBody}</div>
+            </div>
+            <div>
+              <div className="mb-1 text-xs font-medium text-amber-700">Proposed (draft){row?.draft_note ? ` — ${row.draft_note}` : ""}</div>
+              <div className="rounded-md border border-amber-200 bg-amber-50/40 px-3 py-2 text-xs whitespace-pre-wrap text-neutral-700">{e.draftBody}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="px-4 py-2 text-sm text-neutral-500" dangerouslySetInnerHTML={{ __html: preview.html }} />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-neutral-50 px-4 py-2 text-sm text-neutral-600">
+      <div className="mb-6 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-neutral-50 px-4 py-2 text-sm text-neutral-600">
         <span><b className="text-neutral-900">{pendingCount}</b> pending change{pendingCount === 1 ? "" : "s"}</span>
         <span className="text-neutral-400">·</span>
         <span>Editing saves a <b>draft</b>. Publishing (with the passphrase) makes it the copy that actually sends.</span>
       </div>
 
-      <div className="space-y-3">
-        {KEYS.map((key) => {
-          const row = rows.get(key);
-          const e = effective(key, row);
-          const isOpen = openKey === key;
-          const previewFrom = { subject: isOpen ? subject : e.draftSubject, body: isOpen ? body : e.draftBody };
-          const preview = renderTemplate(previewFrom, buildVars((e.def as TemplateDef).role, SAMPLE_FIELDS));
-          return (
-            <div key={key} className="rounded-xl border border-line bg-white shadow-sm">
-              <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
-                <span className="font-medium text-neutral-800">{e.def.label}</span>
-                <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${e.def.role === "helper" ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-800"}`}>{roleLabel(e.def.role)}</span>
-                {e.pending ? <span className="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">Pending</span> : null}
-                {row?.live_updated_at ? <span className="rounded bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-800">Customized</span> : null}
-                <span className="text-xs text-neutral-400">{e.def.description}</span>
-                <div className="ml-auto flex items-center gap-2">
-                  <button onClick={() => (isOpen ? setOpenKey(null) : startEdit(key))} disabled={busy} className="rounded-md border border-line px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-50">{isOpen ? "Close" : "Edit"}</button>
-                  {e.pending ? (
-                    <>
-                      <button onClick={() => publish(key)} disabled={busy} className="rounded-md bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-neutral-800">Publish</button>
-                      <button onClick={() => discard(key)} disabled={busy} className="rounded-md border border-line px-2.5 py-1 text-xs text-neutral-500 hover:bg-neutral-50">Discard</button>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-
-              {isOpen ? (
-                <div className="grid gap-4 px-4 py-3 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-neutral-500">Subject</label>
-                    <input value={subject} onChange={(ev) => setSubject(ev.target.value)} className="mb-3 w-full rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-neutral-400" />
-                    <label className="mb-1 block text-xs font-medium text-neutral-500">Body</label>
-                    <textarea value={body} onChange={(ev) => setBody(ev.target.value)} rows={16} className="w-full rounded-md border border-line px-2 py-1.5 font-mono text-xs leading-relaxed outline-none focus:border-neutral-400" />
-                    <label className="mb-1 mt-3 block text-xs font-medium text-neutral-500">Note (optional — what changed / for review)</label>
-                    <input value={note} onChange={(ev) => setNote(ev.target.value)} className="w-full rounded-md border border-line px-2 py-1.5 text-sm outline-none focus:border-neutral-400" />
-                    <div className="mt-3 flex gap-2">
-                      <button onClick={() => save(key)} disabled={busy} className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800">Save draft</button>
-                      <button onClick={() => setOpenKey(null)} disabled={busy} className="rounded-md border border-line px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50">Cancel</button>
-                    </div>
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-xs text-neutral-500">Placeholders you can use</summary>
-                      <ul className="mt-1 space-y-0.5 text-[11px] text-neutral-500">
-                        {PLACEHOLDERS.map((p) => (
-                          <li key={p.token}><code className="rounded bg-neutral-100 px-1">{p.token}</code> — {p.desc}</li>
-                        ))}
-                      </ul>
-                      <p className="mt-1 text-[11px] text-neutral-400">Formatting: <code>**bold**</code>, <code>*italic*</code>, <code>[text](https://…)</code>. Blank line = new paragraph.</p>
-                    </details>
-                  </div>
-                  <div>
-                    <div className="mb-1 text-xs font-medium text-neutral-500">Live preview (sample data)</div>
-                    <div className="rounded-md border border-line">
-                      <div className="border-b border-line bg-neutral-50 px-3 py-1.5 text-sm font-medium text-neutral-800">{preview.subject}</div>
-                      <div className="px-3 py-2 text-sm text-neutral-700" dangerouslySetInnerHTML={{ __html: preview.html }} />
-                    </div>
-                  </div>
-                </div>
-              ) : e.pending ? (
-                <div className="grid gap-4 px-4 py-3 md:grid-cols-2">
-                  <div>
-                    <div className="mb-1 text-xs font-medium text-neutral-500">Live now</div>
-                    <div className="rounded-md border border-line bg-neutral-50/60 px-3 py-2 text-xs whitespace-pre-wrap text-neutral-500">{e.liveBody}</div>
-                  </div>
-                  <div>
-                    <div className="mb-1 text-xs font-medium text-amber-700">Proposed (draft){row?.draft_note ? ` — ${row.draft_note}` : ""}</div>
-                    <div className="rounded-md border border-amber-200 bg-amber-50/40 px-3 py-2 text-xs whitespace-pre-wrap text-neutral-700">{e.draftBody}</div>
-                  </div>
-                </div>
-              ) : (
-                <div className="px-4 py-2 text-sm text-neutral-500" dangerouslySetInnerHTML={{ __html: preview.html }} />
-              )}
+      <div className="space-y-10">
+        {STAGES.map((stage, i) => (
+          <section key={stage.title}>
+            <div className="mb-3 flex items-baseline gap-3 border-b-2 border-neutral-900 pb-2">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-xs font-bold text-white">{i + 1}</span>
+              <h2 className="text-lg font-bold text-neutral-900">{stage.title}</h2>
+              <span className="text-sm text-neutral-400">{stage.blurb}</span>
             </div>
-          );
-        })}
+            <div className="space-y-3">
+              {stage.keys.map((k) => <Card key={k} k={k} />)}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );

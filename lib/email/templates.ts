@@ -1,11 +1,12 @@
 export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder";
+export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
 export const FEEDBACK_FORM_URL = "https://notionambassadors.notion.site/ef74dccc30f7477fac1136b4ff7faeb7?pvs=105";
-
 /** Notion AI free-trial claim link (pre-event prep email). */
 export const NOTION_AI_TRIAL_URL = "http://ntn.so/community-biz";
-export type Recipient = "helper" | "guest";
+export const CALENDAR_URL = "https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh";
+export const SUPPORT_EMAIL = "communityevents@makenotion.com";
 
 export interface CommsFields {
   bookingId: string;
@@ -28,7 +29,9 @@ export interface CommsFields {
   status: string;
 }
 
-/** The shared "Guest details" block (agent spec), omitting absent optionals. */
+// ---- shared helpers ---------------------------------------------------------
+
+/** The internal "Guest details" block, omitting absent optionals. */
 export function guestDetailsLines(f: CommsFields): string[] {
   const lines = [
     `Guest Name: ${f.guestName}`,
@@ -45,7 +48,6 @@ export function guestDetailsLines(f: CommsFields): string[] {
   return lines;
 }
 
-/** First name for a warm greeting; falls back to "there" for missing names. */
 function firstName(full: string | null | undefined, fallback = "there"): string {
   const n = (full ?? "").trim().split(/\s+/)[0];
   return n || fallback;
@@ -70,10 +72,7 @@ function guestSessionLines(f: CommsFields): string[] {
   return lines;
 }
 
-/**
- * Clean, guest-facing calendar-invite body (the .ics DESCRIPTION) — NOT the
- * internal details dump. Confirmation + slot, address, expert, and an arrival nudge.
- */
+/** Clean, guest-facing calendar-invite body (the .ics DESCRIPTION). */
 export function inviteDescription(f: CommsFields): string {
   const place = f.address ?? f.location;
   const lines = ["You're confirmed for your Notion Build Bar 1:1! Details:", ""];
@@ -85,24 +84,17 @@ export function inviteDescription(f: CommsFields): string {
   return lines.join("\n");
 }
 
+// ---- formatting (inline markdown → html/text) -------------------------------
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-
-/** HTML paragraphs from body lines; blank lines are separators (spacing comes
- * from the paragraph margins), NOT extra <br/>s — otherwise gaps double up. */
 function toParagraphs(bodyLines: string[], fmt: (s: string) => string): string {
   return bodyLines
     .filter((l) => l !== "")
     .map((l) => `<p style="margin:0 0 12px;line-height:1.5">${fmt(l)}</p>`)
     .join("");
 }
-
-function wrap(bodyLines: string[]): { html: string; text: string } {
-  return { text: bodyLines.join("\n"), html: toParagraphs(bodyLines, escapeHtml) };
-}
-
-/** Inline markdown → HTML: [text](url), bare URLs, **bold**, *italic*. Escapes first. */
 function inlineFormat(s: string): string {
   let out = escapeHtml(s);
   out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>');
@@ -111,374 +103,390 @@ function inlineFormat(s: string): string {
   out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
   return out;
 }
-
-/** Plain-text form of an inline-markdown line (strip markers, keep the URL). */
 function stripInline(s: string): string {
   return s
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "$1: $2")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1");
 }
-
-/** Like wrap(), but supports inline **bold**, *italic*, and links. */
 function wrapRich(bodyLines: string[]): { html: string; text: string } {
   return { text: bodyLines.map(stripInline).join("\n"), html: toParagraphs(bodyLines, inlineFormat) };
 }
 
-/** Render subject + html + text for a kind×recipient, or null if none applies. */
+// ---- editable template registry --------------------------------------------
+
+export type TemplateKey =
+  | "prep_reminder__guest"
+  | "assigned__guest" | "assigned__helper"
+  | "checked_in__guest__matched" | "checked_in__guest__unmatched" | "checked_in__guest__nohelp" | "checked_in__helper"
+  | "arrived_after_no_show__guest__matched" | "arrived_after_no_show__guest__nohelp" | "arrived_after_no_show__helper"
+  | "no_show__helper"
+  | "expert_unavailable__guest" | "expert_unavailable__helper"
+  | "double_booked__helper"
+  | "waitlisted__guest" | "waitlisted__helper"
+  | "declined__guest" | "declined__helper"
+  | "cancelled__guest" | "cancelled__helper"
+  | "event_cancelled__guest" | "event_cancelled__helper"
+  | "feedback_request__guest";
+
+export interface TemplateDef {
+  label: string;
+  description: string;
+  role: Recipient;
+  subject: string;
+  body: string;
+}
+
+const SIGNOFF = "The Notion Community Team";
+const SUPPORT = `If you have any questions please email ${SUPPORT_EMAIL}`;
+const b = (...lines: string[]) => lines.join("\n");
+
+export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
+  prep_reminder__guest: {
+    label: "Prep reminder", description: "3 days before — approved guests", role: "guest",
+    subject: "One thing to do before Notion Build Bar ✨",
+    body: b(
+      "Hi {{firstName}},", "",
+      "You're **confirmed for Notion Build Bar** — we can't wait to build with you!", "",
+      `Before you arrive, if you don't already have Notion AI on, **[start your free Notion AI trial]({{trialLink}})** — it takes about a minute. Your host will use Notion AI to help you draft, summarize, and structure faster, so you'll get much more out of your session with it on.`, "",
+      "*Already on a Business or Enterprise plan, or used a trial before? You're all set — no need to sign up.*", "",
+      "**Quick checklist:**",
+      "✅ Your 1:1 slot — check for the calendar invite (if you have one)",
+      "✅ Notion AI activated",
+      "✅ Laptop + the question or workspace you want help with", "",
+      "*Please cancel your registration if you can't make it, so we can free up your spot.*", "",
+      "See you soon,", SIGNOFF, "", `*${SUPPORT}*`,
+    ),
+  },
+  assigned__guest: {
+    label: "1:1 confirmed", description: "expert claims a booking (calendar invite attached)", role: "guest",
+    subject: "📅 Invitation: your Notion Build Bar 1:1 — {{eventDate}}",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Great news — your 1:1 at Notion Build Bar is confirmed, and {{expertName}} will be your Notion expert. We can't wait to build with you!", "",
+      "Here's your session:",
+      "{{sessionDetails}}", "",
+      "📅 A calendar invite is attached so the time is locked in.", "",
+      "Can't make it? Please cancel your registration to free up the spot for someone else.", "",
+      SUPPORT, "", "See you soon,", SIGNOFF,
+    ),
+  },
+  assigned__helper: {
+    label: "1:1 assigned", description: "expert claims a booking", role: "helper",
+    subject: "You're helping {{guestName}} at Notion Build Bar",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Thanks for jumping in! You've claimed a 1:1 at Notion Build Bar — here's who you'll be helping:", "",
+      "{{guestDetails}}", "",
+      "📅 A calendar hold is attached for the scheduled time.", "",
+      "Come ready to help them leave with something that actually works. If anything changes, unclaim the card and we'll find them a new match.", "",
+      "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  checked_in__guest__matched: {
+    label: "Checked in — expert matched", description: "guest checks in, expert assigned", role: "guest",
+    subject: "You're checked in — welcome to Build Bar 👋",
+    body: b(
+      "Hi {{firstName}},", "",
+      "You're all checked in — welcome to Notion Build Bar! {{expertName}} will be with you shortly.", "",
+      "Grab a seat, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.", "",
+      SUPPORT, "", "See you inside,", SIGNOFF,
+    ),
+  },
+  checked_in__guest__unmatched: {
+    label: "Checked in — no expert", description: "guest wanted a 1:1 but wasn't matched", role: "guest",
+    subject: "You're checked in — welcome to Build Bar 👋",
+    body: b(
+      "Hi {{firstName}},", "",
+      "You're all checked in — welcome to Notion Build Bar! While we weren't able to find you a Notion expert this time, you are more than welcome to cowork out of this space and speak to someone from the Community team.", "",
+      "Grab a seat, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.", "",
+      SUPPORT, "", "See you inside,", SIGNOFF,
+    ),
+  },
+  checked_in__guest__nohelp: {
+    label: "Checked in — no 1:1 requested", description: "guest didn't request a 1:1", role: "guest",
+    subject: "You're checked in — welcome to Build Bar 👋",
+    body: b(
+      "Hi {{firstName}},", "",
+      "You're all checked in — welcome to Notion Build Bar! Feel free to cowork, grab a coffee and a snack.", "",
+      "Grab a seat, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.", "",
+      SUPPORT, "", "See you inside,", SIGNOFF,
+    ),
+  },
+  checked_in__helper: {
+    label: "Checked in", description: "guest checks in at the door", role: "helper",
+    subject: "{{guestName}} just checked in",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Your guest {{guestName}} has arrived and is checked in. A quick refresher before you meet:", "",
+      "{{guestDetails}}", "",
+      "Head over whenever you're ready. Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  arrived_after_no_show__guest__matched: {
+    label: "Arrived after no-show — expert matched", description: "guest checks in after being marked no-show", role: "guest",
+    subject: "You're checked in — welcome to Build Bar 👋",
+    body: b(
+      "Hi {{firstName}},", "",
+      "You're all checked in — welcome to Notion Build Bar! {{expertName}} will be with you shortly.", "",
+      "If you need anything, just flag someone on the Community team.", "",
+      SUPPORT, "", "See you inside,", SIGNOFF,
+    ),
+  },
+  arrived_after_no_show__guest__nohelp: {
+    label: "Arrived after no-show — no expert", description: "late check-in, no expert", role: "guest",
+    subject: "You're checked in — welcome to Build Bar 👋",
+    body: b(
+      "Hi {{firstName}},", "",
+      "You're all checked in — welcome to Notion Build Bar! Grab a seat and someone from the Community team will be with you.", "",
+      "If you need anything, just flag someone on the Community team.", "",
+      SUPPORT, "", "See you inside,", SIGNOFF,
+    ),
+  },
+  arrived_after_no_show__helper: {
+    label: "Arrived after no-show", description: "guest checks in after being marked no-show", role: "helper",
+    subject: "{{guestName}} is actually here — they just checked in",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Update: {{guestName}} was marked a no-show, but they've now checked in and are here after all. If you're still around, head over whenever you're ready.", "",
+      "{{guestDetails}}", "",
+      "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  no_show__helper: {
+    label: "No-show", description: "guest never checked in (5 min after slot start)", role: "helper",
+    subject: "No-show: {{guestName}}",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Heads up — {{guestName}} didn't check in for their slot, so we've marked it as a no-show. Nothing you need to do; the slot has been freed up.", "",
+      "{{guestDetails}}", "",
+      "Thanks for being here,", SIGNOFF,
+    ),
+  },
+  expert_unavailable__guest: {
+    label: "Expert unavailable", description: "an expert releases a booking", role: "guest",
+    subject: "A quick update on your Build Bar 1:1",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Quick heads-up: the Notion expert assigned to your 1:1 is no longer available. We're already lining up a replacement and will confirm your new match shortly — your slot is still held for you.", "",
+      "Thanks for rolling with us, and sorry for the shuffle.", "",
+      SUPPORT, "", "See you soon,", SIGNOFF,
+    ),
+  },
+  expert_unavailable__helper: {
+    label: "Expert unavailable / unclaimed", description: "an expert releases a booking", role: "helper",
+    subject: "You've released {{guestName}}'s 1:1",
+    body: b(
+      "Hi {{firstName}},", "",
+      "You've unclaimed {{guestName}}'s 1:1, so it's back in the queue for another Notion expert. The calendar hold has been removed from your calendar — nothing else to do.", "",
+      "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  double_booked__helper: {
+    label: "Double-booked", description: "expert claims 2+ guests in the same slot", role: "helper",
+    subject: "Heads up — you've double-booked at {{slotName}}",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Quick heads-up: you've now claimed more than one guest for the same time ({{slotName}}). Since you can only meet one guest at a time, please unclaim one so another Notion expert can pick it up.", "",
+      "{{guestDetails}}", "",
+      "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  waitlisted__guest: {
+    label: "Waitlisted", description: "Luma Status set to Waitlist", role: "guest",
+    subject: "You're on the waitlist for Notion Build Bar",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Thanks for your interest in Notion Build Bar! We're currently at capacity, so you're on the waitlist for now. If a spot opens up, we'll email you right away.", "",
+      "You're also welcome to follow our Notion calendar for future events:", "",
+      "👉 {{calendarLink}}", "",
+      SUPPORT, "", "With gratitude,", SIGNOFF,
+    ),
+  },
+  waitlisted__helper: {
+    label: "Waitlisted (slot freed)", description: "guest moved to waitlist", role: "helper",
+    subject: "Slot freed — {{guestName}} moved to the waitlist",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Quick update: {{guestName}} has been moved to the waitlist, so the slot you'd claimed has been released. Nothing you need to do.", "",
+      "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  declined__guest: {
+    label: "Declined (at capacity)", description: "Luma Status set to Declined", role: "guest",
+    subject: "An update on your Notion Build Bar booking",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Thank you so much for your interest in Notion Build Bar! Unfortunately, we've reached capacity for this event and aren't able to accommodate your booking this time.", "",
+      "We're genuinely sorry to miss you — please follow our Notion calendar for future events. We'd love to build with you at the next one:", "",
+      "👉 {{calendarLink}}", "",
+      SUPPORT, "", "With gratitude,", SIGNOFF,
+    ),
+  },
+  declined__helper: {
+    label: "Declined (slot freed)", description: "guest won't be joining", role: "helper",
+    subject: "Slot freed — {{guestName}} won't be joining",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Quick update: {{guestName}}'s 1:1 has been cancelled (we're at capacity and they won't be joining), so the slot you'd claimed has been released. Nothing you need to do.", "",
+      "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  cancelled__guest: {
+    label: "Cancelled", description: "guest cancels their registration", role: "guest",
+    subject: "Your Notion Build Bar 1:1 was cancelled",
+    body: b(
+      "Hi {{firstName}},", "",
+      `Your 1:1 at Notion Build Bar has been cancelled. If this was a surprise — or you'd like to grab another time — just email ${SUPPORT_EMAIL}.`, "",
+      "You're still very welcome to come cowork with us. The door's open.", "",
+      "Thanks,", SIGNOFF,
+    ),
+  },
+  cancelled__helper: {
+    label: "Cancelled (slot freed)", description: "guest cancels their registration", role: "helper",
+    subject: "Slot freed — {{guestName}}'s 1:1 was cancelled",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Quick update: the 1:1 you'd claimed with {{guestName}} has been cancelled, so the slot has been released. Nothing you need to do.", "",
+      "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  event_cancelled__guest: {
+    label: "Event cancelled", description: "the whole event is cancelled", role: "guest",
+    subject: "Notion Build Bar has been cancelled",
+    body: b(
+      "Hi {{firstName}},", "",
+      "We're really sorry — Notion Build Bar has been cancelled, so your booking won't go ahead. We sincerely apologize for the disappointment.", "",
+      "We'd still love to build with you — please follow our Notion calendar for upcoming events:", "",
+      "👉 {{calendarLink}}", "",
+      SUPPORT, "", "With gratitude,", SIGNOFF,
+    ),
+  },
+  event_cancelled__helper: {
+    label: "Event cancelled", description: "the whole event is cancelled", role: "helper",
+    subject: "Event cancelled — {{guestName}}'s 1:1 is off",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Notion Build Bar has been cancelled, so your 1:1 with {{guestName}} won't happen. The calendar hold has been removed — nothing you need to do.", "",
+      "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  feedback_request__guest: {
+    label: "Feedback request", description: "the minute the event ends — checked-in guests", role: "guest",
+    subject: "How was Notion Build Bar? (2 mins) 💜",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Thank you so much for coming to **Notion Build Bar** — it was so great to have you, and we hope you left with something you're excited to build.", "",
+      "We'd love to hear how it went — it takes about **2 minutes**, and your feedback directly shapes the next event.", "",
+      "👉 **[Share your feedback]({{feedbackLink}})**", "",
+      "*If you worked one-on-one with a Notion expert, we'd especially love to hear how that went.*", "",
+      "To catch a future Build Bar or community event, follow our **[Notion calendar]({{calendarLink}})**.", "",
+      "With gratitude,", SIGNOFF, "", `*${SUPPORT}*`,
+    ),
+  },
+};
+
+/** The placeholder tokens available in templates, for the editor legend. */
+export const PLACEHOLDERS: Array<{ token: string; desc: string }> = [
+  { token: "{{firstName}}", desc: "Recipient's first name (guest or expert)" },
+  { token: "{{guestName}}", desc: "Guest's full name" },
+  { token: "{{expertName}}", desc: "Assigned Notion expert's name" },
+  { token: "{{slotName}}", desc: "Time slot, e.g. 2:00–2:30 PM" },
+  { token: "{{eventDate}}", desc: "Event date, e.g. Aug 28" },
+  { token: "{{location}}", desc: "Address or city" },
+  { token: "{{sessionDetails}}", desc: "Guest session summary block (date/time/place/expert)" },
+  { token: "{{guestDetails}}", desc: "Full guest details block (for expert emails)" },
+  { token: "{{feedbackLink}}", desc: "Feedback form URL" },
+  { token: "{{trialLink}}", desc: "Notion AI trial URL" },
+  { token: "{{calendarLink}}", desc: "Notion community calendar URL" },
+  { token: "{{supportEmail}}", desc: "Community support email" },
+];
+
+// ---- rendering --------------------------------------------------------------
+
+/** Build the placeholder values for a given recipient + booking. */
+export function buildVars(role: Recipient, f: CommsFields): Record<string, string> {
+  return {
+    firstName: firstName(role === "helper" ? f.helperName : f.guestName),
+    guestName: f.guestName,
+    expertName: f.helperName ?? "your Notion expert",
+    slotName: f.slotName ?? "",
+    eventDate: f.eventDate ? shortDate(f.eventDate) : "",
+    location: f.address ?? f.location ?? "",
+    sessionDetails: guestSessionLines(f).join("\n"),
+    guestDetails: guestDetailsLines(f).join("\n"),
+    feedbackLink: FEEDBACK_FORM_URL,
+    trialLink: NOTION_AI_TRIAL_URL,
+    calendarLink: CALENDAR_URL,
+    supportEmail: SUPPORT_EMAIL,
+  };
+}
+
+/** Replace {{token}} with known values; unknown tokens are left untouched. */
+export function substitute(text: string, vars: Record<string, string>): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in vars ? vars[k] : m));
+}
+
+/** Tidy a substituted subject: drop empty "()", dangling "— "/"at", collapse spaces. */
+function cleanupSubject(s: string): string {
+  return s.replace(/\s*\(\s*\)/g, "").replace(/\s+(—|at)\s*$/i, "").replace(/\s{2,}/g, " ").trim();
+}
+
+/** Render an editable template's subject + body against placeholder values. */
+export function renderTemplate(content: { subject: string; body: string }, vars: Record<string, string>): { subject: string; html: string; text: string } {
+  const subject = cleanupSubject(substitute(content.subject, vars));
+  const lines = substitute(content.body, vars).split("\n");
+  return { subject, ...wrapRich(lines) };
+}
+
+/** Pick the editable template key for a (kind, role, context), or null. */
+export function templateKeyFor(kind: CommsKind, role: Recipient, f: CommsFields): TemplateKey | null {
+  if (kind === "checked_in" && role === "guest")
+    return f.helperName ? "checked_in__guest__matched" : f.slotName ? "checked_in__guest__unmatched" : "checked_in__guest__nohelp";
+  if (kind === "arrived_after_no_show" && role === "guest")
+    return f.helperName ? "arrived_after_no_show__guest__matched" : "arrived_after_no_show__guest__nohelp";
+  const key = `${kind}__${role}`;
+  return key in TEMPLATE_REGISTRY ? (key as TemplateKey) : null;
+}
+
+export type OverrideMap = Map<string, { subject?: string | null; body?: string | null }>;
+
+/**
+ * Render subject + html + text for a kind×recipient, or null if none applies.
+ * `overrides` (published copy from the DB) wins over the built-in default,
+ * per field, with the default as the fallback.
+ */
 export function renderComms(
   kind: CommsKind,
   role: Recipient,
   f: CommsFields,
+  overrides?: OverrideMap,
 ): { subject: string; html: string; text: string } | null {
-  const details = guestDetailsLines(f);
-  const session = guestSessionLines(f);
-  const SIGNOFF = "The Notion Community Team";
-  const SUPPORT = "If you have any questions please email communityevents@makenotion.com";
-
-  if (kind === "assigned" && role === "helper") {
-    return {
-      subject: `You're helping ${f.guestName} at Notion Build Bar`,
-      ...wrap([
-        `Hi ${firstName(f.helperName)},`,
-        "",
-        "Thanks for jumping in! You've claimed a 1:1 at Notion Build Bar — here's who you'll be helping:",
-        "",
-        ...details,
-        "",
-        "📅 A calendar hold is attached for the scheduled time.",
-        "",
-        "Come ready to help them leave with something that actually works. If anything changes, unclaim the card and we'll find them a new match.",
-        "",
-        "Thanks for building with us,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "assigned" && role === "guest") {
-    return {
-      subject: `📅 Invitation: your Notion Build Bar 1:1${f.eventDate ? ` — ${shortDate(f.eventDate)}` : ""}`,
-      ...wrap([
-        `Hi ${firstName(f.guestName)},`,
-        "",
-        `Great news — your 1:1 at Notion Build Bar is confirmed${f.helperName ? `, and ${f.helperName} will be your Notion expert` : ""}. We can't wait to build with you!`,
-        "",
-        "Here's your session:",
-        ...session,
-        "",
-        "📅 A calendar invite is attached so the time is locked in.",
-        "",
-        "Can't make it? Please cancel your registration to free up the spot for someone else.",
-        "",
-        SUPPORT,
-        "",
-        "See you soon,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "checked_in" && role === "helper") {
-    return {
-      subject: `${f.guestName} just checked in`,
-      ...wrap([
-        `Hi ${firstName(f.helperName)},`,
-        "",
-        `Your guest ${f.guestName} has arrived and is checked in. A quick refresher before you meet:`,
-        "",
-        ...details,
-        "",
-        "Head over whenever you're ready. Thanks for building with us,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "checked_in" && role === "guest") {
-    return {
-      subject: "You're checked in — welcome to Build Bar 👋",
-      ...wrap([
-        `Hi ${firstName(f.guestName)},`,
-        "",
-        `You're all checked in — welcome to Notion Build Bar! ${
-          f.helperName
-            ? `${f.helperName} will be with you shortly.`
-            : f.slotName
-              ? "While we weren't able to find you a Notion expert this time, you are more than welcome to cowork out of this space and speak to someone from the Community team."
-              : "Feel free to cowork, grab a coffee and a snack."
-        }`,
-        "",
-        "Grab a seat, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.",
-        "",
-        SUPPORT,
-        "",
-        "See you inside,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "no_show" && role === "helper") {
-    return {
-      subject: `No-show: ${f.guestName}`,
-      ...wrap([
-        `Hi ${firstName(f.helperName)},`,
-        "",
-        `Heads up — ${f.guestName} didn't check in for their slot, so we've marked it as a no-show. Nothing you need to do; the slot has been freed up.`,
-        "",
-        ...details,
-        "",
-        "Thanks for being here,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "cancelled" && role === "guest") {
-    return {
-      subject: "Your Notion Build Bar 1:1 was cancelled",
-      ...wrap([
-        `Hi ${firstName(f.guestName)},`,
-        "",
-        "Your 1:1 at Notion Build Bar has been cancelled. If this was a surprise — or you'd like to grab another time — just email communityevents@makenotion.com.",
-        "",
-        "You're still very welcome to come cowork with us. The door's open.",
-        "",
-        "Thanks,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "cancelled" && role === "helper") {
-    return {
-      subject: `Slot freed — ${f.guestName}'s 1:1 was cancelled`,
-      ...wrap([
-        `Hi ${firstName(f.helperName)},`,
-        "",
-        `Quick update: the 1:1 you'd claimed with ${f.guestName} has been cancelled, so the slot has been released. Nothing you need to do.`,
-        "",
-        "Thanks for building with us,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "event_cancelled" && role === "guest") {
-    return {
-      subject: "Notion Build Bar has been cancelled",
-      ...wrap([
-        `Hi ${firstName(f.guestName)},`,
-        "",
-        "We're really sorry — Notion Build Bar has been cancelled, so your booking won't go ahead. We sincerely apologize for the disappointment.",
-        "",
-        "We'd still love to build with you — please follow our Notion calendar for upcoming events:",
-        "",
-        "👉 https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh",
-        "",
-        SUPPORT,
-        "",
-        "With gratitude,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "event_cancelled" && role === "helper") {
-    return {
-      subject: `Event cancelled — ${f.guestName}'s 1:1 is off`,
-      ...wrap([
-        `Hi ${firstName(f.helperName)},`,
-        "",
-        `Notion Build Bar has been cancelled, so your 1:1 with ${f.guestName} won't happen. The calendar hold has been removed — nothing you need to do.`,
-        "",
-        "Thanks for building with us,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "waitlisted" && role === "guest") {
-    return {
-      subject: "You're on the waitlist for Notion Build Bar",
-      ...wrap([
-        `Hi ${firstName(f.guestName)},`,
-        "",
-        "Thanks for your interest in Notion Build Bar! We're currently at capacity, so you're on the waitlist for now. If a spot opens up, we'll email you right away.",
-        "",
-        "You're also welcome to follow our Notion calendar for future events:",
-        "",
-        "👉 https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh",
-        "",
-        SUPPORT,
-        "",
-        "With gratitude,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "waitlisted" && role === "helper") {
-    return {
-      subject: `Slot freed — ${f.guestName} moved to the waitlist`,
-      ...wrap([
-        `Hi ${firstName(f.helperName)},`,
-        "",
-        `Quick update: ${f.guestName} has been moved to the waitlist, so the slot you'd claimed has been released. Nothing you need to do.`,
-        "",
-        "Thanks for building with us,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "declined" && role === "guest") {
-    return {
-      subject: "An update on your Notion Build Bar booking",
-      ...wrap([
-        `Hi ${firstName(f.guestName)},`,
-        "",
-        "Thank you so much for your interest in Notion Build Bar! Unfortunately, we've reached capacity for this event and aren't able to accommodate your booking this time.",
-        "",
-        "We're genuinely sorry to miss you — please follow our Notion calendar for future events. We'd love to build with you at the next one:",
-        "",
-        "👉 https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh",
-        "",
-        SUPPORT,
-        "",
-        "With gratitude,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "declined" && role === "helper") {
-    return {
-      subject: `Slot freed — ${f.guestName} won't be joining`,
-      ...wrap([
-        `Hi ${firstName(f.helperName)},`,
-        "",
-        `Quick update: ${f.guestName}'s 1:1 has been cancelled (we're at capacity and they won't be joining), so the slot you'd claimed has been released. Nothing you need to do.`,
-        "",
-        "Thanks for building with us,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "expert_unavailable" && role === "helper") {
-    return {
-      subject: `You've released ${f.guestName}'s 1:1`,
-      ...wrap([
-        `Hi ${firstName(f.helperName)},`,
-        "",
-        `You've unclaimed ${f.guestName}'s 1:1, so it's back in the queue for another Notion expert. The calendar hold has been removed from your calendar — nothing else to do.`,
-        "",
-        "Thanks for building with us,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "expert_unavailable" && role === "guest") {
-    return {
-      subject: "A quick update on your Build Bar 1:1",
-      ...wrap([
-        `Hi ${firstName(f.guestName)},`,
-        "",
-        "Quick heads-up: the Notion expert assigned to your 1:1 is no longer available. We're already lining up a replacement and will confirm your new match shortly — your slot is still held for you.",
-        "",
-        "Thanks for rolling with us, and sorry for the shuffle.",
-        "",
-        SUPPORT,
-        "",
-        "See you soon,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "arrived_after_no_show" && role === "helper") {
-    return {
-      subject: `${f.guestName} is actually here — they just checked in`,
-      ...wrap([
-        `Hi ${firstName(f.helperName)},`,
-        "",
-        `Update: ${f.guestName} was marked a no-show, but they've now checked in and are here after all. If you're still around, head over whenever you're ready.`,
-        "",
-        ...details,
-        "",
-        "Thanks for building with us,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "arrived_after_no_show" && role === "guest") {
-    return {
-      subject: "You're checked in — welcome to Build Bar 👋",
-      ...wrap([
-        `Hi ${firstName(f.guestName)},`,
-        "",
-        `You're all checked in — welcome to Notion Build Bar! ${f.helperName ? `${f.helperName} will be with you shortly.` : "Grab a seat and someone from the Community team will be with you."}`,
-        "",
-        "If you need anything, just flag someone on the Community team.",
-        "",
-        SUPPORT,
-        "",
-        "See you inside,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  if (kind === "prep_reminder" && role === "guest") {
-    return {
-      subject: "One thing to do before Notion Build Bar ✨",
-      ...wrapRich([
-        `Hi ${firstName(f.guestName)},`,
-        "",
-        "You're **confirmed for Notion Build Bar** — we can't wait to build with you!",
-        "",
-        `Before you arrive, if you don't already have Notion AI on, **[start your free Notion AI trial](${NOTION_AI_TRIAL_URL})** — it takes about a minute. Your host will use Notion AI to help you draft, summarize, and structure faster, so you'll get much more out of your session with it on.`,
-        "",
-        "*Already on a Business or Enterprise plan, or used a trial before? You're all set — no need to sign up.*",
-        "",
-        "**Quick checklist:**",
-        "✅ Your 1:1 slot — check for the calendar invite (if you have one)",
-        "✅ Notion AI activated",
-        "✅ Laptop + the question or workspace you want help with",
-        "",
-        "*Please cancel your registration if you can't make it, so we can free up your spot.*",
-        "",
-        "See you soon,",
-        SIGNOFF,
-        "",
-        `*${SUPPORT}*`,
-      ]),
-    };
-  }
-  if (kind === "feedback_request" && role === "guest") {
-    return {
-      subject: "How was Notion Build Bar? (2 mins) 💜",
-      ...wrapRich([
-        `Hi ${firstName(f.guestName)},`,
-        "",
-        "Thank you so much for coming to **Notion Build Bar** — it was so great to have you, and we hope you left with something you're excited to build.",
-        "",
-        "We'd love to hear how it went — it takes about **2 minutes**, and your feedback directly shapes the next event.",
-        "",
-        `👉 **[Share your feedback](${FEEDBACK_FORM_URL})**`,
-        "",
-        "*If you worked one-on-one with a Notion expert, we'd especially love to hear how that went.*",
-        "",
-        "To catch a future Build Bar or community event, follow our **[Notion calendar](https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh)**.",
-        "",
-        "With gratitude,",
-        SIGNOFF,
-        "",
-        `*${SUPPORT}*`,
-      ]),
-    };
-  }
-  if (kind === "double_booked" && role === "helper") {
-    return {
-      subject: `Heads up — you've double-booked${f.slotName ? ` at ${f.slotName}` : ""}`,
-      ...wrap([
-        `Hi ${firstName(f.helperName)},`,
-        "",
-        `Quick heads-up: you've now claimed more than one guest for the same time${f.slotName ? ` (${f.slotName})` : ""}. Since you can only meet one guest at a time, please unclaim one so another Notion expert can pick it up.`,
-        "",
-        ...details,
-        "",
-        "Thanks for building with us,",
-        SIGNOFF,
-      ]),
-    };
-  }
-  return null;
+  const key = templateKeyFor(kind, role, f);
+  if (!key) return null;
+  const def = TEMPLATE_REGISTRY[key];
+  const ov = overrides?.get(key);
+  const content = { subject: ov?.subject ?? def.subject, body: ov?.body ?? def.body };
+  return renderTemplate(content, buildVars(role, f));
 }
+
+/** Representative sample booking for previews in the editor/gallery. */
+export const SAMPLE_FIELDS: CommsFields = {
+  bookingId: "preview",
+  guestName: "Nancy Chen",
+  guestEmail: "guest@example.com",
+  company: "Notion",
+  role: "Community",
+  challenge: "Automating my team's roadmap in Notion",
+  guestPhone: "+1 555-0100",
+  slotName: "2:00–2:30 PM",
+  slotStartsAt: "2026-08-28T21:00:00Z",
+  slotEndsAt: "2026-08-28T21:30:00Z",
+  eventName: "Notion Build Bar",
+  eventDate: "2026-08-28",
+  location: "New York",
+  address: "123 Example St, New York, NY",
+  helperName: "Alex Rivera",
+  helperEmail: "alex@example.com",
+  status: "assigned",
+};

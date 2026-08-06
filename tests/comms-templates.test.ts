@@ -46,9 +46,10 @@ describe("renderComms", () => {
   it("assigned→helper uses the confirmation subject/body", () => {
     const r = renderComms("assigned", "helper", fields())!;
     expect(r.subject).toContain("Ada Lovelace");
+    expect(r.subject).toContain("Invitation");
     expect(r.text).toContain("Hi Grace,");
     expect(r.text).toContain("claimed a 1:1 at Notion Build Bar");
-    expect(r.text).toContain("calendar hold is attached");
+    expect(r.text).toContain("calendar invite (.ics) is attached");
     expect(r.text).toContain("The Notion Community Team");
   });
   it("assigned→guest confirms with the helper name", () => {

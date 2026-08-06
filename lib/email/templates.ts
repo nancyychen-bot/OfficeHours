@@ -188,12 +188,12 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
   },
   assigned__helper: {
     label: "1:1 assigned", description: "expert claims a booking", role: "helper",
-    subject: "You're helping {{guestName}} at Notion Build Bar",
+    subject: "📅 Invitation: you're helping {{guestName}} at Notion Build Bar",
     body: b(
       "Hi {{firstName}},", "",
       "Thanks for jumping in! You've claimed a 1:1 at Notion Build Bar — here's who you'll be helping:", "",
       "{{guestDetails}}", "",
-      "📅 A calendar hold is attached for the scheduled time.", "",
+      "📅 A calendar invite (.ics) is attached — open it to add this 1:1 to your calendar.", "",
       "Come ready to help them leave with something that actually works. If anything changes, unclaim the card and we'll find them a new match.", "",
       SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),

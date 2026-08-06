@@ -7,14 +7,41 @@ export interface HubBooking {
   company: string | null;
   challenge: string | null;
   status: string;
+  luma_status: string | null;
   booked_by_display_name: string | null;
   booked_by_type: string | null;
+  booked_by_email: string | null;
   location: string | null;
   event_name: string | null;
   event_date: string | null;
   luma_event_id: string;
   slot_name: string | null;
   slot_starts_at: string | null;
+  requested_slot: string | null;
+  role: string | null;
+  guest_phone: string | null;
+  notion_email: string | null;
+  notion_plan: string | null;
+  experience_level: string | null;
+  attend_reasons: string | null;
+}
+
+export interface HubFeedback {
+  id: string;
+  guest_name: string | null;
+  guest_email: string | null;
+  satisfaction_label: string | null;
+  satisfaction_score: number | null;
+  confidence: string | null;
+  interests: string[];
+  feature_intent: string | null;
+  highlight: string | null;
+  notion_expert: string | null;
+  needs_review: boolean;
+  submitted_at: string | null;
+  luma_event_id: string | null;
+  event_name: string | null;
+  event_date: string | null;
 }
 
 export interface HubEvent {
@@ -39,7 +66,7 @@ export async function listBookings(): Promise<HubBooking[]> {
   const { data, error } = await supabase
     .from("booking_details")
     .select(
-      "id,guest_name,guest_email,company,challenge,status,booked_by_display_name,booked_by_type,location,event_name,event_date,slot_name,slot_starts_at,events(luma_event_id)",
+      "id,guest_name,guest_email,company,challenge,status,luma_status,booked_by_display_name,booked_by_type,booked_by_email,location,event_name,event_date,slot_name,slot_starts_at,requested_slot,role,guest_phone,notion_email,notion_plan,experience_level,attend_reasons,events(luma_event_id)",
     )
     .order("event_date", { ascending: true })
     .order("slot_starts_at", { ascending: true });
@@ -49,21 +76,70 @@ export async function listBookings(): Promise<HubBooking[]> {
     const rawEv = (b as { events?: unknown }).events;
     const ev = Array.isArray(rawEv) ? rawEv[0] : rawEv;
     const lumaEventId = (ev as { luma_event_id?: string } | null | undefined)?.luma_event_id;
+    const s = (k: string) => ((b as Record<string, unknown>)[k] as string) ?? null;
     return {
       id: b.id as string,
       guest_name: b.guest_name as string,
-      guest_email: (b.guest_email as string) ?? null,
-      company: (b.company as string) ?? null,
-      challenge: (b.challenge as string) ?? null,
+      guest_email: s("guest_email"),
+      company: s("company"),
+      challenge: s("challenge"),
       status: b.status as string,
-      booked_by_display_name: (b.booked_by_display_name as string) ?? null,
-      booked_by_type: (b.booked_by_type as string) ?? null,
-      location: (b.location as string) ?? null,
-      event_name: (b.event_name as string) ?? null,
-      event_date: (b.event_date as string) ?? null,
+      luma_status: s("luma_status"),
+      booked_by_display_name: s("booked_by_display_name"),
+      booked_by_type: s("booked_by_type"),
+      booked_by_email: s("booked_by_email"),
+      location: s("location"),
+      event_name: s("event_name"),
+      event_date: s("event_date"),
       luma_event_id: (lumaEventId as string) ?? "",
-      slot_name: (b.slot_name as string) ?? null,
-      slot_starts_at: (b.slot_starts_at as string) ?? null,
+      slot_name: s("slot_name"),
+      slot_starts_at: s("slot_starts_at"),
+      requested_slot: s("requested_slot"),
+      role: s("role"),
+      guest_phone: s("guest_phone"),
+      notion_email: s("notion_email"),
+      notion_plan: s("notion_plan"),
+      experience_level: s("experience_level"),
+      attend_reasons: s("attend_reasons"),
+    };
+  });
+}
+
+/** All feedback responses (from feedback_mirror), newest first, with event labels. */
+export async function listFeedback(): Promise<HubFeedback[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = getAdminClient() as any;
+  const { data, error } = await supabase
+    .from("feedback_mirror")
+    .select(
+      "ambassador_page_id,guest_name,guest_email,satisfaction_label,satisfaction_score,confidence,interests,feature_intent,highlight,notion_expert,needs_review,submitted_at,matched_event_id",
+    )
+    .order("submitted_at", { ascending: false });
+  if (error) throw error;
+
+  const { data: events } = await supabase.from("events").select("id,name,event_date,luma_event_id");
+  const evById = new Map<string, { name: string; event_date: string; luma_event_id: string }>();
+  for (const e of events ?? []) evById.set(e.id, e);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => {
+    const ev = r.matched_event_id ? evById.get(r.matched_event_id) : undefined;
+    return {
+      id: r.ambassador_page_id as string,
+      guest_name: r.guest_name ?? null,
+      guest_email: r.guest_email ?? null,
+      satisfaction_label: r.satisfaction_label ?? null,
+      satisfaction_score: r.satisfaction_score ?? null,
+      confidence: r.confidence ?? null,
+      interests: (r.interests as string[]) ?? [],
+      feature_intent: r.feature_intent ?? null,
+      highlight: r.highlight ?? null,
+      notion_expert: r.notion_expert ?? null,
+      needs_review: !!r.needs_review,
+      submitted_at: r.submitted_at ?? null,
+      luma_event_id: ev?.luma_event_id ?? null,
+      event_name: ev?.name ?? null,
+      event_date: ev?.event_date ?? null,
     };
   });
 }

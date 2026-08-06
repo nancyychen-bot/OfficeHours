@@ -12,6 +12,23 @@ export function statusPill(status: string): { label: string; className: string }
   return STATUS_PILLS[status] ?? { label: status, className: "bg-neutral-100 text-neutral-600" };
 }
 
+const LUMA_STATUS_PILLS: Record<string, { label: string; className: string }> = {
+  pending: { label: "Pending", className: "bg-neutral-100 text-neutral-600" },
+  approved: { label: "Approved", className: "bg-green-100 text-green-800" },
+  waitlist: { label: "Waitlist", className: "bg-amber-100 text-amber-800" },
+  declined: { label: "Declined", className: "bg-red-100 text-red-700" },
+};
+
+export function lumaStatusPill(status: string | null): { label: string; className: string } {
+  if (!status) return { label: "—", className: "bg-transparent text-neutral-400" };
+  return LUMA_STATUS_PILLS[status] ?? { label: status, className: "bg-neutral-100 text-neutral-600" };
+}
+
+/** Percentage string from a 0..1 ratio, e.g. 0.5 -> "50%". */
+export function pct(ratio: number): string {
+  return `${Math.round(ratio * 100)}%`;
+}
+
 /** The booking statuses available as filter chips, in display order. */
 export const STATUS_FILTERS: { value: string; label: string }[] = [
   "unassigned",

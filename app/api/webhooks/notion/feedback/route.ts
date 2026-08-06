@@ -5,8 +5,7 @@ import {
   FEEDBACK_DEV_DS,
   readFeedbackEmail,
   readFeedbackName,
-  readSatisfactionSelect,
-  parseSatisfactionScore,
+  readFeedbackContent,
   enrichmentProperties,
   copyableProperties,
   upsertMirrorRow,
@@ -66,7 +65,7 @@ export async function POST(req: Request) {
     const email = readFeedbackEmail(props);
     const guestName = readFeedbackName(props);
     const submittedAt: string = page.created_time ?? new Date().toISOString();
-    const satisfactionScore = parseSatisfactionScore(readSatisfactionSelect(props));
+    const content = readFeedbackContent(props);
 
     const match = email ? await findEventForFeedback(email, submittedAt) : null;
     const needsReview = !match;
@@ -77,7 +76,7 @@ export async function POST(req: Request) {
       city: match?.city ?? null,
       helperName: match?.helperName ?? null,
       needsReview,
-      satisfactionScore,
+      satisfactionScore: content.satisfactionScore,
     });
 
     // 1) Enrich the Ambassador row.
@@ -94,13 +93,23 @@ export async function POST(req: Request) {
       devPageId,
       matchedEventId: match?.eventId ?? null,
       needsReview,
+      guestName,
+      guestEmail: email,
+      satisfactionScore: content.satisfactionScore,
+      satisfactionLabel: content.satisfactionLabel,
+      confidence: content.confidence,
+      interests: content.interests,
+      featureIntent: content.featureIntent,
+      highlight: content.highlight,
+      notionExpert: match?.helperName ?? null,
+      submittedAt,
     });
 
     await logSync({
       direction,
       result: "applied",
       action: needsReview ? "feedback_unmatched" : "feedback_enriched",
-      note: `email=${email ?? "none"} score=${satisfactionScore ?? "—"}${match ? ` date=${match.eventDate} city=${match.city ?? "—"}` : ""}`,
+      note: `email=${email ?? "none"} score=${content.satisfactionScore ?? "—"}${match ? ` date=${match.eventDate} city=${match.city ?? "—"}` : ""}`,
     });
     return NextResponse.json({ received: true, matched: !!match });
   } catch (err) {

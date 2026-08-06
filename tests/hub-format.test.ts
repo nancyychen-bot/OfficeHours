@@ -12,9 +12,11 @@ import type { HubBooking, HubEvent } from "@/lib/hub/queries";
 function booking(p: Partial<HubBooking>): HubBooking {
   return {
     id: "b1", guest_name: "Ann", guest_email: "a@x.com", company: "Acme", challenge: null,
-    status: "unassigned", booked_by_display_name: null, booked_by_type: null,
-    location: "SF", event_name: "OH SF", event_date: "2026-08-26", luma_event_id: "evt-1",
-    slot_name: "2:00-2:30 PM", slot_starts_at: "2026-08-26T21:00:00Z", ...p,
+    status: "unassigned", luma_status: "approved", booked_by_display_name: null, booked_by_type: null,
+    booked_by_email: null, location: "SF", event_name: "OH SF", event_date: "2026-08-26", luma_event_id: "evt-1",
+    slot_name: "2:00-2:30 PM", slot_starts_at: "2026-08-26T21:00:00Z", requested_slot: null,
+    role: null, guest_phone: null, notion_email: null, notion_plan: null, experience_level: null,
+    attend_reasons: null, ...p,
   };
 }
 

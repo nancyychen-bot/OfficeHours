@@ -93,6 +93,13 @@ export async function clearCommsForKinds(bookingId: string, kinds: string[]): Pr
   if (error) throw error;
 }
 
+/** Delete ALL send records for a booking — used on reactivation (re-registration
+ * of a cancelled booking) so the whole next episode can re-send. */
+export async function clearAllComms(bookingId: string): Promise<void> {
+  const { error } = await table().delete().eq("booking_id", bookingId);
+  if (error) throw error;
+}
+
 /** Finalize a reserved slot (keyed on recipient email) with its terminal status. */
 export async function finalizeComms(
   bookingId: string,

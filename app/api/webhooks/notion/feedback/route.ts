@@ -72,6 +72,7 @@ export async function POST(req: Request) {
     const enrichment = enrichmentProperties({
       eventDate: match?.eventDate ?? null,
       city: match?.city ?? null,
+      helperName: match?.helperName ?? null,
       needsReview,
       satisfactionScore,
     });

@@ -12,6 +12,7 @@ export interface EventCandidate {
   eventId: string;
   eventDate: string; // ISO date "YYYY-MM-DD"
   city: string | null;
+  helperName: string | null; // the Notion expert who helped them, if any
 }
 
 /** ISO date "YYYY-MM-DD" that is `n` days before `isoDate` (UTC, no tz shift). */
@@ -54,7 +55,7 @@ export async function findEventForFeedback(
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("guest_email, notion_email, events!inner(id, event_date, city)")
+    .select("guest_email, notion_email, booked_by_display_name, events!inner(id, event_date, city)")
     .gte("events.event_date", since)
     .lte("events.event_date", sub);
   if (error) throw error;
@@ -67,7 +68,12 @@ export async function findEventForFeedback(
     if (g !== wanted && n !== wanted) continue;
     const ev = row.events;
     if (!ev) continue;
-    candidates.push({ eventId: ev.id, eventDate: ev.event_date, city: ev.city ?? null });
+    candidates.push({
+      eventId: ev.id,
+      eventDate: ev.event_date,
+      city: ev.city ?? null,
+      helperName: row.booked_by_display_name ?? null,
+    });
   }
   return selectEventForFeedback(candidates, submittedAtISO);
 }

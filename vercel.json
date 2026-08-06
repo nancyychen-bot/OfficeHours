@@ -4,6 +4,7 @@
     { "path": "/api/cron/comms-retry", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/prep-reminder", "schedule": "0 16 * * *" },
     { "path": "/api/cron/feedback", "schedule": "* * * * *" },
-    { "path": "/api/cron/luma-stats", "schedule": "*/15 * * * *" }
+    { "path": "/api/cron/luma-stats", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/backup", "schedule": "0 9 * * *" }
   ]
 }

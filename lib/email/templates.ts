@@ -562,13 +562,17 @@ export function renderAgenda(
   const def = TEMPLATE_REGISTRY.day_of_agenda__helper;
   const ov = overrides?.get("day_of_agenda__helper");
   const content = { subject: ov?.subject ?? def.subject, body: ov?.body ?? def.body };
+  // One scannable block per 1:1 (blank line between → separate paragraphs), with
+  // the time bolded as the anchor, then who, then the challenge.
   const agenda = input.items
     .map((it) => {
       const who = [it.role, it.company].filter(Boolean).join(", ");
-      const head = `• ${it.slotName ?? "TBD"} — ${it.guestName}${who ? ` (${who})` : ""}`;
-      return it.challenge ? `${head}\n   Challenge: ${it.challenge}` : head;
+      const lines = [`**${it.slotName ?? "TBD"}** — ${it.guestName}`];
+      if (who) lines.push(who);
+      if (it.challenge) lines.push(`Challenge: ${it.challenge}`);
+      return lines.join("\n");
     })
-    .join("\n");
+    .join("\n\n");
   return renderTemplate(content, {
     firstName: input.firstName,
     eventName: input.eventName ?? "Notion Build Bar",

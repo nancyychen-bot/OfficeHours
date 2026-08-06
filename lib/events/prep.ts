@@ -7,16 +7,12 @@ import type { Booking } from "../sync/types";
 export const PREP_LEAD_DAYS = 3;
 
 /**
- * A booking that should get the pre-event prep email: a going guest with an email.
- * Excludes cancelled/declined/waitlisted (not confirmed to attend).
+ * A booking that should get the pre-event prep email: an APPROVED guest with an
+ * email whose booking isn't cancelled. The email says "you're confirmed", so only
+ * Approved guests qualify (pending/waitlisted/declined are excluded).
  */
 export function isEligibleForPrep(b: Booking): boolean {
-  return (
-    !!b.guest_email &&
-    b.status !== "cancelled" &&
-    b.luma_status !== "declined" &&
-    b.luma_status !== "waitlist"
-  );
+  return b.luma_status === "approved" && !!b.guest_email && b.status !== "cancelled";
 }
 
 /** Send the prep email to every eligible guest of one event. Idempotent (email_log dedup). */

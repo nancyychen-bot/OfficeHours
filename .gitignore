@@ -31,3 +31,6 @@ next-env.d.ts
 .playwright-mcp/
 /add-event.png
 /add-event-page.png
+
+# Local DB snapshots (contain PII — never commit)
+backups/

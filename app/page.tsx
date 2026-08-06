@@ -1,14 +1,24 @@
-import { listBookings, listEvents, syncSummary } from "@/lib/hub/queries";
-import { Dashboard } from "@/components/hub/Dashboard";
+import { listBookings, listFeedback, listEvents } from "@/lib/hub/queries";
+import { computeResults, computeCommunity } from "@/lib/hub/results";
+import { HubNav } from "@/components/hub/HubNav";
+import { KpiBand } from "@/components/hub/KpiBand";
+import { ResultsTab } from "@/components/hub/ResultsTab";
 
 // Always render fresh (reads the live DB); the middleware guards access.
 export const dynamic = "force-dynamic";
 
-export default async function HubPage() {
-  const [bookings, events, summary] = await Promise.all([
-    listBookings(),
-    listEvents(), // still needed for the event (city+month) filter chips
-    syncSummary(),
-  ]);
-  return <Dashboard bookings={bookings} events={events} summary={summary} nowMs={Date.now()} />;
+export default async function DashboardPage() {
+  const [bookings, feedback, events] = await Promise.all([listBookings(), listFeedback(), listEvents()]);
+  const { overall, perEvent } = computeResults(bookings, feedback, events);
+  const community = computeCommunity(bookings);
+  return (
+    <main className="mx-auto max-w-7xl px-6 py-8">
+      <HubNav />
+      <p className="mb-5 max-w-2xl text-sm text-neutral-500">
+        High-level numbers and insight — attendance, 1:1 coverage, satisfaction, confidence lift, interests, and repeat attendance.
+      </p>
+      <KpiBand overall={overall} community={community} eventCount={perEvent.length} />
+      <ResultsTab overall={overall} perEvent={perEvent} community={community} />
+    </main>
+  );
 }

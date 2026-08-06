@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const TABS = [
-  { href: "/", label: "Bookings" },
+  { href: "/", label: "Dashboard" },
+  { href: "/bookings", label: "Bookings" },
   { href: "/feedback", label: "Feedback" },
-  { href: "/results", label: "Results" },
 ];
 
 export function HubNav() {

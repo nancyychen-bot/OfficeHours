@@ -185,15 +185,20 @@ export function EmailEditor({ overrides }: { overrides: OverrideRow[] }) {
           <div className="grid gap-4 px-4 py-3 md:grid-cols-2">
             <div>
               <div className="mb-1 text-xs font-medium text-neutral-500">Live now</div>
-              <div className="rounded-md border border-line bg-neutral-50/60 px-3 py-2 text-xs whitespace-pre-wrap text-neutral-500">{e.liveBody}</div>
+              <div className="rounded-md border border-line bg-neutral-50/60 px-3 py-2 text-xs whitespace-pre-wrap text-neutral-500"><b>Subject:</b> {e.liveSubject}{"\n\n"}{e.liveBody}</div>
             </div>
             <div>
               <div className="mb-1 text-xs font-medium text-amber-700">Proposed (draft){row?.draft_note ? ` — ${row.draft_note}` : ""}</div>
-              <div className="rounded-md border border-amber-200 bg-amber-50/40 px-3 py-2 text-xs whitespace-pre-wrap text-neutral-700">{e.draftBody}</div>
+              <div className="rounded-md border border-amber-200 bg-amber-50/40 px-3 py-2 text-xs whitespace-pre-wrap text-neutral-700"><b>Subject:</b> {e.draftSubject}{"\n\n"}{e.draftBody}</div>
             </div>
           </div>
         ) : (
-          <div className="px-4 py-2 text-sm text-neutral-500" dangerouslySetInnerHTML={{ __html: preview.html }} />
+          <div className="px-4 py-3">
+            <div className="text-[11px] uppercase tracking-wide text-neutral-400">Subject</div>
+            <div className="mb-2 text-sm font-semibold text-neutral-800">{preview.subject}</div>
+            <div className="text-[11px] uppercase tracking-wide text-neutral-400">Body</div>
+            <div className="text-sm text-neutral-500" dangerouslySetInnerHTML={{ __html: preview.html }} />
+          </div>
         )}
       </div>
     );

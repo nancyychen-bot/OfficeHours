@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderComms, guestDetailsLines, type CommsFields } from "@/lib/email/templates";
+import { renderComms, guestDetailsLines, inviteDescription, type CommsFields } from "@/lib/email/templates";
 
 function fields(p: Partial<CommsFields> = {}): CommsFields {
   return {
@@ -10,6 +10,22 @@ function fields(p: Partial<CommsFields> = {}): CommsFields {
     helperName: "Grace Hopper", helperEmail: "grace@x.com", status: "assigned", ...p,
   };
 }
+
+describe("inviteDescription", () => {
+  it("is a clean confirmation (slot, address, expert, arrival nudge) — not the details dump", () => {
+    const d = inviteDescription(fields({ address: "2300 Harrison St, San Francisco, CA" }));
+    expect(d).toContain("confirmed");
+    expect(d).toContain("2:00–2:30 PM");
+    expect(d).toContain("2300 Harrison St, San Francisco, CA");
+    expect(d).toContain("Grace Hopper");
+    expect(d).toContain("arrive 5 minutes");
+    expect(d).not.toContain("Guest Email:"); // no internal dump
+    expect(d).not.toContain("Challenge:");
+  });
+  it("falls back to the city when there's no street address", () => {
+    expect(inviteDescription(fields({ address: null }))).toContain("San Francisco");
+  });
+});
 
 describe("guestDetailsLines", () => {
   it("includes core fields and omits absent optionals", () => {

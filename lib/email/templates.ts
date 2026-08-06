@@ -92,10 +92,19 @@ export function inviteDescription(f: CommsFields): string {
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+/** Group lines into paragraphs: a BLANK line starts a new paragraph; consecutive
+ * non-blank lines stay together (joined with <br/>), so signatures, checklists,
+ * and detail blocks read tight instead of each line getting its own big gap. */
 function toParagraphs(bodyLines: string[], fmt: (s: string) => string): string {
-  return bodyLines
-    .filter((l) => l !== "")
-    .map((l) => `<p style="margin:0 0 12px;line-height:1.5">${fmt(l)}</p>`)
+  const paras: string[][] = [];
+  let cur: string[] = [];
+  for (const l of bodyLines) {
+    if (l.trim() === "") { if (cur.length) { paras.push(cur); cur = []; } }
+    else cur.push(l);
+  }
+  if (cur.length) paras.push(cur);
+  return paras
+    .map((p) => `<p style="margin:0 0 10px;line-height:1.45">${p.map(fmt).join("<br/>")}</p>`)
     .join("");
 }
 function inlineFormat(s: string): string {
@@ -193,7 +202,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "You're all checked in — welcome to Notion Build Bar! {{expertName}} will be with you shortly.", "",
-      "Grab a seat, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.", "",
+      "Settle in, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.", "",
       SUPPORT, "", "See you inside,", SIGNOFF,
     ),
   },
@@ -202,8 +211,8 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     subject: "You're checked in — welcome to Build Bar 👋",
     body: b(
       "Hi {{firstName}},", "",
-      "You're all checked in — welcome to Notion Build Bar! While we weren't able to find you a Notion expert this time, you are more than welcome to cowork out of this space and speak to someone from the Community team.", "",
-      "Grab a seat, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.", "",
+      "You're all checked in — welcome to Notion Build Bar! We weren't able to match you with a Notion expert this time, but you're very welcome to cowork out of the space.", "",
+      "Settle in, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.", "",
       SUPPORT, "", "See you inside,", SIGNOFF,
     ),
   },
@@ -213,7 +222,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "You're all checked in — welcome to Notion Build Bar! Feel free to cowork, grab a coffee and a snack.", "",
-      "Grab a seat, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.", "",
+      "Settle in, open your workspace, and get ready to build. If you need anything, just flag someone on the Community team.", "",
       SUPPORT, "", "See you inside,", SIGNOFF,
     ),
   },
@@ -242,17 +251,17 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     subject: "You're checked in — welcome to Build Bar 👋",
     body: b(
       "Hi {{firstName}},", "",
-      "You're all checked in — welcome to Notion Build Bar! Grab a seat and someone from the Community team will be with you.", "",
+      "You're all checked in — welcome to Notion Build Bar! We weren't able to match you with a Notion expert this time, but you're very welcome to cowork out of the space.", "",
       "If you need anything, just flag someone on the Community team.", "",
       SUPPORT, "", "See you inside,", SIGNOFF,
     ),
   },
   arrived_after_no_show__helper: {
     label: "Arrived after no-show", description: "guest checks in after being marked no-show", role: "helper",
-    subject: "{{guestName}} is actually here — they just checked in",
+    subject: "{{guestName}} showed up — they just checked in",
     body: b(
       "Hi {{firstName}},", "",
-      "Update: {{guestName}} was marked a no-show, but they've now checked in and are here after all. If you're still around, head over whenever you're ready.", "",
+      "Update: {{guestName}} was marked a no-show, but they've since checked in and are here. If you're still around, head over whenever you're ready.", "",
       "{{guestDetails}}", "",
       SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
@@ -272,8 +281,8 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     subject: "A quick update on your Build Bar 1:1",
     body: b(
       "Hi {{firstName}},", "",
-      "Quick heads-up: the Notion expert assigned to your 1:1 is no longer available. We're already lining up a replacement and will confirm your new match shortly — your slot is still held for you.", "",
-      "Thanks for rolling with us, and sorry for the shuffle.", "",
+      "Quick heads-up: the Notion expert assigned to your 1:1 is no longer available. We'll try to find you a replacement, but we can't promise one this time.", "",
+      "Either way, you're very welcome to come cowork out of the space with us — we'd still love to have you.", "",
       SUPPORT, "", "See you soon,", SIGNOFF,
     ),
   },

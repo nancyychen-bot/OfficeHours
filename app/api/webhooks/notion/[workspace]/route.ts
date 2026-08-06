@@ -137,8 +137,10 @@ export async function POST(
     // sides (status/name/type/person). No page fetch, no echo check, no
     // dependence on button-edit timing.
     if (action === "unclaim") {
-      // Email BEFORE releasing — release clears booked_by_email, and both the
-      // guest and the unclaiming helper need the cancel .ics to drop the hold.
+      // Notify the released expert (+ drop their calendar hold). The GUEST gets
+      // nothing here — we try to re-match in the backend and only apologize the
+      // day before if still unmatched (rematch-apology cron). Email before
+      // release since it clears booked_by_email.
       await sendBookingComms(booking.id, "expert_unavailable");
       const released = (await releaseBooking(booking.id)) ?? booking;
       // Wait for the button's own Edit step to settle, THEN clear both cards so

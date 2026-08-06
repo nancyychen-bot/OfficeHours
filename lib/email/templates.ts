@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -135,7 +135,7 @@ export type TemplateKey =
   | "checked_in__guest__matched" | "checked_in__guest__unmatched" | "checked_in__guest__nohelp" | "checked_in__helper"
   | "arrived_after_no_show__guest__matched" | "arrived_after_no_show__guest__nohelp" | "arrived_after_no_show__helper"
   | "no_show__helper"
-  | "expert_unavailable__guest" | "expert_unavailable__helper"
+  | "rematch_pending__guest" | "expert_unavailable__helper"
   | "double_booked__helper"
   | "waitlisted__guest" | "waitlisted__helper"
   | "declined__guest" | "declined__helper"
@@ -278,12 +278,12 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       SUPPORT_HELPER, "", "Thanks for being here,", SIGNOFF,
     ),
   },
-  expert_unavailable__guest: {
-    label: "Expert unavailable", description: "an expert releases a booking", role: "guest",
-    subject: "A quick update on your Build Bar 1:1",
+  rematch_pending__guest: {
+    label: "Re-match pending (day before)", description: "the day before, a 1:1 guest still has no expert", role: "guest",
+    subject: "An update on your Notion Build Bar 1:1",
     body: b(
       "Hi {{firstName}},", "",
-      "Quick heads-up: the Notion expert assigned to your 1:1 is no longer available. We'll try to find you a replacement, but we can't promise one this time.", "",
+      "Quick heads-up ahead of tomorrow: we haven't been able to match you with a Notion expert for your 1:1 yet. We're still trying to find someone before the event — but we can't promise a match this time.", "",
       "Either way, you're very welcome to come cowork out of the space with us — we'd still love to have you.", "",
       SUPPORT, "", "See you soon,", SIGNOFF,
     ),

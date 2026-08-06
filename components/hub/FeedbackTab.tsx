@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { HubFeedback } from "@/lib/hub/queries";
-import type { Chip } from "@/lib/hub/format";
+import { scoreBadgeClass, type Chip } from "@/lib/hub/format";
 
 const COLS = 10;
 
@@ -56,11 +56,14 @@ export function FeedbackTab({ feedback, chips }: { feedback: HubFeedback[]; chip
               <tr key={f.id} className="border-b border-line align-top last:border-0">
                 <td className="whitespace-nowrap px-3 py-2 font-medium text-neutral-800">{f.guest_name ?? "—"}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{f.event_name ?? "—"}</td>
-                <td className="whitespace-nowrap px-3 py-2 text-neutral-600">
+                <td className="whitespace-nowrap px-3 py-2">
                   {f.satisfaction_score != null ? (
-                    <span className="font-semibold text-neutral-800">{f.satisfaction_score}</span>
-                  ) : "—"}
-                  {f.satisfaction_label ? <span className="ml-1 text-neutral-400">{f.satisfaction_label}</span> : null}
+                    <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${scoreBadgeClass(f.satisfaction_score)}`}>
+                      {f.satisfaction_score}/5
+                    </span>
+                  ) : (
+                    <span className="text-neutral-400">—</span>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-neutral-600">{f.confidence ?? "—"}</td>
                 <td className="max-w-[220px] px-3 py-2 text-neutral-600">{f.interests.length ? f.interests.join(", ") : "—"}</td>

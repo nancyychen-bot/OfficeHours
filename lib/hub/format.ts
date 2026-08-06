@@ -29,6 +29,14 @@ export function pct(ratio: number): string {
   return `${Math.round(ratio * 100)}%`;
 }
 
+/** Color class for a 1–5 satisfaction score badge. */
+export function scoreBadgeClass(score: number | null): string {
+  if (score == null) return "bg-neutral-100 text-neutral-400";
+  if (score >= 4) return "bg-green-100 text-green-800";
+  if (score === 3) return "bg-amber-100 text-amber-800";
+  return "bg-red-100 text-red-700";
+}
+
 /** The booking statuses available as filter chips, in display order. */
 export const STATUS_FILTERS: { value: string; label: string }[] = [
   "unassigned",

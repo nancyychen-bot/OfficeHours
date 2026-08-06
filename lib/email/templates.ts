@@ -1,4 +1,7 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request";
+
+/** The Ambassador feedback form (linked from the post-event feedback email). */
+export const FEEDBACK_FORM_URL = "https://notionambassadors.notion.site/ef74dccc30f7477fac1136b4ff7faeb7?pvs=105";
 export type Recipient = "helper" | "guest";
 
 export interface CommsFields {
@@ -379,6 +382,31 @@ export function renderComms(
         "",
         "See you inside,",
         SIGNOFF,
+      ]),
+    };
+  }
+  if (kind === "feedback_request" && role === "guest") {
+    return {
+      subject: "How was Notion Build Bar? (2 mins) 💜",
+      ...wrap([
+        `Hi ${firstName(f.guestName)},`,
+        "",
+        "Thank you so much for coming to Notion Build Bar — it was so great to have you there, and we hope you left with something you're excited to build.",
+        "",
+        "We'd love to hear how it went. Your feedback directly shapes the next event, and it takes about 2 minutes:",
+        "",
+        `👉 Share your feedback: ${FEEDBACK_FORM_URL}`,
+        "",
+        "If you worked one-on-one with a Notion expert, we'd especially love to hear how that went.",
+        "",
+        "Thanks again for building with us. To catch a future Build Bar or community event, follow our Notion calendar:",
+        "",
+        "👉 https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh",
+        "",
+        "With gratitude,",
+        SIGNOFF,
+        "",
+        SUPPORT,
       ]),
     };
   }

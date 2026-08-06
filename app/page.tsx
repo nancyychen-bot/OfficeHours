@@ -1,7 +1,6 @@
 import { listBookings, listFeedback, listEvents } from "@/lib/hub/queries";
 import { computeResults, computeCommunity } from "@/lib/hub/results";
 import { HubNav } from "@/components/hub/HubNav";
-import { KpiBand } from "@/components/hub/KpiBand";
 import { ResultsTab } from "@/components/hub/ResultsTab";
 
 // Always render fresh (reads the live DB); the middleware guards access.
@@ -17,7 +16,6 @@ export default async function DashboardPage() {
       <p className="mb-5 max-w-2xl text-sm text-neutral-500">
         High-level numbers and insight — attendance, 1:1 coverage, satisfaction, confidence lift, interests, and repeat attendance.
       </p>
-      <KpiBand overall={overall} community={community} eventCount={perEvent.length} />
       <ResultsTab overall={overall} perEvent={perEvent} community={community} />
     </main>
   );

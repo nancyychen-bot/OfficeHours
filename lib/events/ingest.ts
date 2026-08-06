@@ -3,7 +3,7 @@ import { matchSlotForEvent } from "../db/slots";
 import { upsertBookingFromLuma, checkInByLumaGuestId, getBookingByLumaGuestId } from "../db/bookings";
 import { pushBookingToWorkspaces } from "../notion/push";
 import { sendBookingComms } from "../email/comms";
-import { clearAllComms } from "../db/email-log";
+import { clearAllComms, clearCommsForKinds } from "../db/email-log";
 import { approvalStatusToLumaStatus } from "../luma/approval";
 import type { NormalizedRegistration } from "../luma/parse";
 import type { Booking } from "../sync/types";
@@ -68,6 +68,15 @@ export async function ingestRegistration(
   // decline/waitlist notice, etc.) isn't suppressed by the per-booking dedup.
   if (prior?.status === "cancelled" && booking.status !== "cancelled") {
     await clearAllComms(booking.id);
+  }
+
+  // Slot/time changed on an already-assigned booking (guest edited their 1:1 time
+  // in Luma) → re-issue the calendar invite with the new time. Clear the prior
+  // 'assigned' send so it isn't deduped; the monotonic ICS SEQUENCE updates the
+  // existing event on attendees' calendars.
+  if (opts.live && prior?.status === "assigned" && prior.slot_id !== (slot?.id ?? null)) {
+    await clearCommsForKinds(booking.id, ["assigned"]);
+    await sendBookingComms(booking.id, "assigned");
   }
 
   let checkedIn = false;

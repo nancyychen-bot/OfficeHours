@@ -9,6 +9,16 @@ function table(): any {
   return (getAdminClient() as any).from("email_log");
 }
 
+// A `pending` row older than this is considered abandoned (a send that crashed
+// between reserve and finalize) and becomes retryable — while a fresh `pending`
+// (a concurrent in-flight send) is left alone so we never double-send.
+const STALE_PENDING_MS = 10 * 60_000;
+/** PostgREST `.or(...)` matching a retryable row: failed/skipped, or stale pending. */
+function retryableFilter(): string {
+  const cutoff = new Date(Date.now() - STALE_PENDING_MS).toISOString();
+  return `status.in.(failed,skipped),and(status.eq.pending,created_at.lt.${cutoff})`;
+}
+
 /**
  * Atomically reserve the send slot for (booking, kind, recipient EMAIL) — the
  * concurrency guard that makes sending (not just the ledger) idempotent. Keyed
@@ -47,13 +57,15 @@ export async function reserveCommsSlot(
   if (insErr) throw insErr;
   if (inserted && inserted.length > 0) return true;
 
-  // A row already exists for this email — claim it only if it's retryable.
+  // A row already exists for this email — claim it only if it's retryable
+  // (failed/skipped, or a stale abandoned pending). A fresh pending (concurrent
+  // in-flight send) is NOT reclaimed, so we never double-send.
   const { data: claimed, error: updErr } = await table()
     .update({ status: "pending", recipient_role: role, resend_id: null })
     .eq("booking_id", bookingId)
     .eq("event_kind", eventKind)
     .eq("recipient_email", email)
-    .in("status", ["failed", "skipped"])
+    .or(retryableFilter())
     .select("id");
   if (updErr) throw updErr;
   return !!(claimed && claimed.length > 0);
@@ -67,7 +79,7 @@ export async function reserveCommsSlot(
 export async function listRetriableComms(): Promise<Array<{ bookingId: string; kind: string }>> {
   const { data, error } = await table()
     .select("booking_id, event_kind")
-    .eq("status", "failed");
+    .or(retryableFilter());
   if (error) throw error;
   const seen = new Set<string>();
   const out: Array<{ bookingId: string; kind: string }> = [];

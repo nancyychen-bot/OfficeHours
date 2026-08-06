@@ -7,8 +7,7 @@ const TABS = [
   { href: "/", label: "Dashboard" },
   { href: "/bookings", label: "Bookings" },
   { href: "/feedback", label: "Feedback" },
-  { href: "/emails", label: "Emails" },
-  { href: "/slack", label: "Slack" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function HubNav() {
@@ -19,7 +18,7 @@ export function HubNav() {
       <div className="flex items-center gap-1">
         <h1 className="mr-4 text-2xl font-bold">Notion Build Bar Hub</h1>
         {TABS.map((t) => {
-          const active = pathname === t.href;
+          const active = t.href === "/" ? pathname === "/" : pathname.startsWith(t.href);
           return (
             <Link
               key={t.href}

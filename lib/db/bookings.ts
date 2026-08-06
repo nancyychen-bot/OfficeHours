@@ -185,8 +185,10 @@ export type ClaimResult =
  * helpers racing within the sync propagation window can't both succeed — the
  * loser gets `already_claimed` and the hub reverts their Notion page.
  *
- * Also gated on `luma_status IN (pending, approved)`: a waitlisted or declined
- * guest is never claimable (a claim of a pending guest auto-approves them).
+ * Claimable statuses are `unassigned` only. A declined guest is already
+ * `cancelled` (never `unassigned`), so they can't be claimed. Pending and
+ * waitlisted guests CAN be claimed — an expert opting in pulls them in, and the
+ * claim path auto-promotes them to Approved.
  */
 export async function claimBooking(params: {
   bookingId: string;
@@ -203,7 +205,6 @@ export async function claimBooking(params: {
     })
     .eq("id", params.bookingId)
     .eq("status", "unassigned") // <-- the guard that makes this first-wins
-    .in("luma_status", ["pending", "approved"]) // waitlisted/declined can't be claimed
     .select("*")
     .maybeSingle();
   if (error) throw error;

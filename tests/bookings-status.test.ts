@@ -53,7 +53,8 @@ describe("decideBookingStatusPatch", () => {
     });
   });
 
-  it("waitlisting an unassigned guest leaves the status (non-claimable via claim guard)", () => {
+  it("waitlisting an unassigned guest leaves the assignment status unchanged", () => {
+    // Still claimable — claiming a waitlisted guest pulls them in (promotes to approved).
     expect(decideBookingStatusPatch("unassigned", "waitlist", "2:00-2:30 PM")).toEqual({});
   });
 

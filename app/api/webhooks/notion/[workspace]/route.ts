@@ -193,9 +193,9 @@ export async function POST(
       // Push to BOTH: flip Status → Assigned on the origin card too (the button
       // may not have) and mirror to the other workspace.
       await pushBookingToWorkspaces(claim.booking);
-      // A claim triages an untriaged guest: pending -> approved (writes back to
-      // Luma + mirrors). Deliberate waitlist/declined are left untouched.
-      if (claim.booking.luma_status === "pending") {
+      // A claim pulls a guest in: pending OR waitlisted -> approved (writes back
+      // to Luma + mirrors). Already-approved guests are left as-is.
+      if (claim.booking.luma_status === "pending" || claim.booking.luma_status === "waitlist") {
         await applyLumaStatus(claim.booking, "approved", { source: workspace }, approvalDeps(direction, claim.booking.id));
       }
       await sendBookingComms(claim.booking.id, "assigned");

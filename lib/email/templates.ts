@@ -338,7 +338,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
   },
   slot_changed__guest: {
     label: "Slot changed", description: "guest changed their 1:1 time via the self-serve form", role: "guest",
-    subject: "Your Notion Build Bar 1:1 is now {{slotName}}",
+    subject: "Your 1:1 is now {{slotName}} — we'll match you with a new Notion expert",
     body: b(
       "Hi {{firstName}},", "",
       "Your 1:1 time has been changed to {{slotName}} on {{eventDate}} — you're still all set to attend.", "",

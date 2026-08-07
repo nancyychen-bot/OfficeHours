@@ -27,5 +27,5 @@ export async function middleware(req: NextRequest) {
 // routes (`/api/hub/login`, `/api/hub/add-event`) self-verify (password / form
 // token), so they're excluded here and gated per-route instead.
 export const config = {
-  matcher: ["/((?!login|add-event|embed|api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!login|add-event|change-slot|embed|api|_next/static|_next/image|favicon.ico).*)"],
 };

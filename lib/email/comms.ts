@@ -101,6 +101,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   already_claimed: [], // sent directly to the would-be claimer via sendCommsToEmail
   day_of_agenda: [], // aggregate per-expert email — sent via lib/events/agenda, not here
   unclaim_denied: [], // sent directly to the would-be unclaimer via sendCommsToEmail
+  slot_changed: ["helper", "guest"], // guest self-served a new slot: notify both; expert removed
 };
 
 /** Kinds that tear down a booking → attach a calendar CANCEL to remove the hold. */
@@ -112,6 +113,7 @@ const CANCEL_CALENDAR_KINDS = new Set<CommsKind>([
   "no_show",
   "event_cancelled",
   "reassigned_off",
+  "slot_changed",
 ]);
 
 /**

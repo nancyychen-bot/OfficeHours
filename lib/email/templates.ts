@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -138,6 +138,7 @@ export type TemplateKey =
   | "no_show__helper"
   | "rematch_pending__guest" | "unmatched_notice__guest" | "expert_unavailable__helper"
   | "double_booked__helper" | "reassigned_off__helper" | "already_claimed__helper" | "unclaim_denied__helper"
+  | "slot_changed__guest" | "slot_changed__helper"
   | "waitlisted__guest" | "waitlisted__helper"
   | "declined__guest" | "declined__helper"
   | "cancelled__guest" | "cancelled__helper"
@@ -329,6 +330,26 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "It looks like you tried to unclaim a 1:1 at Notion Build Bar that's currently claimed by {{expertName}}. Only the person who claimed a spot can unclaim it, so nothing has changed.", "",
       "If you'd like this spot, ask {{expertName}} to unclaim it — or talk to Nancy Chen to have it changed.", "",
       "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  slot_changed__guest: {
+    label: "Slot changed", description: "guest changed their 1:1 time via the self-serve form", role: "guest",
+    subject: "Your Notion Build Bar 1:1 is now {{slotName}}",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Your 1:1 time has been changed to {{slotName}} on {{eventDate}} — you're still all set to attend.", "",
+      "We'll do our best to match you with a Notion expert for the new time, and you'll get a calendar invite by email once you're matched. (We've cleared your previous calendar hold in the meantime.)", "",
+      SUPPORT, "", "See you soon,", SIGNOFF,
+    ),
+  },
+  slot_changed__helper: {
+    label: "Slot changed (expert removed)", description: "a guest moved their 1:1 to a new time", role: "helper",
+    subject: "A 1:1 you claimed changed time — you've been removed",
+    body: b(
+      "Hi {{firstName}},", "",
+      "The guest for a 1:1 you'd claimed at Notion Build Bar moved to a new time ({{slotName}}), so you've been removed from this booking and the calendar hold has been cancelled. Nothing you need to do.", "",
+      "If they still need help at the new time, the spot will be offered again.", "",
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
   reassigned_off__helper: {

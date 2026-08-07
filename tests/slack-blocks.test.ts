@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAgendaBlocks } from "../lib/slack/blocks";
+import { buildAgendaBlocks, buildClaimConfirmBlocks } from "../lib/slack/blocks";
 
 const agenda = {
   email: "grace@x.com",
@@ -22,5 +22,25 @@ describe("buildAgendaBlocks", () => {
     expect(json).toContain("2:00 PM");
     expect(json).toContain("Bo");
     expect(json).toContain("Databases");
+  });
+});
+
+describe("buildClaimConfirmBlocks", () => {
+  it("confirms the guest/slot and tells them to accept the calendar invite", () => {
+    const json = JSON.stringify(buildClaimConfirmBlocks({
+      guestName: "Ada", slotName: "2:00 PM", eventName: "Build Bar NYC", eventDate: "2026-08-26",
+      cardUrl: "https://app.notion.com/abc",
+    }));
+    expect(json).toContain("Ada");
+    expect(json).toContain("2:00 PM");
+    expect(json).toContain("accept the calendar invite");
+    expect(json).toContain("https://app.notion.com/abc");
+  });
+
+  it("omits the card link line when there is no URL", () => {
+    const json = JSON.stringify(buildClaimConfirmBlocks({
+      guestName: "Ada", slotName: "2:00 PM", eventName: null, eventDate: null, cardUrl: null,
+    }));
+    expect(json).not.toContain("Open your card");
   });
 });

@@ -112,8 +112,9 @@ function toParagraphs(bodyLines: string[], fmt: (s: string) => string): string {
 }
 function inlineFormat(s: string): string {
   let out = escapeHtml(s);
-  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2">$1</a>');
-  out = out.replace(/(^|[^"=>])(https?:\/\/[^\s<]+)/g, '$1<a href="$2">$2</a>');
+  // All links render bold so they clearly read as links (applies everywhere).
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" style="font-weight:700">$1</a>');
+  out = out.replace(/(^|[^"=>])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" style="font-weight:700">$2</a>');
   out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
   return out;

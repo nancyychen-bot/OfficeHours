@@ -28,6 +28,7 @@ import { logSync } from "@/lib/sync/log";
 import { sendBookingComms, sendCommsToEmail } from "@/lib/email/comms";
 import { clearCommsForKinds } from "@/lib/db/email-log";
 import { postSlackRecruit, postSlackClaimed } from "@/lib/slack/client";
+import { postClaimConfirmDM } from "@/lib/slack/notify";
 
 export const runtime = "nodejs";
 export const maxDuration = 30; // allow the button-settle delay + processing
@@ -200,6 +201,7 @@ export async function POST(
         // Fresh time → re-send the invite (monotonic ICS SEQUENCE updates the hold).
         await clearCommsForKinds(updated.id, ["assigned"]);
         await sendBookingComms(updated.id, "assigned");
+        await postClaimConfirmDM(updated.id);
       }
       const pushOpts = { slotLabel: matchedSlot.name, location: ev?.city, eventName: ev?.name, eventDate: ev?.event_date };
       await pushBookingToWorkspaces(updated, { fullUpdate: true, dev: pushOpts, ambassador: pushOpts });
@@ -257,6 +259,7 @@ export async function POST(
       // expert's name); clear the prior 'assigned' send so the dedup doesn't suppress it.
       await clearCommsForKinds(updated.id, ["assigned"]);
       await sendBookingComms(updated.id, "assigned");
+      await postClaimConfirmDM(updated.id);
       const current = (await getBookingById(updated.id)) ?? updated;
       await pushBookingToWorkspaces(current, { clearPersonOn: [other] });
       await logSync({ direction, result: "applied", bookingId: booking.id, action: `reassigned:${freshPerson}` });
@@ -320,6 +323,7 @@ export async function POST(
       // (the per-booking dedup would otherwise suppress it).
       await clearCommsForKinds(claim.booking.id, ["assigned"]);
       await sendBookingComms(claim.booking.id, "assigned");
+      await postClaimConfirmDM(claim.booking.id);
       // If this slot was recruited in Slack, tell the channel it's covered (no-op otherwise).
       await postSlackClaimed(claim.booking.id);
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "claimed" });

@@ -36,6 +36,8 @@ export const env = {
     // Row reads/writes target the data source (Notion API v2025-09-03+).
     bookingsDataSourceId: () => required("NOTION_DEV_BOOKINGS_DATA_SOURCE_ID"),
     webhookSecret: () => optional("NOTION_DEV_WEBHOOK_SECRET"),
+    expertFeedbackDbId: () => optional("NOTION_DEV_EXPERT_FEEDBACK_DB_ID"),
+    expertFeedbackDataSourceId: () => optional("NOTION_DEV_EXPERT_FEEDBACK_DATA_SOURCE_ID"),
   },
   notionAmbassador: {
     token: () => required("NOTION_AMBASSADOR_TOKEN"),
@@ -57,5 +59,9 @@ export const env = {
   hub: {
     password: () => required("HUB_PASSWORD"),
     sessionSecret: () => required("HUB_SESSION_SECRET"),
+  },
+  slack: {
+    botToken: () => optional("SLACK_BOT_TOKEN"),
+    signingSecret: () => optional("SLACK_SIGNING_SECRET"),
   },
 } as const;

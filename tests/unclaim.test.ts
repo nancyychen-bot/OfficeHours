@@ -1,18 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { isUnclaimAdmin } from "../lib/auth/admins";
 import { renderComms, templateKeyFor, SAMPLE_FIELDS } from "../lib/email/templates";
 
-describe("isUnclaimAdmin", () => {
-  it("allows the configured admins (case-insensitive), rejects others", () => {
-    expect(isUnclaimAdmin("nchen@makenotion.com")).toBe(true);
-    expect(isUnclaimAdmin("EYY@makenotion.com")).toBe(true);
-    expect(isUnclaimAdmin("vanessa.intan@makenotion.com")).toBe(true);
-    expect(isUnclaimAdmin("faisa.mohamed@makenotion.com")).toBe(true);
-    expect(isUnclaimAdmin("someone.else@makenotion.com")).toBe(false);
-    expect(isUnclaimAdmin(null)).toBe(false);
-    expect(isUnclaimAdmin("")).toBe(false);
-  });
-});
+// (admin membership is now DB-backed — see lib/db/admins; covered via integration)
 
 describe("unclaim_denied email", () => {
   it("routes to the helper template and names the claimer + Nancy", () => {

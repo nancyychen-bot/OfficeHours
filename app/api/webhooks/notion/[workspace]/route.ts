@@ -148,7 +148,7 @@ export async function POST(
       const pageU = (await notionU.pages.retrieve({ page_id: pageId })) as any;
       const requesterName = readFirstPersonName(pageU.properties?.[PROP.unclaimRequestedBy]);
       const requesterEmail = readFirstPersonEmail(pageU.properties?.[PROP.unclaimRequestedBy]);
-      const isAdmin = isUnclaimAdmin(requesterEmail);
+      const isAdmin = await isUnclaimAdmin(requesterEmail);
       const isClaimer =
         (!!requesterEmail && !!booking.booked_by_email && requesterEmail.toLowerCase() === booking.booked_by_email.toLowerCase()) ||
         (!!requesterName && !!booking.booked_by_display_name && requesterName === booking.booked_by_display_name);

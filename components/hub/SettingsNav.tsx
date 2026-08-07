@@ -7,6 +7,7 @@ const SUB = [
   { href: "/settings/emails", label: "Emails" },
   { href: "/settings/slack", label: "Slack" },
   { href: "/settings/backups", label: "Backups" },
+  { href: "/settings/admins", label: "Admins" },
 ];
 
 export function SettingsNav() {

@@ -33,12 +33,13 @@ const STAGES: Array<{ title: string; blurb: string; keys: TemplateKey[] }> = [
   {
     title: "Booking a 1:1",
     blurb: "When a Notion expert claims (or releases) a guest's 1:1.",
-    keys: ["assigned__guest", "assigned__helper", "already_claimed__helper", "reassigned_off__helper", "expert_unavailable__helper", "rematch_pending__guest", "unmatched_notice__guest", "double_booked__helper"],
+    keys: ["assigned__guest", "assigned__helper", "already_claimed__helper", "reassigned_off__helper", "expert_unavailable__helper", "unclaim_denied__helper", "slot_changed__guest", "slot_changed__helper", "rematch_pending__guest", "unmatched_notice__guest", "double_booked__helper"],
   },
   {
     title: "At the event",
-    blurb: "Check-in, no-shows, and late arrivals on the day.",
+    blurb: "Check-in, no-shows, late arrivals, and each expert's day-of agenda.",
     keys: [
+      "day_of_agenda__helper",
       "checked_in__guest__matched", "checked_in__guest__unmatched", "checked_in__guest__nohelp", "checked_in__helper",
       "no_show__helper", "arrived_after_no_show__guest__matched", "arrived_after_no_show__guest__nohelp", "arrived_after_no_show__helper",
     ],
@@ -59,6 +60,14 @@ const STAGES: Array<{ title: string; blurb: string; keys: TemplateKey[] }> = [
     keys: ["feedback_request__guest"],
   },
 ];
+
+// Safety net: surface ANY template not explicitly placed above, so newly-added
+// emails always appear on this page automatically.
+const CATEGORIZED = new Set<string>(STAGES.flatMap((s) => s.keys));
+const UNCATEGORIZED = (Object.keys(TEMPLATE_REGISTRY) as TemplateKey[]).filter((k) => !CATEGORIZED.has(k));
+const ALL_STAGES = UNCATEGORIZED.length
+  ? [...STAGES, { title: "Other automations", blurb: "Everything else the system can send.", keys: UNCATEGORIZED }]
+  : STAGES;
 
 function roleLabel(role: string) {
   return role === "helper" ? "the Notion expert" : "the guest";
@@ -213,7 +222,7 @@ export function EmailEditor({ overrides }: { overrides: OverrideRow[] }) {
       </div>
 
       <div className="space-y-10">
-        {STAGES.map((stage, i) => (
+        {ALL_STAGES.map((stage, i) => (
           <section key={stage.title}>
             <div className="mb-3 flex items-baseline gap-3 border-b-2 border-neutral-900 pb-2">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-xs font-bold text-white">{i + 1}</span>

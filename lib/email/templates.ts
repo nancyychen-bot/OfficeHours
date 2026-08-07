@@ -7,6 +7,7 @@ export const FEEDBACK_FORM_URL = "https://notionambassadors.notion.site/ef74dccc
 export const NOTION_AI_TRIAL_URL = "http://ntn.so/community-biz";
 export const CALENDAR_URL = "https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh";
 export const SUPPORT_EMAIL = "communityevents@makenotion.com";
+export const SLOT_CHANGE_URL = "https://office-hours-three.vercel.app/change-slot";
 
 export interface CommsFields {
   bookingId: string;
@@ -172,6 +173,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "✅ Notion AI activated",
       "✅ Laptop + the question or workspace you want help with", "",
       "*Please [cancel your registration]({{eventUrl}}) if you can't make it, so we can free up your spot.*", "",
+      "*Need a different time? [Change your slot]({{slotChangeLink}}) and we'll help reassign you.*", "",
       "See you soon,", SIGNOFF, "", `*${SUPPORT}*`,
     ),
   },
@@ -185,6 +187,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "{{sessionDetails}}", "",
       "📅 A calendar invite is attached so the time is locked in.", "",
       "Can't make it? Please [cancel your registration]({{eventUrl}}) to free up the spot for someone else.", "",
+      "Need a different time? [Change your slot]({{slotChangeLink}}) and we'll help reassign you.", "",
       SUPPORT, "", "See you soon,", SIGNOFF,
     ),
   },
@@ -519,6 +522,7 @@ export function buildVars(role: Recipient, f: CommsFields): Record<string, strin
     sessionDetails: guestSessionLines(f).join("\n"),
     guestDetails: guestDetailsLines(f).join("\n"),
     feedbackLink: FEEDBACK_FORM_URL,
+    slotChangeLink: SLOT_CHANGE_URL,
     trialLink: NOTION_AI_TRIAL_URL,
     calendarLink: CALENDAR_URL,
     // The event's public page; falls back to the community calendar so the link is never broken.

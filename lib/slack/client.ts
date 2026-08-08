@@ -4,6 +4,7 @@ import { getNotionClient, type NotionWorkspace } from "../notion/client";
 import { toCommsFields } from "../email/comms";
 import type { CommsFields } from "../email/templates";
 import { logSync } from "../sync/log";
+import { postToChannel } from "./api";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "2026-08-28" → "Aug 28" (no timezone parsing so the date never shifts). */
@@ -96,6 +97,28 @@ async function postBlocks(webhookUrl: string, blocks: unknown[]): Promise<void> 
 }
 
 /**
+ * Post to a city channel, preferring the bot (chat.postMessage by channel id) when
+ * a channel_id is configured, else the incoming webhook. Throws on hard failure so
+ * the caller's try/catch logs it.
+ */
+async function postToCityChannel(
+  channel: { webhookUrl: string; channelId: string | null; channelName: string | null },
+  blocks: unknown[],
+  fallbackText: string,
+): Promise<void> {
+  if (channel.channelId) {
+    const res = await postToChannel(channel.channelId, blocks, fallbackText);
+    if (res.ok) return;
+    // fall through to webhook if the bot post failed and a webhook exists
+  }
+  if (channel.webhookUrl) {
+    await postBlocks(channel.webhookUrl, blocks);
+    return;
+  }
+  throw new Error("no channel_id or webhook_url for city");
+}
+
+/**
  * Post a "recruit a replacement" message to the booking's city channel after a
  * slot opens (unclaim/release). Best-effort: never throws, no-op if the city has
  * no configured webhook. Prefers the ambassador card link (the recruit pool),
@@ -129,7 +152,7 @@ export async function postSlackRecruit(bookingId: string): Promise<void> {
       devCardUrl,
       ambassadorCardUrl,
     });
-    await postBlocks(channel.webhookUrl, blocks);
+    await postToCityChannel(channel, blocks, "A 1:1 slot just opened up — can anyone cover it?");
     await setRecruitPostedAt(bookingId, new Date().toISOString());
     await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_posted", note: channel.channelName ?? undefined });
   } catch (err) {
@@ -167,7 +190,7 @@ export async function postSlackClaimed(bookingId: string): Promise<void> {
       guestName: f.guestName,
       slotName: f.slotName,
     });
-    await postBlocks(channel.webhookUrl, blocks);
+    await postToCityChannel(channel, blocks, "A recruited 1:1 slot was covered.");
     await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_claimed_posted", note: channel.channelName ?? undefined });
   } catch (err) {
     await logSync({ direction: "luma_in", result: "error", bookingId, action: "slack_claimed", note: err instanceof Error ? err.message : String(err) });

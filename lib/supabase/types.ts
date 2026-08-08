@@ -260,6 +260,54 @@ export type Database = {
         }
         Relationships: []
       }
+      expert_feedback: {
+        Row: {
+          attended: boolean | null
+          booking_id: string
+          created_at: string
+          event_id: string | null
+          expert_email: string
+          expert_name: string | null
+          guest_email: string | null
+          guest_name: string | null
+          note: string | null
+          notion_dev_page_id: string | null
+          rating: number | null
+          responded_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          attended?: boolean | null
+          booking_id: string
+          created_at?: string
+          event_id?: string | null
+          expert_email: string
+          expert_name?: string | null
+          guest_email?: string | null
+          guest_name?: string | null
+          note?: string | null
+          notion_dev_page_id?: string | null
+          rating?: number | null
+          responded_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attended?: boolean | null
+          booking_id?: string
+          created_at?: string
+          event_id?: string | null
+          expert_email?: string
+          expert_name?: string | null
+          guest_email?: string | null
+          guest_name?: string | null
+          note?: string | null
+          notion_dev_page_id?: string | null
+          rating?: number | null
+          responded_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       feedback_mirror: {
         Row: {
           ambassador_page_id: string

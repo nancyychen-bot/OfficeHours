@@ -328,6 +328,7 @@ export type Database = {
       slack_channels: {
         Row: {
           aliases: string[]
+          channel_id: string | null
           channel_name: string | null
           city: string
           created_at: string
@@ -336,6 +337,7 @@ export type Database = {
         }
         Insert: {
           aliases?: string[]
+          channel_id?: string | null
           channel_name?: string | null
           city: string
           created_at?: string
@@ -344,6 +346,7 @@ export type Database = {
         }
         Update: {
           aliases?: string[]
+          channel_id?: string | null
           channel_name?: string | null
           city?: string
           created_at?: string

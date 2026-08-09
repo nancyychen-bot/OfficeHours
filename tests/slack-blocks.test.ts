@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAgendaBlocks, buildClaimConfirmBlocks } from "../lib/slack/blocks";
+import { buildAgendaBlocks, buildClaimConfirmBlocks, buildFeedbackBlocks } from "../lib/slack/blocks";
 
 const agenda = {
   email: "grace@x.com",
@@ -42,5 +42,29 @@ describe("buildClaimConfirmBlocks", () => {
       guestName: "Ada", slotName: "2:00 PM", eventName: null, eventDate: null, cardUrl: null,
     }));
     expect(json).not.toContain("Open your card");
+  });
+});
+
+describe("buildFeedbackBlocks", () => {
+  const prompt = {
+    email: "grace@x.com", name: "Grace", eventId: "e1", eventName: "NYC", eventDate: "2026-08-26",
+    items: [
+      { bookingId: "b1", guestName: "Ada", guestEmail: "ada@x.com", slotName: "2:00 PM", challenge: "Roadmaps" },
+      { bookingId: "b2", guestName: "Bo", guestEmail: null, slotName: "2:30 PM", challenge: null },
+    ],
+  };
+
+  it("renders a row per 1:1 with attendance buttons, rating select, and note button carrying the booking id", () => {
+    const blocks = buildFeedbackBlocks(prompt) as Array<{ type: string; elements?: Array<{ action_id?: string; value?: string }> }>;
+    const actionBlocks = blocks.filter((b) => b.type === "actions");
+    expect(actionBlocks).toHaveLength(2); // one per 1:1
+    const first = actionBlocks[0].elements ?? [];
+    const ids = first.map((e) => e.action_id);
+    expect(ids).toContain("fb_attend");
+    expect(ids).toContain("fb_rating");
+    expect(ids).toContain("fb_note");
+    const attendValues = first.filter((e) => e.action_id === "fb_attend").map((e) => e.value);
+    expect(attendValues).toEqual(["b1:yes", "b1:no"]);
+    expect(first.find((e) => e.action_id === "fb_note")?.value).toBe("b1");
   });
 });

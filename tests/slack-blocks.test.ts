@@ -54,20 +54,11 @@ describe("buildFeedbackBlocks", () => {
     ],
   };
 
-  it("renders a row per 1:1 with attendance buttons, rating select, and note button carrying the booking id", () => {
-    const blocks = buildFeedbackBlocks(prompt) as Array<{ type: string; elements?: Array<{ action_id?: string; value?: string }> }>;
-    const actionBlocks = blocks.filter((b) => b.type === "actions");
-    expect(actionBlocks).toHaveLength(2); // one per 1:1
-    const first = actionBlocks[0].elements ?? [];
-    const ids = first.map((e) => e.action_id);
-    // action_ids must be unique within the block → two distinct attendance ids
-    expect(ids).toContain("fb_attend_yes");
-    expect(ids).toContain("fb_attend_no");
-    expect(new Set(ids).size).toBe(ids.length); // no duplicate action_id in the block
-    expect(ids).toContain("fb_rating");
-    expect(ids).toContain("fb_note");
-    const attendValues = first.filter((e) => (e.action_id ?? "").startsWith("fb_attend")).map((e) => e.value);
-    expect(attendValues).toEqual(["b1:yes", "b1:no"]);
-    expect(first.find((e) => e.action_id === "fb_note")?.value).toBe("b1");
+  it("renders one 'Give feedback' button per 1:1 carrying the booking id", () => {
+    const blocks = buildFeedbackBlocks(prompt) as Array<{ type: string; accessory?: { type: string; action_id?: string; value?: string } }>;
+    const withButton = blocks.filter((b) => b.accessory);
+    expect(withButton).toHaveLength(2); // one section+button per 1:1
+    expect(withButton.map((b) => b.accessory!.action_id)).toEqual(["fb_open", "fb_open"]);
+    expect(withButton.map((b) => b.accessory!.value)).toEqual(["b1", "b2"]);
   });
 });

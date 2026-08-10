@@ -174,9 +174,18 @@ DB access layer `lib/db/expert-feedback.ts`:
 - Best-effort paths (Slack down / user not found) log and no-op without throwing.
 - Follow existing TDD patterns; keep the current suite green.
 
-## Deferred (post-review descope)
+## Revision (post-live-test): feedback interaction is a modal form, not inline taps
 
-- **In-place message rewrite on each button click** (originally in §5b): after a tap, rewriting that 1:1's row to show the recorded choice. Descoped because a faithful rewrite must re-render the *whole* multi-row message, which needs slot/challenge context not stored on `expert_feedback` — a schema addition — to avoid degrading the still-unanswered rows. The answer is persisted synchronously and re-taps are idempotent (no data harm), so this is UX polish, not correctness. Revisit if experts find the lack of visual confirmation confusing; the cheapest faithful implementation adds `slot_name`/`challenge` columns to `expert_feedback` + a `buildFeedbackStateBlocks` builder + a `response_url` (`replace_original`) update in the interactivity route's `after()`.
+The original §5b design (inline attendance/rating buttons + note modal, each tap
+auto-saving) proved confusing in live testing — no explicit "Send", and rapid taps
+raced to create duplicate Notion pages. **Replaced with a form model:**
+
+- The DM shows one **"Give feedback"** button per 1:1 (`action_id: fb_open`, value = bookingId).
+- Clicking opens a **modal form** (`feedbackModalView`) with attendance (radio: Showed up / No-show), rating (select 1–5), and a note (text) — all optional — plus a **Submit** button. Re-opening pre-fills prior answers.
+- Submit fires one `view_submission` → one `upsertFeedbackAnswer` (all fields at once) → one Notion push. Blank fields are left `undefined` so they never clobber prior answers.
+- This gives an explicit Send and inherently avoids the duplicate-page race (one write per submit). The Notion push is additionally made race-safe via a Supabase compare-and-set claim on `notion_dev_page_id` (create the page at most once, then update it).
+
+Interaction types: `open_feedback` / `feedback_submit` (see `lib/slack/interaction.ts`).
 
 ## Non-goals / YAGNI
 

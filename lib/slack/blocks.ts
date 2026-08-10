@@ -22,34 +22,20 @@ export function buildClaimConfirmBlocks(i: ClaimConfirmInput): unknown[] {
   return [{ type: "section", text: { type: "mrkdwn", text: lines } }];
 }
 
-/** DM blocks: one message per expert, one interactive row per 1:1. Pure.
- * action_ids must be unique WITHIN each actions block, so the two attendance
- * buttons use distinct ids: fb_attend_yes / fb_attend_no (both value `${id}:yes|no`),
- * plus fb_rating (select option value `${id}:${n}`) and fb_note (value `${id}`). */
+/** DM blocks: one message per expert, one "Give feedback" button per 1:1. Pure.
+ * Each button (action_id fb_open, value `${bookingId}`) opens a modal form with a
+ * Submit button — the actual attendance/rating/note are captured there in one go. */
 export function buildFeedbackBlocks(p: ExpertFeedbackPrompt): unknown[] {
   const when = shortDate(p.eventDate);
   const blocks: unknown[] = [
-    { type: "section", text: { type: "mrkdwn", text: `🙌 *How did your Build Bar 1:1s go?* — ${p.eventName ?? "Build Bar"}${when ? ` (${when})` : ""}\nTap for each guest — every tap saves.` } },
+    { type: "section", text: { type: "mrkdwn", text: `🙌 *How did your Build Bar 1:1s go?* — ${p.eventName ?? "Build Bar"}${when ? ` (${when})` : ""}\nTap *Give feedback* for each guest.` } },
     { type: "divider" },
   ];
   for (const it of p.items) {
     blocks.push({
       type: "section",
       text: { type: "mrkdwn", text: `*${it.guestName}*${it.slotName ? ` · ${it.slotName}` : ""}${it.challenge ? `\n_${it.challenge}_` : ""}` },
-    });
-    blocks.push({
-      type: "actions",
-      elements: [
-        { type: "button", action_id: "fb_attend_yes", text: { type: "plain_text", text: "✅ Showed up", emoji: true }, value: `${it.bookingId}:yes`, style: "primary" },
-        { type: "button", action_id: "fb_attend_no", text: { type: "plain_text", text: "🚫 No-show", emoji: true }, value: `${it.bookingId}:no` },
-        {
-          type: "static_select",
-          action_id: "fb_rating",
-          placeholder: { type: "plain_text", text: "Rating", emoji: true },
-          options: [1, 2, 3, 4, 5].map((n) => ({ text: { type: "plain_text", text: String(n) }, value: `${it.bookingId}:${n}` })),
-        },
-        { type: "button", action_id: "fb_note", text: { type: "plain_text", text: "📝 Note", emoji: true }, value: it.bookingId },
-      ],
+      accessory: { type: "button", action_id: "fb_open", text: { type: "plain_text", text: "Give feedback", emoji: true }, value: it.bookingId },
     });
   }
   return blocks;

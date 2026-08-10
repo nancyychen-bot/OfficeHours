@@ -1,9 +1,9 @@
 import { NextResponse, after } from "next/server";
 import { env } from "@/lib/env";
 import { verifySlackSignature } from "@/lib/slack/verify";
-import { parseInteraction, noteModalView } from "@/lib/slack/interaction";
+import { parseInteraction, feedbackModalView } from "@/lib/slack/interaction";
 import { openModal } from "@/lib/slack/api";
-import { upsertFeedbackAnswer } from "@/lib/db/expert-feedback";
+import { upsertFeedbackAnswer, getFeedbackRow } from "@/lib/db/expert-feedback";
 import { pushExpertFeedback } from "@/lib/notion/expert-feedback";
 import { logSync } from "@/lib/sync/log";
 
@@ -38,19 +38,27 @@ export async function POST(req: Request) {
 
   try {
     switch (interaction.kind) {
-      case "attend":
-        await upsertFeedbackAnswer(interaction.bookingId, { attended: interaction.attended });
-        after(() => pushExpertFeedback(interaction.bookingId));
+      case "open_feedback": {
+        // Fetch current answers so the modal pre-fills (re-open shows what was saved).
+        const row = await getFeedbackRow(interaction.bookingId);
+        await openModal(
+          interaction.triggerId,
+          feedbackModalView(interaction.bookingId, {
+            guestName: row?.guest_name ?? "this guest",
+            attended: row?.attended,
+            rating: row?.rating,
+            note: row?.note,
+          }),
+        );
         break;
-      case "rating":
-        await upsertFeedbackAnswer(interaction.bookingId, { rating: interaction.rating });
-        after(() => pushExpertFeedback(interaction.bookingId));
-        break;
-      case "note_open":
-        await openModal(interaction.triggerId, noteModalView(interaction.bookingId));
-        break;
-      case "note_submit":
-        await upsertFeedbackAnswer(interaction.bookingId, { note: interaction.note });
+      }
+      case "feedback_submit":
+        // One write captures the whole form; sync the single Notion page after ack.
+        await upsertFeedbackAnswer(interaction.bookingId, {
+          attended: interaction.attended,
+          rating: interaction.rating,
+          note: interaction.note,
+        });
         after(() => pushExpertFeedback(interaction.bookingId));
         break;
       case "ignore":

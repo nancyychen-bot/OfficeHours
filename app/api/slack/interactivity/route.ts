@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { env } from "@/lib/env";
 import { verifySlackSignature } from "@/lib/slack/verify";
 import { parseInteraction, noteModalView } from "@/lib/slack/interaction";
@@ -40,18 +40,18 @@ export async function POST(req: Request) {
     switch (interaction.kind) {
       case "attend":
         await upsertFeedbackAnswer(interaction.bookingId, { attended: interaction.attended });
-        void pushExpertFeedback(interaction.bookingId);
+        after(() => pushExpertFeedback(interaction.bookingId));
         break;
       case "rating":
         await upsertFeedbackAnswer(interaction.bookingId, { rating: interaction.rating });
-        void pushExpertFeedback(interaction.bookingId);
+        after(() => pushExpertFeedback(interaction.bookingId));
         break;
       case "note_open":
         await openModal(interaction.triggerId, noteModalView(interaction.bookingId));
         break;
       case "note_submit":
         await upsertFeedbackAnswer(interaction.bookingId, { note: interaction.note });
-        void pushExpertFeedback(interaction.bookingId);
+        after(() => pushExpertFeedback(interaction.bookingId));
         break;
       case "ignore":
         break;

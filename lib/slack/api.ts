@@ -9,15 +9,29 @@ export interface SlackResult {
 
 const SLACK_API = "https://slack.com/api";
 
-/** Low-level authed POST to a Slack Web API method. Returns the parsed body or a soft failure. */
-async function callSlack(method: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+/**
+ * Low-level authed POST to a Slack Web API method. Returns the parsed body or a
+ * soft failure. Most methods take a JSON body, but a few (notably
+ * `users.lookupByEmail`) only read `application/x-www-form-urlencoded` params and
+ * silently ignore a JSON body — pass `form: true` for those.
+ */
+async function callSlack(
+  method: string,
+  payload: Record<string, unknown>,
+  form = false,
+): Promise<Record<string, unknown>> {
   const token = env.slack.botToken();
   if (!token) return { ok: false, error: "no_bot_token" };
   try {
     const res = await fetch(`${SLACK_API}/${method}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload),
+      headers: {
+        "Content-Type": form ? "application/x-www-form-urlencoded" : "application/json; charset=utf-8",
+        Authorization: `Bearer ${token}`,
+      },
+      body: form
+        ? new URLSearchParams(payload as Record<string, string>).toString()
+        : JSON.stringify(payload),
       // Cap latency: a hung Slack call must not blow the interactivity 3s ack budget.
       signal: AbortSignal.timeout(2500),
     });
@@ -34,7 +48,8 @@ async function callSlack(method: string, payload: Record<string, unknown>): Prom
 
 /** Slack user id for an email, or null (not found / not in workspace / no token). */
 export async function lookupUserByEmail(email: string): Promise<string | null> {
-  const body = await callSlack("users.lookupByEmail", { email });
+  // users.lookupByEmail only reads form-encoded params, not a JSON body.
+  const body = await callSlack("users.lookupByEmail", { email }, true);
   const user = body.user as { id?: string } | undefined;
   return body.ok && user?.id ? user.id : null;
 }

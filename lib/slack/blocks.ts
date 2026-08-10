@@ -23,8 +23,9 @@ export function buildClaimConfirmBlocks(i: ClaimConfirmInput): unknown[] {
 }
 
 /** DM blocks: one message per expert, one interactive row per 1:1. Pure.
- * action_ids: fb_attend (value `${id}:yes|no`), fb_rating (select option value
- * `${id}:${n}`), fb_note (value `${id}`, opens a modal). */
+ * action_ids must be unique WITHIN each actions block, so the two attendance
+ * buttons use distinct ids: fb_attend_yes / fb_attend_no (both value `${id}:yes|no`),
+ * plus fb_rating (select option value `${id}:${n}`) and fb_note (value `${id}`). */
 export function buildFeedbackBlocks(p: ExpertFeedbackPrompt): unknown[] {
   const when = shortDate(p.eventDate);
   const blocks: unknown[] = [
@@ -39,8 +40,8 @@ export function buildFeedbackBlocks(p: ExpertFeedbackPrompt): unknown[] {
     blocks.push({
       type: "actions",
       elements: [
-        { type: "button", action_id: "fb_attend", text: { type: "plain_text", text: "✅ Showed up", emoji: true }, value: `${it.bookingId}:yes`, style: "primary" },
-        { type: "button", action_id: "fb_attend", text: { type: "plain_text", text: "🚫 No-show", emoji: true }, value: `${it.bookingId}:no` },
+        { type: "button", action_id: "fb_attend_yes", text: { type: "plain_text", text: "✅ Showed up", emoji: true }, value: `${it.bookingId}:yes`, style: "primary" },
+        { type: "button", action_id: "fb_attend_no", text: { type: "plain_text", text: "🚫 No-show", emoji: true }, value: `${it.bookingId}:no` },
         {
           type: "static_select",
           action_id: "fb_rating",

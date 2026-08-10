@@ -60,10 +60,13 @@ describe("buildFeedbackBlocks", () => {
     expect(actionBlocks).toHaveLength(2); // one per 1:1
     const first = actionBlocks[0].elements ?? [];
     const ids = first.map((e) => e.action_id);
-    expect(ids).toContain("fb_attend");
+    // action_ids must be unique within the block → two distinct attendance ids
+    expect(ids).toContain("fb_attend_yes");
+    expect(ids).toContain("fb_attend_no");
+    expect(new Set(ids).size).toBe(ids.length); // no duplicate action_id in the block
     expect(ids).toContain("fb_rating");
     expect(ids).toContain("fb_note");
-    const attendValues = first.filter((e) => e.action_id === "fb_attend").map((e) => e.value);
+    const attendValues = first.filter((e) => (e.action_id ?? "").startsWith("fb_attend")).map((e) => e.value);
     expect(attendValues).toEqual(["b1:yes", "b1:no"]);
     expect(first.find((e) => e.action_id === "fb_note")?.value).toBe("b1");
   });

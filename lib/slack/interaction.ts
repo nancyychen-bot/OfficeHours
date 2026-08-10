@@ -20,7 +20,9 @@ export function parseInteraction(payload: Payload): Interaction {
     const action = payload.actions?.[0];
     const channel = payload.container?.channel_id as string | undefined;
     const ts = payload.container?.message_ts as string | undefined;
-    if (action?.action_id === "fb_attend") {
+    // Two attendance buttons carry distinct ids (fb_attend_yes / fb_attend_no) so
+    // they're unique within the block; yes/no also rides in the value.
+    if (typeof action?.action_id === "string" && action.action_id.startsWith("fb_attend")) {
       const [bookingId, yn] = String(action.value ?? "").split(":");
       if (bookingId) return { kind: "attend", bookingId, attended: yn === "yes", channel, ts };
     }

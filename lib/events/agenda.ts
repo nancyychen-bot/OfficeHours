@@ -6,6 +6,8 @@ import { reserveCommsSlot, finalizeComms } from "../db/email-log";
 import { sendEmail } from "../email/resend";
 import { env } from "../env";
 import { logSync } from "../sync/log";
+import { dmByEmail } from "../slack/api";
+import { buildAgendaBlocks } from "../slack/blocks";
 
 interface DetailRow {
   id: string;
@@ -79,6 +81,14 @@ export async function sendAgendasForEvent(eventId: string): Promise<number> {
 
   let sent = 0;
   for (const a of agendas) {
+    // Additive Slack DM (best-effort; email still sends below and is the source of truth).
+    try {
+      const dm = buildAgendaBlocks(a);
+      await dmByEmail(a.email, dm, `Your Build Bar schedule today — ${a.eventName ?? "Build Bar"}`);
+    } catch (err) {
+      await logSync({ direction: "luma_in", result: "error", bookingId: a.anchorBookingId, action: "agenda_dm", note: err instanceof Error ? err.message : String(err) });
+    }
+
     const firstName = (a.name.trim().split(/\s+/)[0] || "there");
     const rendered = renderAgenda({ firstName, eventName: a.eventName, eventDate: a.eventDate, items: a.items }, overrides);
     if (!(await reserveCommsSlot(a.anchorBookingId, "day_of_agenda", "helper", a.email))) continue;

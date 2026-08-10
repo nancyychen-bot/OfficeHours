@@ -14,6 +14,7 @@
     "setup:notion": "tsx --env-file=.env.local scripts/create-notion-databases.ts",
     "rebuild:notion": "tsx --env-file=.env.local scripts/rebuild-notion-schema.ts",
     "register:event": "tsx --env-file=.env.local scripts/register-event.ts",
+    "setup:expert-feedback": "tsx --env-file=.env.local scripts/configure-expert-feedback-db.ts",
     "send:feedback": "tsx --env-file=.env.local scripts/send-feedback.ts",
     "send:prep": "tsx --env-file=.env.local scripts/send-prep.ts",
     "sync:luma-stats": "tsx --env-file=.env.local scripts/sync-luma-stats.ts",

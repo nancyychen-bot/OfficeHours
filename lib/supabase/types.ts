@@ -260,6 +260,54 @@ export type Database = {
         }
         Relationships: []
       }
+      expert_feedback: {
+        Row: {
+          attended: boolean | null
+          booking_id: string
+          created_at: string
+          event_id: string | null
+          expert_email: string
+          expert_name: string | null
+          guest_email: string | null
+          guest_name: string | null
+          note: string | null
+          notion_dev_page_id: string | null
+          rating: number | null
+          responded_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          attended?: boolean | null
+          booking_id: string
+          created_at?: string
+          event_id?: string | null
+          expert_email: string
+          expert_name?: string | null
+          guest_email?: string | null
+          guest_name?: string | null
+          note?: string | null
+          notion_dev_page_id?: string | null
+          rating?: number | null
+          responded_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attended?: boolean | null
+          booking_id?: string
+          created_at?: string
+          event_id?: string | null
+          expert_email?: string
+          expert_name?: string | null
+          guest_email?: string | null
+          guest_name?: string | null
+          note?: string | null
+          notion_dev_page_id?: string | null
+          rating?: number | null
+          responded_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       feedback_mirror: {
         Row: {
           ambassador_page_id: string
@@ -328,6 +376,7 @@ export type Database = {
       slack_channels: {
         Row: {
           aliases: string[]
+          channel_id: string | null
           channel_name: string | null
           city: string
           created_at: string
@@ -336,6 +385,7 @@ export type Database = {
         }
         Insert: {
           aliases?: string[]
+          channel_id?: string | null
           channel_name?: string | null
           city: string
           created_at?: string
@@ -344,6 +394,7 @@ export type Database = {
         }
         Update: {
           aliases?: string[]
+          channel_id?: string | null
           channel_name?: string | null
           city?: string
           created_at?: string

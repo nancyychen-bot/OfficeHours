@@ -20,7 +20,7 @@ async function authed(): Promise<boolean> {
 export async function POST(req: Request) {
   if (!(await authed())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  let body: { action?: string; city?: string; channelName?: string; webhookUrl?: string; aliases?: string } = {};
+  let body: { action?: string; city?: string; channelName?: string; webhookUrl?: string; aliases?: string; channelId?: string } = {};
   try {
     body = await req.json();
   } catch {
@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         channelName: (body.channelName ?? "").trim() || null,
         webhookUrl,
         aliases,
+        channelId: body.channelId ?? null,
       });
       return NextResponse.json({ ok: true });
     }

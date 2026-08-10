@@ -3,6 +3,7 @@ import { getAdminClient } from "../supabase/admin";
 export interface SlackChannel {
   webhookUrl: string;
   channelName: string | null;
+  channelId: string | null;
 }
 
 /**
@@ -17,13 +18,13 @@ export async function getSlackChannelForCity(city: string | null | undefined): P
   const needle = (city ?? "").trim().toLowerCase();
   if (!needle) return null;
   const supabase = getAdminClient();
-  const { data } = await supabase.from("slack_channels").select("webhook_url, channel_name, city, aliases");
+  const { data } = await supabase.from("slack_channels").select("webhook_url, channel_name, channel_id, city, aliases");
   const match = (data ?? []).find((row) => {
     const names = [row.city, ...(row.aliases ?? [])].map((n) => (n ?? "").trim().toLowerCase());
     return names.includes(needle);
   });
-  if (!match?.webhook_url) return null;
-  return { webhookUrl: match.webhook_url, channelName: match.channel_name };
+  if (!match) return null;
+  return { webhookUrl: match.webhook_url, channelName: match.channel_name, channelId: match.channel_id ?? null };
 }
 
 /** Mark that a recruit post went out for this booking (so a later claim can
@@ -37,19 +38,21 @@ export interface SlackChannelRow {
   channelName: string | null;
   aliases: string[];
   webhookUrl: string;
+  channelId: string | null;
 }
 
 /** All configured city channels (for the hub management page). */
 export async function listSlackChannels(): Promise<SlackChannelRow[]> {
   const { data } = await getAdminClient()
     .from("slack_channels")
-    .select("city, channel_name, aliases, webhook_url")
+    .select("city, channel_name, aliases, webhook_url, channel_id")
     .order("city");
   return (data ?? []).map((r) => ({
     city: r.city,
     channelName: r.channel_name,
     aliases: r.aliases ?? [],
     webhookUrl: r.webhook_url,
+    channelId: r.channel_id ?? null,
   }));
 }
 
@@ -59,6 +62,7 @@ export async function upsertSlackChannel(input: {
   channelName: string | null;
   webhookUrl: string;
   aliases: string[];
+  channelId: string | null;
 }): Promise<void> {
   await getAdminClient()
     .from("slack_channels")
@@ -68,6 +72,7 @@ export async function upsertSlackChannel(input: {
         channel_name: input.channelName,
         webhook_url: input.webhookUrl,
         aliases: input.aliases,
+        channel_id: input.channelId,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "city" },

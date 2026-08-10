@@ -25,6 +25,7 @@ export const EF = {
   note: "Note",
   respondedAt: "Responded at",
   bookingId: "Booking ID",
+  booking: "Booking", // relation → Dev Bookings DB (the guest's card)
 } as const;
 
 type Props = Record<string, unknown>;
@@ -48,6 +49,8 @@ export interface ExpertFeedbackNotionRow {
   rating: number | null;
   note: string | null;
   responded_at: string | null;
+  /** Dev-workspace page id of the guest's booking card, for the Booking relation. */
+  booking_dev_page_id: string | null;
 }
 
 /** Pure: map a feedback row to Dev Notion database properties. */
@@ -67,6 +70,7 @@ export function expertFeedbackProperties(r: ExpertFeedbackNotionRow): Props {
     [EF.note]: rich(r.note),
     [EF.respondedAt]: { date: r.responded_at ? { start: r.responded_at } : null },
     [EF.bookingId]: rich(r.booking_id),
+    [EF.booking]: { relation: r.booking_dev_page_id ? [{ id: r.booking_dev_page_id }] : [] },
   };
 }
 
@@ -140,11 +144,20 @@ export async function pushExpertFeedback(bookingId: string): Promise<void> {
     const supabase = getAdminClient();
     const row = await getFeedbackRow(bookingId);
     if (!row) return;
-    // Join event/slot context for display fields.
+    // Join event/slot context for display fields. NOTE: the column is `location`,
+    // not `city` — a wrong name makes Supabase fail the whole select and null out
+    // every joined field.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: bd } = await (supabase as any)
       .from("booking_details")
-      .select("event_name, event_date, city, slot_name")
+      .select("event_name, event_date, location, slot_name, guest_email")
+      .eq("id", bookingId)
+      .maybeSingle();
+    // The guest's booking card in the Dev bookings DB, for the Booking relation.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: bk } = await (supabase as any)
+      .from("bookings")
+      .select("notion_dev_page_id")
       .eq("id", bookingId)
       .maybeSingle();
     const props = expertFeedbackProperties({
@@ -152,15 +165,16 @@ export async function pushExpertFeedback(bookingId: string): Promise<void> {
       expert_name: row.expert_name,
       expert_email: row.expert_email,
       guest_name: row.guest_name,
-      guest_email: row.guest_email,
+      guest_email: row.guest_email ?? bd?.guest_email ?? null,
       attended: row.attended,
       rating: row.rating,
       note: row.note,
       responded_at: row.responded_at,
       event_name: bd?.event_name ?? null,
       event_date: bd?.event_date ?? null,
-      location: bd?.city ?? null,
+      location: bd?.location ?? null,
       slot_name: bd?.slot_name ?? null,
+      booking_dev_page_id: bk?.notion_dev_page_id ?? null,
     });
     const client = getNotionClient("dev");
     const pageId = await resolveFeedbackPageId(supabase, client, dataSourceId, bookingId, row.notion_dev_page_id, props);

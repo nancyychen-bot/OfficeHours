@@ -46,6 +46,14 @@ async function main() {
     "Booking ID": { rich_text: {} },
   };
 
+  // Relation → the Dev Bookings DB, so each feedback entry links to the guest's card.
+  const bookingsDs = process.env.NOTION_DEV_BOOKINGS_DATA_SOURCE_ID;
+  if (bookingsDs) {
+    properties["Booking"] = { type: "relation", relation: { data_source_id: bookingsDs, type: "single_property", single_property: {} } };
+  } else {
+    console.warn("NOTION_DEV_BOOKINGS_DATA_SOURCE_ID unset — skipping Booking relation.");
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (notion.dataSources.update as any)({ data_source_id: ds, properties });
 

@@ -174,6 +174,10 @@ DB access layer `lib/db/expert-feedback.ts`:
 - Best-effort paths (Slack down / user not found) log and no-op without throwing.
 - Follow existing TDD patterns; keep the current suite green.
 
+## Deferred (post-review descope)
+
+- **In-place message rewrite on each button click** (originally in §5b): after a tap, rewriting that 1:1's row to show the recorded choice. Descoped because a faithful rewrite must re-render the *whole* multi-row message, which needs slot/challenge context not stored on `expert_feedback` — a schema addition — to avoid degrading the still-unanswered rows. The answer is persisted synchronously and re-taps are idempotent (no data harm), so this is UX polish, not correctness. Revisit if experts find the lack of visual confirmation confusing; the cheapest faithful implementation adds `slot_name`/`challenge` columns to `expert_feedback` + a `buildFeedbackStateBlocks` builder + a `response_url` (`replace_original`) update in the interactivity route's `after()`.
+
 ## Non-goals / YAGNI
 
 - No inbound Notion→Supabase sync for expert feedback (one-way only).

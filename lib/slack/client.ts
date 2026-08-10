@@ -5,14 +5,7 @@ import { toCommsFields } from "../email/comms";
 import type { CommsFields } from "../email/templates";
 import { logSync } from "../sync/log";
 import { postToChannel } from "./api";
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-/** "2026-08-28" → "Aug 28" (no timezone parsing so the date never shifts). */
-function shortDate(isoDate: string | null): string | null {
-  if (!isoDate) return null;
-  const m = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}` : isoDate;
-}
+import { shortDate } from "./format";
 
 /**
  * Canonical link to a Notion card, from the API's own `page.url`. We must NOT

@@ -18,6 +18,8 @@ async function callSlack(method: string, payload: Record<string, unknown>): Prom
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8", Authorization: `Bearer ${token}` },
       body: JSON.stringify(payload),
+      // Cap latency: a hung Slack call must not blow the interactivity 3s ack budget.
+      signal: AbortSignal.timeout(2500),
     });
     const body = (await res.json()) as Record<string, unknown>;
     if (!body.ok) {

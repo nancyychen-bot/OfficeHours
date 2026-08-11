@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { sendPrepForLeadWindow, PREP_LEAD_DAYS } from "@/lib/events/prep";
+import { sendPrepForLeadWindow, sendPrepDayBeforeForLeadWindow, PREP_LEAD_DAYS } from "@/lib/events/prep";
 import { logSync } from "@/lib/sync/log";
 
 export const runtime = "nodejs";
@@ -21,14 +21,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { events, guests } = await sendPrepForLeadWindow();
+  const prep = await sendPrepForLeadWindow();
+  const dayBefore = await sendPrepDayBeforeForLeadWindow();
   await logSync({
     direction: "luma_in",
     result: "applied",
     action: "prep_reminder_cron",
-    note: `lead=${PREP_LEAD_DAYS}d events=${events} guests=${guests}`,
+    note: `lead=${PREP_LEAD_DAYS}d events=${prep.events} guests=${prep.guests}; dayBefore events=${dayBefore.events} guests=${dayBefore.guests}`,
   });
-  return NextResponse.json({ events, guests });
+  return NextResponse.json({ prep, dayBefore });
 }
 
 // Vercel Cron issues GET by default; accept both.

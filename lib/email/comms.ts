@@ -97,6 +97,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   double_booked: ["helper"],
   feedback_request: ["guest"],
   prep_reminder: ["guest"],
+  prep_reminder_day_before: ["guest"],
   reassigned_off: ["helper"],
   already_claimed: [], // sent directly to the would-be claimer via sendCommsToEmail
   day_of_agenda: [], // aggregate per-expert email — sent via lib/events/agenda, not here

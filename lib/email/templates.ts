@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -133,6 +133,7 @@ function wrapRich(bodyLines: string[]): { html: string; text: string } {
 
 export type TemplateKey =
   | "prep_reminder__guest"
+  | "prep_reminder_day_before__guest"
   | "day_of_agenda__helper"
   | "assigned__guest" | "assigned__helper"
   | "checked_in__guest__matched" | "checked_in__guest__unmatched" | "checked_in__guest__nohelp" | "checked_in__helper"
@@ -168,7 +169,6 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "You're **confirmed for Notion Build Bar** — we can't wait to build with you!", "",
       `Before you arrive, if you don't already have Notion AI on, **[start your free Notion AI trial]({{trialLink}})** — it takes about a minute. Your host will use Notion AI to help you draft, summarize, and structure faster, so you'll get much more out of your session with it on.`, "",
-      "*Already on a Business or Enterprise plan, or used a trial before? You're all set — no need to sign up.*", "",
       "**Quick checklist:**",
       "✅ Your 1:1 slot — check for the calendar invite (if you have one)",
       "✅ Notion AI activated",
@@ -176,6 +176,21 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Please **[cancel your registration]({{eventUrl}})** if you can't make it, so we can free up your spot.", "",
       "Need a different time? **[Change your slot]({{slotChangeLink}})** and we'll help reassign you.", "",
       "See you soon,", SIGNOFF, "", `*${SUPPORT}*`,
+    ),
+  },
+  prep_reminder_day_before__guest: {
+    label: "Prep reminder — day before", description: "1 day before — approved Free-plan guests", role: "guest",
+    subject: "Your Notion Build Bar 1:1 is tomorrow ✨",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Quick reminder — your **Notion Build Bar** session is **tomorrow**. We can't wait to build with you!", "",
+      "**Quick checklist:**",
+      "✅ Your 1:1 slot — check for the calendar invite (if you have one)",
+      "✅ Notion AI activated — if you haven't yet, **[start your free Notion AI trial]({{trialLink}})** (about a minute)",
+      "✅ Laptop + the question or workspace you want help with", "",
+      "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
+      "Need a different time? **[Change your slot]({{slotChangeLink}})** and we'll help reassign you.", "",
+      "See you tomorrow,", SIGNOFF, "", `*${SUPPORT}*`,
     ),
   },
   assigned__guest: {

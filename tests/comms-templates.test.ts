@@ -132,3 +132,12 @@ describe("renderComms", () => {
     expect(h.text).toContain("cancelled");
   });
 });
+
+describe("prep_reminder_day_before__guest", () => {
+  it("renders a 'tomorrow' reminder with the slot-change link", () => {
+    const r = renderComms("prep_reminder_day_before", "guest", fields())!;
+    expect(r.subject.toLowerCase()).toContain("tomorrow");
+    expect(r.text.toLowerCase()).toContain("tomorrow");
+    expect(r.html).toContain("Change your slot");
+  });
+});

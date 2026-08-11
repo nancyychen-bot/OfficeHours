@@ -47,3 +47,19 @@ export async function sendPrepForLeadWindow(now: Date = new Date()): Promise<{ e
   }
   return { events: events.length, guests };
 }
+
+/** Send the day-before reminder to every eligible guest of one event. Idempotent
+ * (distinct email_log kind, so it isn't suppressed by the 3-day prep dedup). */
+export async function sendPrepDayBeforeForEvent(eventId: string): Promise<number> {
+  const eligible = (await listBookingsForEvent(eventId)).filter(isEligibleForPrep);
+  for (const b of eligible) await sendBookingComms(b.id, "prep_reminder_day_before");
+  return eligible.length;
+}
+
+/** Send the day-before reminder for every event happening tomorrow (now + 1). */
+export async function sendPrepDayBeforeForLeadWindow(now: Date = new Date()): Promise<{ events: number; guests: number }> {
+  const events = await listEventsByDate(isoDatePlusDays(now, 1));
+  let guests = 0;
+  for (const ev of events) guests += await sendPrepDayBeforeForEvent(ev.id);
+  return { events: events.length, guests };
+}

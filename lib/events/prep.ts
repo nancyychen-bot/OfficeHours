@@ -7,12 +7,19 @@ import type { Booking } from "../sync/types";
 export const PREP_LEAD_DAYS = 3;
 
 /**
- * A booking that should get the pre-event prep email: an APPROVED guest with an
- * email whose booking isn't cancelled. The email says "you're confirmed", so only
- * Approved guests qualify (pending/waitlisted/declined are excluded).
+ * A booking that should get the pre-event prep emails (both the 3-day prep and the
+ * day-before reminder): an APPROVED guest on the FREE Notion plan, with an email,
+ * not filtered, not cancelled. Free-only because the prep nudges activating a free
+ * Notion AI trial (paid plans don't need it); pending/waitlisted/declined excluded.
  */
 export function isEligibleForPrep(b: Booking): boolean {
-  return b.luma_status === "approved" && !b.filtered && !!b.guest_email && b.status !== "cancelled";
+  return (
+    b.luma_status === "approved" &&
+    b.notion_plan === "Free" &&
+    !b.filtered &&
+    !!b.guest_email &&
+    b.status !== "cancelled"
+  );
 }
 
 /** Send the prep email to every eligible guest of one event. Idempotent (email_log dedup). */

@@ -21,6 +21,7 @@ export interface SyncedFields {
   luma_status: LumaStatus;
   booked_by_display_name: string | null;
   booked_by_type: BookedByType | null;
+  filtered: boolean;
 }
 
 export function pickSyncedFields(b: Pick<Booking, keyof SyncedFields>): SyncedFields {
@@ -29,5 +30,6 @@ export function pickSyncedFields(b: Pick<Booking, keyof SyncedFields>): SyncedFi
     luma_status: b.luma_status,
     booked_by_display_name: b.booked_by_display_name,
     booked_by_type: b.booked_by_type,
+    filtered: b.filtered,
   };
 }

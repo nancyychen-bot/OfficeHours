@@ -7,6 +7,7 @@ const assigned: SyncedFields = {
   luma_status: "approved",
   booked_by_display_name: "Jane Doe",
   booked_by_type: "employee",
+  filtered: false,
 };
 
 describe("hashSyncedFields", () => {
@@ -27,9 +28,15 @@ describe("hashSyncedFields", () => {
   });
 
   it("treats undefined and null nullable fields as equal", () => {
-    const withNull: SyncedFields = { status: "unassigned", luma_status: "pending", booked_by_display_name: null, booked_by_type: null };
-    const withUndef = { status: "unassigned", luma_status: "pending", booked_by_display_name: undefined, booked_by_type: undefined } as unknown as SyncedFields;
+    const withNull: SyncedFields = { status: "unassigned", luma_status: "pending", booked_by_display_name: null, booked_by_type: null, filtered: false };
+    const withUndef = { status: "unassigned", luma_status: "pending", booked_by_display_name: undefined, booked_by_type: undefined, filtered: false } as unknown as SyncedFields;
     expect(hashSyncedFields(withNull)).toBe(hashSyncedFields(withUndef));
+  });
+
+  it("changes when filtered flips, stable otherwise", () => {
+    const base: SyncedFields = { status: "unassigned", luma_status: "pending", booked_by_display_name: null, booked_by_type: null, filtered: false };
+    expect(hashSyncedFields(base)).not.toBe(hashSyncedFields({ ...base, filtered: true }));
+    expect(hashSyncedFields(base)).toBe(hashSyncedFields({ ...base }));
   });
 });
 

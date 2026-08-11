@@ -175,7 +175,8 @@ export async function upsertBookingFromLuma(input: {
 export type ClaimResult =
   | { ok: true; booking: Booking }
   | { ok: false; reason: "not_found" }
-  | { ok: false; reason: "already_claimed"; current: Booking };
+  | { ok: false; reason: "already_claimed"; current: Booking }
+  | { ok: false; reason: "filtered"; current: Booking };
 
 /**
  * THE ARBITER (PRD §13). First claim to reach the hub wins.
@@ -206,15 +207,17 @@ export async function claimBooking(params: {
     })
     .eq("id", params.bookingId)
     .eq("status", "unassigned") // <-- the guard that makes this first-wins
+    .eq("filtered", false) // filtered candidates are hidden + not claimable
     .select("*")
     .maybeSingle();
   if (error) throw error;
 
   if (data) return { ok: true, booking: data };
 
-  // No row updated: either it doesn't exist, or it was already claimed.
+  // No row updated: doesn't exist, already claimed, or filtered (hidden).
   const current = await getBookingById(params.bookingId);
   if (!current) return { ok: false, reason: "not_found" };
+  if (current.filtered) return { ok: false, reason: "filtered", current };
   return { ok: false, reason: "already_claimed", current };
 }
 

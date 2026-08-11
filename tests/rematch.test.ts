@@ -49,3 +49,13 @@ describe("day-before template routing", () => {
     expect(r.text).toContain("talk to Nancy Chen");
   });
 });
+
+describe("isApprovedUnmatched — filtered", () => {
+  const base = { luma_status: "approved", requested_slot: "2:00 PM", status: "unassigned", guest_email: "a@x.com", filtered: false } as any;
+  it("eligible when approved unmatched + not filtered", () => {
+    expect(isApprovedUnmatched(base)).toBe(true);
+  });
+  it("excluded when filtered", () => {
+    expect(isApprovedUnmatched({ ...base, filtered: true })).toBe(false);
+  });
+});

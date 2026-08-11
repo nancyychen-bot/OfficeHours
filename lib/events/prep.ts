@@ -12,7 +12,7 @@ export const PREP_LEAD_DAYS = 3;
  * Approved guests qualify (pending/waitlisted/declined are excluded).
  */
 export function isEligibleForPrep(b: Booking): boolean {
-  return b.luma_status === "approved" && !!b.guest_email && b.status !== "cancelled";
+  return b.luma_status === "approved" && !b.filtered && !!b.guest_email && b.status !== "cancelled";
 }
 
 /** Send the prep email to every eligible guest of one event. Idempotent (email_log dedup). */

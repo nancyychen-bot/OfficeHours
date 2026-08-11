@@ -96,6 +96,7 @@ export function bookingToPageProperties(booking: Booking, opts: PushOptions = {}
     [PROP.experienceLevel]: select(booking.experience_level),
     [PROP.reasons]: multiSelect(booking.attend_reasons),
     [PROP.requestedSlot]: richText(booking.requested_slot),
+    [PROP.filtered]: { checkbox: !!booking.filtered },
   };
   if (!opts.omitPhone) props[PROP.guestPhone] = richText(booking.guest_phone);
   if (!opts.omitChallenge) props[PROP.challenge] = richText(booking.challenge);
@@ -111,6 +112,7 @@ export function syncedFieldsToUpdateProperties(fields: SyncedFields) {
       fields.booked_by_type ? bookedByTypeToLabel(fields.booked_by_type) : null,
     ),
     [PROP.lumaStatus]: select(lumaStatusToLabel(fields.luma_status)),
+    [PROP.filtered]: { checkbox: fields.filtered },
   };
 }
 
@@ -147,6 +149,11 @@ function readRichText(prop: unknown): string | null {
   const p = prop as { rich_text?: Array<{ plain_text?: string }> } | undefined;
   if (!p?.rich_text?.length) return null;
   return p.rich_text.map((r) => r.plain_text ?? "").join("") || null;
+}
+/** Read a Notion checkbox property's boolean (from a fetched page); missing → false. */
+function readCheckbox(prop: unknown): boolean {
+  const p = prop as { checkbox?: boolean } | undefined;
+  return !!p?.checkbox;
 }
 
 /**
@@ -196,5 +203,6 @@ export function pagePropertiesToSyncedFields(
       readRichText(properties[PROP.bookedByName]) ??
       readFirstPersonName(properties[PROP.bookedByPerson]),
     booked_by_type: labelToBookedByType(readSelect(properties[PROP.bookedByType])),
+    filtered: readCheckbox(properties[PROP.filtered]),
   };
 }

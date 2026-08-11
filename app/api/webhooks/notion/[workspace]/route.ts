@@ -292,10 +292,17 @@ export async function POST(
         bookedByType: incoming.booked_by_type ?? (workspace === "dev" ? "employee" : "ambassador"),
       });
       if (!claim.ok) {
-        // Lost the race — re-push canonical state to BOTH sides to correct them.
-        const current = claim.reason === "already_claimed" ? claim.current : await getBookingById(booking.id);
+        // Lost the race, or the booking is filtered (hidden + not claimable) —
+        // re-push canonical state to BOTH sides so the stray Claim chip reverts.
+        const current =
+          claim.reason === "already_claimed" || claim.reason === "filtered"
+            ? claim.current
+            : await getBookingById(booking.id);
         if (current) await pushBookingToWorkspaces(current);
-        await logSync({ direction, result: "applied", bookingId: booking.id, action: "claim_conflict", note: "already claimed" });
+        await logSync({
+          direction, result: "applied", bookingId: booking.id, action: "claim_conflict",
+          note: claim.reason === "filtered" ? "filtered — not claimable" : "already claimed",
+        });
         return NextResponse.json({ received: true, conflict: true });
       }
       const helperEmail = readFirstPersonEmail(page.properties?.[PROP.bookedByPerson]);

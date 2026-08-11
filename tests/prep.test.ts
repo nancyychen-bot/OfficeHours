@@ -31,3 +31,13 @@ describe("isoDatePlusDays", () => {
     expect(isoDatePlusDays(new Date("2026-08-30T16:00:00Z"), 3)).toBe("2026-09-02");
   });
 });
+
+describe("isEligibleForPrep — filtered", () => {
+  const approved = { luma_status: "approved", guest_email: "a@x.com", status: "unassigned", filtered: false } as any;
+  it("eligible when approved + not filtered", () => {
+    expect(isEligibleForPrep(approved)).toBe(true);
+  });
+  it("excluded when filtered", () => {
+    expect(isEligibleForPrep({ ...approved, filtered: true })).toBe(false);
+  });
+});

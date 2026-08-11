@@ -31,6 +31,7 @@ export type Database = {
           created_at: string
           event_id: string
           experience_level: string | null
+          filtered: boolean
           guest_email: string
           guest_name: string
           guest_phone: string | null
@@ -61,6 +62,7 @@ export type Database = {
           created_at?: string
           event_id: string
           experience_level?: string | null
+          filtered?: boolean
           guest_email: string
           guest_name: string
           guest_phone?: string | null
@@ -91,6 +93,7 @@ export type Database = {
           created_at?: string
           event_id?: string
           experience_level?: string | null
+          filtered?: boolean
           guest_email?: string
           guest_name?: string
           guest_phone?: string | null

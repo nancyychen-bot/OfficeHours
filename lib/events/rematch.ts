@@ -13,6 +13,7 @@ import type { Booking } from "../sync/types";
 export function isApprovedUnmatched(b: Booking): boolean {
   return (
     b.luma_status === "approved" &&
+    !b.filtered &&
     !!b.requested_slot &&
     b.status === "unassigned" &&
     !!b.guest_email

@@ -36,6 +36,7 @@ export const PROP = {
   experienceLevel: "Experience level",
   reasons: "Reasons",
   requestedSlot: "Requested slot",
+  filtered: "Filtered", // organizer triage checkbox; hides the card via a per-workspace view filter
 } as const;
 
 /** Status select labels (map to booking_status enum in mappers.ts). */
@@ -122,6 +123,7 @@ export function buildBookingsProperties(cities: string[] = ["SF", "NYC"]) {
       { name: "I need 1:1 help" }, { name: "I want to cowork" }, { name: "Just checking it out" },
     ] } },
     [PROP.requestedSlot]: { rich_text: {} },
+    [PROP.filtered]: { checkbox: {} },
     [PROP.lumaGuestId]: { rich_text: {} },
   } as const;
 }

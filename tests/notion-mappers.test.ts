@@ -39,6 +39,7 @@ describe("syncedFieldsToUpdateProperties (hub -> Notion)", () => {
       luma_status: "approved",
       booked_by_display_name: "Jane Doe",
       booked_by_type: "ambassador",
+      filtered: false,
     };
     const props = syncedFieldsToUpdateProperties(fields) as Record<string, any>;
     expect(props[PROP.status].select.name).toBe("Assigned");
@@ -52,6 +53,7 @@ describe("syncedFieldsToUpdateProperties (hub -> Notion)", () => {
       luma_status: "pending",
       booked_by_display_name: null,
       booked_by_type: null,
+      filtered: false,
     };
     const props = syncedFieldsToUpdateProperties(fields) as Record<string, any>;
     expect(props[PROP.status].select.name).toBe("Unassigned");
@@ -73,6 +75,7 @@ describe("pagePropertiesToSyncedFields (Notion -> hub)", () => {
       luma_status: "pending",
       booked_by_display_name: "Alex Kim",
       booked_by_type: "employee",
+      filtered: false,
     });
   });
 
@@ -158,5 +161,27 @@ describe("luma status + no_help_needed mapping", () => {
   });
   it("defaults luma_status to pending when absent", () => {
     expect(pagePropertiesToSyncedFields({}).luma_status).toBe("pending");
+  });
+});
+
+describe("filtered checkbox mapping", () => {
+  it("writes the checkbox on update", () => {
+    const props = syncedFieldsToUpdateProperties({
+      status: "unassigned", luma_status: "pending",
+      booked_by_display_name: null, booked_by_type: null, filtered: true,
+    }) as Record<string, any>;
+    expect(props[PROP.filtered].checkbox).toBe(true);
+  });
+
+  it("reads the checkbox inbound (true / false / missing→false)", () => {
+    expect(pagePropertiesToSyncedFields({ [PROP.filtered]: { checkbox: true } } as any).filtered).toBe(true);
+    expect(pagePropertiesToSyncedFields({ [PROP.filtered]: { checkbox: false } } as any).filtered).toBe(false);
+    expect(pagePropertiesToSyncedFields({} as any).filtered).toBe(false);
+  });
+
+  it("includes the checkbox on initial create", () => {
+    const booking = { guest_name: "A", filtered: true, status: "unassigned", luma_status: "pending" } as any;
+    const props = bookingToPageProperties(booking) as Record<string, any>;
+    expect(props[PROP.filtered].checkbox).toBe(true);
   });
 });

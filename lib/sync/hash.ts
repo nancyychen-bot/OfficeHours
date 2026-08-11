@@ -17,6 +17,7 @@ export function hashSyncedFields(fields: SyncedFields): string {
     luma_status: fields.luma_status,
     booked_by_display_name: fields.booked_by_display_name ?? null,
     booked_by_type: fields.booked_by_type ?? null,
+    filtered: fields.filtered ?? false,
   });
   return createHash("sha256").update(canonical).digest("hex");
 }

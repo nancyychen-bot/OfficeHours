@@ -68,3 +68,24 @@ describe("feedbackModalView", () => {
     expect(find(view, "note").element.initial_value).toBeUndefined();
   });
 });
+
+describe("parseInteraction — general feedback", () => {
+  it("reads the general field on submit", () => {
+    const payload = { type: "view_submission", view: { private_metadata: "b1", state: { values: { general: { general_v: { value: "great crowd, more power strips" } } } } } };
+    expect(parseInteraction(payload)).toMatchObject({ kind: "feedback_submit", bookingId: "b1", general: "great crowd, more power strips" });
+  });
+  it("leaves general undefined when blank", () => {
+    const payload = { type: "view_submission", view: { private_metadata: "b2", state: { values: {} } } };
+    expect((parseInteraction(payload) as { general?: string }).general).toBeUndefined();
+  });
+});
+
+describe("feedbackModalView — general field", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const find = (v: any, id: string) => v.blocks.find((b: any) => b.block_id === id);
+  it("includes a general input, pre-filled when provided", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const v = feedbackModalView("b1", { guestName: "Ada", general: "learned a lot" }) as any;
+    expect(find(v, "general").element.initial_value).toBe("learned a lot");
+  });
+});

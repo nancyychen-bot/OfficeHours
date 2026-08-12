@@ -4,7 +4,10 @@ import { verifySlackSignature } from "@/lib/slack/verify";
 import { parseInteraction, feedbackModalView } from "@/lib/slack/interaction";
 import { openModal } from "@/lib/slack/api";
 import { upsertFeedbackAnswer, getFeedbackRow } from "@/lib/db/expert-feedback";
+import { getGeneralFeedback, upsertGeneralFeedback } from "@/lib/db/expert-general-feedback";
 import { pushExpertFeedback } from "@/lib/notion/expert-feedback";
+import { pushGeneralFeedback } from "@/lib/notion/expert-general-feedback";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { logSync } from "@/lib/sync/log";
 
 export const runtime = "nodejs";
@@ -41,6 +44,7 @@ export async function POST(req: Request) {
       case "open_feedback": {
         // Fetch current answers so the modal pre-fills (re-open shows what was saved).
         const row = await getFeedbackRow(interaction.bookingId);
+        const gen = row?.event_id ? await getGeneralFeedback(row.event_id, row.expert_email) : null;
         await openModal(
           interaction.triggerId,
           feedbackModalView(interaction.bookingId, {
@@ -48,19 +52,44 @@ export async function POST(req: Request) {
             attended: row?.attended,
             rating: row?.rating,
             note: row?.note,
+            general: gen?.note ?? null,
           }),
         );
         break;
       }
-      case "feedback_submit":
-        // One write captures the whole form; sync the single Notion page after ack.
+      case "feedback_submit": {
+        // One write captures the per-guest form; sync the single Notion page after ack.
         await upsertFeedbackAnswer(interaction.bookingId, {
           attended: interaction.attended,
           rating: interaction.rating,
           note: interaction.note,
         });
         after(() => pushExpertFeedback(interaction.bookingId));
+        // General feedback (if any) is one entry per (event, expert), guest-less.
+        if (interaction.general) {
+          const row = await getFeedbackRow(interaction.bookingId);
+          if (row?.event_id) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: bd } = await (getAdminClient() as any)
+              .from("booking_details")
+              .select("event_name, event_date, location")
+              .eq("id", interaction.bookingId)
+              .maybeSingle();
+            await upsertGeneralFeedback({
+              eventId: row.event_id,
+              expertEmail: row.expert_email,
+              expertName: row.expert_name,
+              note: interaction.general,
+              eventName: bd?.event_name ?? null,
+              eventDate: bd?.event_date ?? null,
+              location: bd?.location ?? null,
+            });
+            const evId = row.event_id;
+            after(() => pushGeneralFeedback(evId, row.expert_email));
+          }
+        }
         break;
+      }
       case "ignore":
         break;
     }

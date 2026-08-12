@@ -32,3 +32,15 @@ describe("expertFeedbackProperties", () => {
     expect((props["Booking"] as { relation: unknown[] }).relation).toEqual([]);
   });
 });
+
+describe("expertFeedbackProperties — feedback type", () => {
+  it("tags the per-1:1 row as Feedback type = Guest", () => {
+    const props = expertFeedbackProperties({
+      booking_id: "b1", expert_email: "g@x.com", expert_name: "G",
+      guest_name: "Ada", guest_email: null, attended: true, rating: 4, note: null,
+      responded_at: null, slot_name: null, event_name: null, event_date: null, location: null,
+      booking_dev_page_id: null,
+    });
+    expect((props["Feedback type"] as { select: { name: string } }).select.name).toBe("Guest");
+  });
+});

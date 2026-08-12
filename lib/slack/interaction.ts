@@ -1,6 +1,6 @@
 export type Interaction =
   | { kind: "open_feedback"; bookingId: string; triggerId: string }
-  | { kind: "feedback_submit"; bookingId: string; attended?: boolean; rating?: number; note?: string }
+  | { kind: "feedback_submit"; bookingId: string; attended?: boolean; rating?: number; note?: string; general?: string }
   | { kind: "ignore" };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -17,10 +17,12 @@ export function parseInteraction(payload: Payload): Interaction {
     const attendVal = values.attend?.attend_v?.selected_option?.value as string | undefined;
     const ratingVal = values.rating?.rating_v?.selected_option?.value as string | undefined;
     const noteVal = values.note?.note_v?.value as string | undefined;
+    const generalVal = values.general?.general_v?.value as string | undefined;
     const attended = attendVal === "yes" ? true : attendVal === "no" ? false : undefined;
     const rating = ratingVal ? Number(ratingVal) : undefined;
     const note = typeof noteVal === "string" && noteVal.trim() !== "" ? noteVal : undefined;
-    return { kind: "feedback_submit", bookingId, attended, rating, note };
+    const general = typeof generalVal === "string" && generalVal.trim() !== "" ? generalVal : undefined;
+    return { kind: "feedback_submit", bookingId, attended, rating, note, general };
   }
   if (payload?.type === "block_actions") {
     const action = payload.actions?.[0];
@@ -37,6 +39,7 @@ export interface FeedbackModalState {
   attended?: boolean | null;
   rating?: number | null;
   note?: string | null;
+  general?: string | null;
 }
 
 const RATING_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ text: { type: "plain_text", text: String(n) }, value: String(n) }));
@@ -95,6 +98,18 @@ export function feedbackModalView(bookingId: string, state: FeedbackModalState):
           action_id: "note_v",
           multiline: true,
           ...(state.note ? { initial_value: state.note } : {}),
+        },
+      },
+      {
+        type: "input",
+        block_id: "general",
+        optional: true,
+        label: { type: "plain_text", text: "General feedback & learnings" },
+        element: {
+          type: "plain_text_input",
+          action_id: "general_v",
+          multiline: true,
+          ...(state.general ? { initial_value: state.general } : {}),
         },
       },
     ],

@@ -311,6 +311,48 @@ export type Database = {
         }
         Relationships: []
       }
+      expert_general_feedback: {
+        Row: {
+          created_at: string
+          event_date: string | null
+          event_id: string
+          event_name: string | null
+          expert_email: string
+          expert_name: string | null
+          location: string | null
+          note: string | null
+          notion_dev_page_id: string | null
+          responded_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_date?: string | null
+          event_id: string
+          event_name?: string | null
+          expert_email: string
+          expert_name?: string | null
+          location?: string | null
+          note?: string | null
+          notion_dev_page_id?: string | null
+          responded_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_date?: string | null
+          event_id?: string
+          event_name?: string | null
+          expert_email?: string
+          expert_name?: string | null
+          location?: string | null
+          note?: string | null
+          notion_dev_page_id?: string | null
+          responded_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       feedback_mirror: {
         Row: {
           ambassador_page_id: string

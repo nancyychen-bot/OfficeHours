@@ -26,6 +26,7 @@ export const EF = {
   respondedAt: "Responded at",
   bookingId: "Booking ID",
   booking: "Booking", // relation → Dev Bookings DB (the guest's card)
+  feedbackType: "Feedback type", // Guest (per-1:1) vs General (per-expert-per-event)
 } as const;
 
 type Props = Record<string, unknown>;
@@ -71,6 +72,7 @@ export function expertFeedbackProperties(r: ExpertFeedbackNotionRow): Props {
     [EF.respondedAt]: { date: r.responded_at ? { start: r.responded_at } : null },
     [EF.bookingId]: rich(r.booking_id),
     [EF.booking]: { relation: r.booking_dev_page_id ? [{ id: r.booking_dev_page_id }] : [] },
+    [EF.feedbackType]: { select: { name: "Guest" } },
   };
 }
 

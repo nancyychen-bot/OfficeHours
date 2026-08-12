@@ -44,6 +44,7 @@ async function main() {
     "Note": { rich_text: {} },
     "Responded at": { date: {} },
     "Booking ID": { rich_text: {} },
+    "Feedback type": { select: { options: [{ name: "Guest", color: "blue" }, { name: "General", color: "purple" }] } },
   };
 
   // Relation → the Dev Bookings DB, so each feedback entry links to the guest's card.

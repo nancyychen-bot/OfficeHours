@@ -2,12 +2,37 @@ import { getAdminClient } from "../supabase/admin";
 import { hashSyncedFields } from "../sync/hash";
 import { noShowCutoffISO } from "../sync/noshow";
 import { pickSyncedFields, type BookedByType, type Booking, type BookingDetails, type BookingStatus, type LumaStatus } from "../sync/types";
+import { listAssignedHelperCommRows } from "./email-log";
+import { assignedCommKey, selectBookingsNeedingAssignedComms, type AssignedCommsCandidate } from "../events/comms-reconcile";
 
 /**
  * Data-access + core state machine for bookings — the record mirrored across
  * both Notion workspaces (PRD §6.3). All writes go through the hub, which is the
  * arbiter for contended transitions (PRD §13).
  */
+
+/**
+ * Ids of assigned bookings whose `assigned` comm to the current helper never got
+ * a ledger row (e.g. the claim handler timed out before `sendBookingComms`). The
+ * comms-retry cron re-drives these — the transient-failure retry can't, since
+ * there's no email_log row to reclaim. Grace window skips in-flight claims.
+ */
+export async function listBookingIdsNeedingAssignedComms(): Promise<string[]> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("id, status, booked_by_email, updated_at")
+    .eq("status", "assigned")
+    .not("booked_by_email", "is", null);
+  if (error) throw error;
+  const sentRows = await listAssignedHelperCommRows();
+  const sentKeys = new Set(sentRows.map((r) => assignedCommKey(r.bookingId, r.email)));
+  return selectBookingsNeedingAssignedComms(
+    (data ?? []) as AssignedCommsCandidate[],
+    sentKeys,
+    Date.now(),
+  );
+}
 
 export async function getBookingById(id: string): Promise<Booking | null> {
   const supabase = getAdminClient();

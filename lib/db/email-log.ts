@@ -105,6 +105,34 @@ export async function clearCommsForKinds(bookingId: string, kinds: string[]): Pr
   if (error) throw error;
 }
 
+/** True if the `assigned` email to this helper has a ledger row (any status) —
+ * i.e. comms were at least attempted. Used to gate the claim self-heal. */
+export async function hasAssignedCommsFor(bookingId: string, helperEmail: string): Promise<boolean> {
+  const { data, error } = await table()
+    .select("id")
+    .eq("booking_id", bookingId)
+    .eq("event_kind", "assigned")
+    .eq("recipient_role", "helper")
+    .ilike("recipient_email", helperEmail)
+    .limit(1);
+  if (error) throw error;
+  return !!(data && data.length > 0);
+}
+
+/** Every `assigned`/helper ledger row as (bookingId, email) — the "already
+ * attempted" set the comms-reconcile backstop diffs assigned bookings against. */
+export async function listAssignedHelperCommRows(): Promise<Array<{ bookingId: string; email: string }>> {
+  const { data, error } = await table()
+    .select("booking_id, recipient_email")
+    .eq("event_kind", "assigned")
+    .eq("recipient_role", "helper");
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[])
+    .filter((r) => r.recipient_email)
+    .map((r) => ({ bookingId: r.booking_id as string, email: r.recipient_email as string }));
+}
+
 /** Delete ALL send records for a booking — used on reactivation (re-registration
  * of a cancelled booking) so the whole next episode can re-send. */
 export async function clearAllComms(bookingId: string): Promise<void> {

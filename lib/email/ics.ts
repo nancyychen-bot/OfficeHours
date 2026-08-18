@@ -30,8 +30,10 @@ function esc(s: string): string {
 }
 
 /**
- * Build a VEVENT for the slot. `variant` = "request" holds the slot (SEQUENCE 0,
- * CONFIRMED); "cancel" removes it — same UID, higher SEQUENCE, METHOD:CANCEL +
+ * Build a VEVENT for the slot. `variant` = "request" publishes the slot as an
+ * add-to-calendar event (METHOD:PUBLISH, no RSVP) so accepting never emails the
+ * organizer — the noreply From address isn't a real mailbox and would 550-bounce
+ * the RSVP. "cancel" removes it — same UID, higher SEQUENCE, METHOD:CANCEL +
  * STATUS:CANCELLED — which calendar clients match by UID and delete. Returns null
  * if the start time is missing/unparseable. DTEND defaults to start + 30 min.
  */
@@ -58,7 +60,7 @@ function buildEvent(
     "VERSION:2.0",
     "PRODID:-//Notion Build Bar Hub//EN",
     "CALSCALE:GREGORIAN",
-    cancel ? "METHOD:CANCEL" : "METHOD:REQUEST",
+    cancel ? "METHOD:CANCEL" : "METHOD:PUBLISH",
     "BEGIN:VEVENT",
     `UID:booking-${f.bookingId}@notionbuildbar`,
     `SEQUENCE:${seq}`,
@@ -69,11 +71,13 @@ function buildEvent(
     f.location ? `LOCATION:${esc(f.location)}` : null,
     `DESCRIPTION:${esc(f.descriptionText)}`,
     `ORGANIZER;CN=Notion Build Bar:mailto:${fromEmail}`,
+    // No RSVP=TRUE: with METHOD:PUBLISH this is an add-to-calendar event, not an
+    // invitation, so clients don't send an RSVP reply to the (noreply) organizer.
     f.helperEmail
-      ? `ATTENDEE;ROLE=REQ-PARTICIPANT;RSVP=TRUE;CN=${esc(f.helperName ?? "Helper")}:mailto:${f.helperEmail}`
+      ? `ATTENDEE;ROLE=REQ-PARTICIPANT;RSVP=FALSE;CN=${esc(f.helperName ?? "Helper")}:mailto:${f.helperEmail}`
       : null,
     f.guestEmail
-      ? `ATTENDEE;ROLE=REQ-PARTICIPANT;RSVP=TRUE;CN=${esc(f.guestName)}:mailto:${f.guestEmail}`
+      ? `ATTENDEE;ROLE=REQ-PARTICIPANT;RSVP=FALSE;CN=${esc(f.guestName)}:mailto:${f.guestEmail}`
       : null,
     cancel ? "STATUS:CANCELLED" : "STATUS:CONFIRMED",
     "END:VEVENT",
@@ -94,12 +98,12 @@ export function buildCancel(f: IcsFields, fromEmail: string, stampISO: string): 
 
 /**
  * Wrap ICS text as an email attachment. The content-type MUST carry the METHOD
- * (REQUEST/CANCEL) so mail clients render a real calendar invite/cancel (with
- * Add-to-Calendar / RSVP) rather than a generic file.
+ * (PUBLISH/CANCEL) and match the VCALENDAR body's METHOD so mail clients render
+ * a real Add-to-Calendar / cancel rather than a generic file.
  */
 export function inviteAttachment(
   ics: string,
-  method: "REQUEST" | "CANCEL" = "REQUEST",
+  method: "PUBLISH" | "CANCEL" = "PUBLISH",
 ): { filename: string; content: Buffer; contentType: string } {
   return {
     filename: method === "CANCEL" ? "cancel.ics" : "invite.ics",

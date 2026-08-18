@@ -23,7 +23,11 @@ describe("buildInvite", () => {
   it("returns a VCALENDAR with a stable UID, both attendees, and CRLF lines", () => {
     const ics = buildInvite(icsFields(), FROM, STAMP)!;
     expect(ics).toContain("BEGIN:VCALENDAR");
-    expect(ics).toContain("METHOD:REQUEST");
+    // PUBLISH (add-to-calendar), not REQUEST — no RSVP round-trip, so accepting
+    // never emails the (noreply) organizer and can't bounce.
+    expect(ics).toContain("METHOD:PUBLISH");
+    expect(ics).not.toContain("METHOD:REQUEST");
+    expect(ics).not.toContain("RSVP=TRUE");
     expect(ics).toContain("UID:booking-b1@notionbuildbar");
     expect(ics).toContain("DTSTART:20260826T210000Z");
     expect(ics).toContain("DTEND:20260826T213000Z");

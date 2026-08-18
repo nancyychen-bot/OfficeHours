@@ -26,12 +26,15 @@ import { pushBookingToWorkspaces, clearBookingInWorkspaces, clearUnclaimRequeste
 import { isUnclaimAdmin } from "@/lib/auth/admins";
 import { logSync } from "@/lib/sync/log";
 import { sendBookingComms, sendCommsToEmail } from "@/lib/email/comms";
-import { clearCommsForKinds } from "@/lib/db/email-log";
+import { clearCommsForKinds, hasAssignedCommsFor } from "@/lib/db/email-log";
 import { postSlackRecruit, postSlackClaimed } from "@/lib/slack/client";
 import { postClaimConfirmDM } from "@/lib/slack/notify";
 
 export const runtime = "nodejs";
-export const maxDuration = 30; // allow the button-settle delay + processing
+// Budget for the button-settle delay + serial Notion/Resend/Luma/Slack calls.
+// A claim that overruns this leaves the DB assigned but comms unsent; the
+// comms-retry cron backstops that, but a wider margin makes it far rarer.
+export const maxDuration = 90;
 
 /** Build the applyLumaStatus dependencies for a Notion-origin approval change. */
 function approvalDeps(direction: SyncDirection, bookingId: string): ApplyDeps {
@@ -349,6 +352,24 @@ export async function POST(
       await postSlackRecruit(booking.id);
       await logSync({ direction, result: "applied", bookingId: booking.id, action: "released" });
       return NextResponse.json({ received: true });
+    }
+
+    // SELF-HEAL — the booking is already assigned to this same claimer, but a
+    // prior claim webhook committed the assignment then died before sending comms
+    // (e.g. hit the function timeout). This re-fire (Notion buttons often fire
+    // twice) re-drives the missing side-effects once. Gated on the assigned comm
+    // having no ledger row, so it's a no-op on a normal echo.
+    if (
+      booking.status === "assigned" &&
+      booking.booked_by_email &&
+      claimer?.trim() === (booking.booked_by_display_name ?? "").trim() &&
+      !(await hasAssignedCommsFor(booking.id, booking.booked_by_email))
+    ) {
+      await sendBookingComms(booking.id, "assigned");
+      await postClaimConfirmDM(booking.id);
+      await postSlackClaimed(booking.id);
+      await logSync({ direction, result: "applied", bookingId: booking.id, action: "claim_comms_healed" });
+      return NextResponse.json({ received: true, healed: true });
     }
 
     await logSync({ direction, result: "applied", bookingId: booking.id, action: `noop:${incoming.status}`, note: `claimer=${claimer ?? "none"}` });

@@ -192,7 +192,7 @@ export async function sendBookingComms(
           kind === "assigned"
             ? buildInvite(icsFields, fromAddressEmail(deps.from()), deps.now())
             : buildCancel(icsFields, fromAddressEmail(deps.from()), deps.now());
-        if (ics) attachment = inviteAttachment(ics, kind === "assigned" ? "REQUEST" : "CANCEL");
+        if (ics) attachment = inviteAttachment(ics, kind === "assigned" ? "PUBLISH" : "CANCEL");
       }
 
       // Reserve BEFORE sending so concurrent retries can't both send. A false

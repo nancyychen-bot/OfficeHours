@@ -50,6 +50,14 @@ describe("selectDueRecruitReminders", () => {
     expect(r).toEqual([]);
   });
 
+  it("does not mark r2 at exactly 3 days out (tight boundary — event 08-22 vs today 08-19)", () => {
+    const r = selectDueRecruitReminders(
+      [row({ slack_recruit_posted_at: new Date(NOW - DAY).toISOString(), event_date: "2026-08-22" })],
+      NOW,
+    );
+    expect(r).toEqual([]);
+  });
+
   it("skips r2 when it was already sent", () => {
     const r = selectDueRecruitReminders(
       [row({ slack_recruit_posted_at: new Date(NOW - DAY).toISOString(), event_date: "2026-08-21", slack_recruit_r2_at: new Date(NOW - DAY).toISOString() })],

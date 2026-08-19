@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { env } from "@/lib/env";
 import { isEcho } from "@/lib/sync/hash";
 import type { NotionWorkspace } from "@/lib/notion/client";
@@ -133,6 +133,27 @@ export async function POST(
   // timing). "unclaim" → release; anything else → claim (default).
   const action = (req.headers.get("x-action") ?? "").toLowerCase();
 
+  // Acknowledge Notion immediately so the button's "Send webhook" step doesn't
+  // show a "webhook timed out" warning. The real work — a 5s settle for Notion's
+  // own edit to land, then the claim/unclaim/reassign handling — runs AFTER the
+  // response via after() (Vercel Fluid Compute keeps the function alive). Notion
+  // never consumed the handler's response body anyway; state is mirrored back to
+  // the cards separately.
+  after(() => processNotionWebhook(workspace, direction, pageId, action));
+  return NextResponse.json({ received: true });
+}
+
+/**
+ * The actual Notion→hub processing, run off the response path. Its NextResponse
+ * returns go nowhere (Notion already got its 200) — kept as-is for readability.
+ * Never throws (best-effort sync); failures are logged.
+ */
+async function processNotionWebhook(
+  workspace: NotionWorkspace,
+  direction: SyncDirection,
+  pageId: string,
+  action: string,
+): Promise<unknown> {
   try {
     const booking = await getBookingByNotionPageId(workspace, pageId);
     if (!booking) {

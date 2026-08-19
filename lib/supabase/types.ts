@@ -48,6 +48,8 @@ export type Database = {
           requested_slot: string | null
           role: string | null
           slack_recruit_posted_at: string | null
+          slack_recruit_r1_at: string | null
+          slack_recruit_r2_at: string | null
           slot_id: string | null
           status: Database["public"]["Enums"]["booking_status"]
           updated_at: string
@@ -79,6 +81,8 @@ export type Database = {
           requested_slot?: string | null
           role?: string | null
           slack_recruit_posted_at?: string | null
+          slack_recruit_r1_at?: string | null
+          slack_recruit_r2_at?: string | null
           slot_id?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string
@@ -110,6 +114,8 @@ export type Database = {
           requested_slot?: string | null
           role?: string | null
           slack_recruit_posted_at?: string | null
+          slack_recruit_r1_at?: string | null
+          slack_recruit_r2_at?: string | null
           slot_id?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           updated_at?: string

@@ -1,5 +1,5 @@
 import { getBookingById, getBookingDetailsById } from "../db/bookings";
-import { getSlackChannelForCity, setRecruitPostedAt } from "../db/slack";
+import { getSlackChannelForCity, setRecruitPostedAt, type SlackChannel } from "../db/slack";
 import { getNotionClient, type NotionWorkspace } from "../notion/client";
 import { toCommsFields } from "../email/comms";
 import type { CommsFields } from "../email/templates";
@@ -37,6 +37,8 @@ export interface RecruitInput {
   devCardUrl: string | null;
   /** Ambassador-workspace card link — Ambassadors claim here (recorded as `ambassador`). */
   ambassadorCardUrl: string | null;
+  /** Reminder re-post of a still-unclaimed slot (changes the header only). */
+  reminder?: boolean;
 }
 
 /** Block Kit blocks for a "cover this open 1:1" recruiting post. Pure/testable. */
@@ -44,7 +46,15 @@ export function buildRecruitBlocks(i: RecruitInput): unknown[] {
   const when = [shortDate(i.eventDate), i.slotName].filter(Boolean).join(" · ") || "—";
   const roleLine = [i.role, i.company].filter(Boolean).join(" @ ") || "—";
   const blocks: unknown[] = [
-    { type: "section", text: { type: "mrkdwn", text: "*🙋 A 1:1 slot just opened up — can anyone cover it?*" } },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: i.reminder
+          ? "*⏰ Still open — this 1:1 still needs a Notion expert*"
+          : "*🙋 A 1:1 slot just opened up — can anyone cover it?*",
+      },
+    },
     {
       type: "section",
       fields: [
@@ -117,37 +127,57 @@ async function postToCityChannel(
  * no configured webhook. Prefers the ambassador card link (the recruit pool),
  * falling back to the dev card.
  */
+/** Resolve the channel + recruit-card input for a booking, or null if we can't
+ * post (unknown booking/details, or the city has no channel — logged). Shared by
+ * the first recruit post and the reminder re-post. */
+async function buildRecruitContext(
+  bookingId: string,
+): Promise<{ channel: SlackChannel; input: RecruitInput } | null> {
+  const booking = await getBookingById(bookingId);
+  if (!booking) return null;
+  const details = await getBookingDetailsById(bookingId);
+  if (!details) return null;
+  const f: CommsFields = toCommsFields(details);
+  const channel = await getSlackChannelForCity(f.location);
+  if (!channel) {
+    await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_skipped", note: `no channel for ${f.location ?? "?"}` });
+    return null;
+  }
+  const [devCardUrl, ambassadorCardUrl] = await Promise.all([
+    fetchCardUrl("dev", booking.notion_dev_page_id),
+    fetchCardUrl("ambassador", booking.notion_ambassador_page_id),
+  ]);
+  return {
+    channel,
+    input: {
+      guestName: f.guestName, role: f.role, company: f.company, challenge: f.challenge,
+      eventName: f.eventName, eventDate: f.eventDate, slotName: f.slotName, location: f.location,
+      devCardUrl, ambassadorCardUrl,
+    },
+  };
+}
+
+/** Re-post a still-unclaimed recruit slot as a reminder. Best-effort; does NOT
+ * touch slack_recruit_posted_at (keeps the original first-post time). */
+export async function postSlackRecruitReminder(bookingId: string): Promise<void> {
+  try {
+    const ctx = await buildRecruitContext(bookingId);
+    if (!ctx) return;
+    const blocks = buildRecruitBlocks({ ...ctx.input, reminder: true });
+    await postToCityChannel(ctx.channel, blocks, "A recruited 1:1 slot is still open.");
+    await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_reminder_posted", note: ctx.channel.channelName ?? undefined });
+  } catch (err) {
+    await logSync({ direction: "luma_in", result: "error", bookingId, action: "slack_recruit_reminder", note: err instanceof Error ? err.message : String(err) });
+  }
+}
+
 export async function postSlackRecruit(bookingId: string): Promise<void> {
   try {
-    const booking = await getBookingById(bookingId);
-    if (!booking) return;
-    const details = await getBookingDetailsById(bookingId);
-    if (!details) return;
-    const f: CommsFields = toCommsFields(details);
-    const channel = await getSlackChannelForCity(f.location);
-    if (!channel) {
-      await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_skipped", note: `no channel for ${f.location ?? "?"}` });
-      return;
-    }
-    const [devCardUrl, ambassadorCardUrl] = await Promise.all([
-      fetchCardUrl("dev", booking.notion_dev_page_id),
-      fetchCardUrl("ambassador", booking.notion_ambassador_page_id),
-    ]);
-    const blocks = buildRecruitBlocks({
-      guestName: f.guestName,
-      role: f.role,
-      company: f.company,
-      challenge: f.challenge,
-      eventName: f.eventName,
-      eventDate: f.eventDate,
-      slotName: f.slotName,
-      location: f.location,
-      devCardUrl,
-      ambassadorCardUrl,
-    });
-    await postToCityChannel(channel, blocks, "A 1:1 slot just opened up — can anyone cover it?");
+    const ctx = await buildRecruitContext(bookingId);
+    if (!ctx) return;
+    await postToCityChannel(ctx.channel, buildRecruitBlocks(ctx.input), "A 1:1 slot just opened up — can anyone cover it?");
     await setRecruitPostedAt(bookingId, new Date().toISOString());
-    await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_posted", note: channel.channelName ?? undefined });
+    await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_posted", note: ctx.channel.channelName ?? undefined });
   } catch (err) {
     await logSync({ direction: "luma_in", result: "error", bookingId, action: "slack_recruit", note: err instanceof Error ? err.message : String(err) });
   }

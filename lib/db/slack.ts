@@ -28,9 +28,27 @@ export async function getSlackChannelForCity(city: string | null | undefined): P
 }
 
 /** Mark that a recruit post went out for this booking (so a later claim can
- * post a "covered" follow-up). Pass null to clear once the follow-up is sent. */
+ * post a "covered" follow-up). Pass null to clear once the follow-up is sent.
+ * Always resets the reminder stages: a fresh recruit starts a new cycle, and a
+ * clear leaves no stale stamps. */
 export async function setRecruitPostedAt(bookingId: string, at: string | null): Promise<void> {
-  await getAdminClient().from("bookings").update({ slack_recruit_posted_at: at }).eq("id", bookingId);
+  await getAdminClient()
+    .from("bookings")
+    .update({ slack_recruit_posted_at: at, slack_recruit_r1_at: null, slack_recruit_r2_at: null })
+    .eq("id", bookingId);
+}
+
+/** Stamp the given recruit-reminder stages as sent. */
+export async function markRecruitReminderSent(
+  bookingId: string,
+  stages: Array<"r1" | "r2">,
+  at: string,
+): Promise<void> {
+  const patch: { slack_recruit_r1_at?: string; slack_recruit_r2_at?: string } = {};
+  if (stages.includes("r1")) patch.slack_recruit_r1_at = at;
+  if (stages.includes("r2")) patch.slack_recruit_r2_at = at;
+  if (Object.keys(patch).length === 0) return;
+  await getAdminClient().from("bookings").update(patch).eq("id", bookingId);
 }
 
 export interface SlackChannelRow {

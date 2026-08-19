@@ -4,6 +4,7 @@ import { noShowCutoffISO } from "../sync/noshow";
 import { pickSyncedFields, type BookedByType, type Booking, type BookingDetails, type BookingStatus, type LumaStatus } from "../sync/types";
 import { listAssignedHelperCommRows } from "./email-log";
 import { assignedCommKey, selectBookingsNeedingAssignedComms, type AssignedCommsCandidate } from "../events/comms-reconcile";
+import type { RecruitReminderRow } from "../events/recruit-reminder";
 
 /**
  * Data-access + core state machine for bookings — the record mirrored across
@@ -32,6 +33,34 @@ export async function listBookingIdsNeedingAssignedComms(): Promise<string[]> {
     sentKeys,
     Date.now(),
   );
+}
+
+/**
+ * Still-open recruited bookings that may need a Slack recruit reminder: a recruit
+ * post went out (marker set), still unassigned + claimable, and the event hasn't
+ * passed. Joined to the event for its date. Reminder timing is decided by
+ * `selectDueRecruitReminders`.
+ */
+export async function listRecruitReminderCandidates(): Promise<RecruitReminderRow[]> {
+  const supabase = getAdminClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("id, slack_recruit_posted_at, slack_recruit_r1_at, slack_recruit_r2_at, events!inner(event_date)")
+    .not("slack_recruit_posted_at", "is", null)
+    .eq("status", "unassigned")
+    .eq("filtered", false)
+    .eq("luma_status", "approved")
+    .gte("events.event_date", today);
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.id as string,
+    slack_recruit_posted_at: r.slack_recruit_posted_at as string,
+    slack_recruit_r1_at: (r.slack_recruit_r1_at as string | null) ?? null,
+    slack_recruit_r2_at: (r.slack_recruit_r2_at as string | null) ?? null,
+    event_date: (Array.isArray(r.events) ? r.events[0]?.event_date : r.events?.event_date) as string,
+  }));
 }
 
 export async function getBookingById(id: string): Promise<Booking | null> {

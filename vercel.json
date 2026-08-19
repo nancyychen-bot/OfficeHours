@@ -2,6 +2,7 @@
   "crons": [
     { "path": "/api/cron/no-show", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/comms-retry", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/recruit-reminder", "schedule": "0 15 * * *" },
     { "path": "/api/cron/prep-reminder", "schedule": "0 16 * * *" },
     { "path": "/api/cron/agenda", "schedule": "0 14 * * *" },
     { "path": "/api/cron/rematch-apology", "schedule": "0 17 * * *" },

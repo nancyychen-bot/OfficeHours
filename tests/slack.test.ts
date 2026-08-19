@@ -56,6 +56,21 @@ describe("buildRecruitBlocks", () => {
   });
 });
 
+describe("buildRecruitBlocks header", () => {
+  const base = { guestName: "Bonnie Cao", role: "CEO", company: "Lindr", challenge: "Ops dashboard", eventName: "Notion Build Bar NYC", eventDate: "2026-08-26", slotName: "2:00-2:30PM", location: "New York", devCardUrl: "https://d", ambassadorCardUrl: "https://a" };
+  const headerOf = (blocks: unknown[]) => (blocks[0] as { text: { text: string } }).text.text;
+
+  it("uses the fresh-opening header by default", () => {
+    expect(headerOf(buildRecruitBlocks(base))).toContain("just opened up");
+  });
+
+  it("uses the still-open header when reminder is set", () => {
+    const text = headerOf(buildRecruitBlocks({ ...base, reminder: true }));
+    expect(text).toContain("Still open");
+    expect(text).not.toContain("just opened up");
+  });
+});
+
 describe("buildClaimedBlocks", () => {
   it("names the claimer, guest, and slot", () => {
     const json = JSON.stringify(buildClaimedBlocks({ claimerName: "Grace Hopper", guestName: "Ada Lovelace", slotName: "2:00–2:30 PM" }));

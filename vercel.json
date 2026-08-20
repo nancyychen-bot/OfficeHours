@@ -1,5 +1,6 @@
 {
   "crons": [
+    { "path": "/api/cron/decline-pending", "schedule": "0 13 * * *" },
     { "path": "/api/cron/no-show", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/comms-retry", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/recruit-reminder", "schedule": "0 15 * * *" },

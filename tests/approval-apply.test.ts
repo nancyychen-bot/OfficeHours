@@ -74,4 +74,11 @@ describe("applyLumaStatus", () => {
     expect(d.sendComms).toHaveBeenCalledWith("b1", "waitlisted");
     expect(d.resetAssignment).not.toHaveBeenCalled();
   });
+
+  it("cron-origin decline writes back to Luma + emails declined", async () => {
+    const d = deps();
+    await applyLumaStatus(booking({ status: "unassigned" }), "declined", { source: "cron" }, d);
+    expect(d.sendComms).toHaveBeenCalledWith("b1", "declined");
+    expect(d.updateGuestOnLuma).toHaveBeenCalledWith("evt-1", "gst-1", "declined");
+  });
 });

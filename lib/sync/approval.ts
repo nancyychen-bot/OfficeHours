@@ -1,7 +1,7 @@
 import type { Booking, LumaStatus } from "./types";
 import type { CommsKind } from "../email/templates";
 
-export type ApprovalSource = "luma" | "dev" | "ambassador";
+export type ApprovalSource = "luma" | "dev" | "ambassador" | "cron";
 
 export interface ApplyDeps {
   setLumaStatus: (bookingId: string, next: LumaStatus) => Promise<Booking | null>;

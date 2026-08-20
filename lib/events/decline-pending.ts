@@ -18,7 +18,7 @@ export function selectDeclinablePendings(bookings: Booking[]): Booking[] {
 }
 
 /** applyLumaStatus deps for a cron-origin decline (same shape as the Notion route). */
-function declineDeps(): ApplyDeps {
+function declineDeps(bookingId: string): ApplyDeps {
   return {
     setLumaStatus,
     resetAssignment,
@@ -28,18 +28,17 @@ function declineDeps(): ApplyDeps {
     sendComms: (bid, kind) => sendBookingComms(bid, kind),
     getEventLumaId: async (eventId) => (await getEventById(eventId))?.luma_event_id ?? null,
     log: async (e) =>
-      logSync({ direction: "luma_in", result: e.error ? "error" : "applied", action: e.action, note: e.note }),
+      logSync({ direction: "luma_in", result: e.error ? "error" : "applied", bookingId, action: e.action, note: e.note }),
   };
 }
 
 /** Decline every still-pending booking of one event. Best-effort per booking. */
 export async function declinePendingForEvent(eventId: string): Promise<number> {
   const pendings = selectDeclinablePendings(await listBookingsForEvent(eventId));
-  const deps = declineDeps();
   let declined = 0;
   for (const b of pendings) {
     try {
-      await applyLumaStatus(b, "declined", { source: "cron" }, deps);
+      await applyLumaStatus(b, "declined", { source: "cron" }, declineDeps(b.id));
       declined++;
     } catch (err) {
       await logSync({

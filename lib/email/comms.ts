@@ -91,6 +91,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   rematch_pending: ["guest"],
   unmatched_notice: ["guest"],
   declined: ["guest", "helper"],
+  guest_cancelled: ["helper"],
   waitlisted: ["guest", "helper"],
   event_cancelled: ["guest", "helper"],
   arrived_after_no_show: ["helper", "guest"],
@@ -115,6 +116,7 @@ const CANCEL_CALENDAR_KINDS = new Set<CommsKind>([
   "no_show",
   "event_cancelled",
   "reassigned_off",
+  "guest_cancelled",
   "slot_changed",
 ]);
 

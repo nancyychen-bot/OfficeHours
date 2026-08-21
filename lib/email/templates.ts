@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "guest_cancelled";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -167,6 +167,7 @@ export type TemplateKey =
   | "slot_changed__guest" | "slot_changed__helper"
   | "waitlisted__guest" | "waitlisted__helper"
   | "declined__guest" | "declined__helper"
+  | "guest_cancelled__helper"
   | "cancelled__guest" | "cancelled__helper"
   | "event_cancelled__guest" | "event_cancelled__helper"
   | "feedback_request__guest"
@@ -471,6 +472,15 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Quick update: {{guestName}}'s 1:1 has been cancelled (we're at capacity and they won't be joining), so the slot you'd claimed has been released. Nothing you need to do.", "",
+      SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
+    ),
+  },
+  guest_cancelled__helper: {
+    label: "Guest cancelled (slot freed)", description: "guest self-cancelled on Luma — expert notified", role: "helper",
+    subject: "Slot freed — {{guestName}} won't be joining",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Quick update: {{guestName}} has cancelled their booking and won't be joining, so the slot you'd claimed has been released. Nothing you need to do.", "",
       SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },

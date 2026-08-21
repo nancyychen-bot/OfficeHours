@@ -25,6 +25,38 @@ describe("inviteDescription", () => {
   it("falls back to the city when there's no street address", () => {
     expect(inviteDescription(fields({ address: null }))).toContain("San Francisco");
   });
+  it("guest variant is unchanged: names the expert, no meeting/challenge context", () => {
+    const d = inviteDescription(fields(), "guest");
+    expect(d).toContain("Your Notion expert: Grace Hopper");
+    expect(d).not.toContain("Meeting:");
+    expect(d).not.toContain("What they'd like help with:");
+  });
+});
+
+describe("inviteDescription — expert (helper) variant", () => {
+  it("is expert-framed with guest context + challenge, and drops the self-referential expert line", () => {
+    const d = inviteDescription(
+      fields({ guestName: "Christina Mbuyi", role: "Product Manager", company: "Acme", challenge: "Automating our roadmap" }),
+      "helper",
+    );
+    expect(d).toContain("Notion expert for"); // expert-framed intro
+    expect(d).toContain("2:00–2:30 PM");
+    expect(d).toContain("Meeting: Christina Mbuyi, Product Manager at Acme");
+    expect(d).toContain("What they'd like help with: Automating our roadmap");
+    expect(d).toContain("arrive 5 minutes");
+    expect(d).not.toContain("Your Notion expert: Grace Hopper"); // no self-reference for the expert
+  });
+  it("adapts the Meeting line to available fields and omits an empty challenge", () => {
+    const roleOnly = inviteDescription(fields({ guestName: "Sam", role: "Founder", company: null, challenge: null }), "helper");
+    expect(roleOnly).toContain("Meeting: Sam, Founder");
+    expect(roleOnly).not.toContain("What they'd like help with:");
+
+    const companyOnly = inviteDescription(fields({ guestName: "Sam", role: null, company: "Acme" }), "helper");
+    expect(companyOnly).toContain("Meeting: Sam (Acme)");
+
+    const nameOnly = inviteDescription(fields({ guestName: "Sam", role: null, company: null }), "helper");
+    expect(nameOnly).toContain("Meeting: Sam");
+  });
 });
 
 describe("guestDetailsLines", () => {

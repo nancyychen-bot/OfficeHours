@@ -81,4 +81,31 @@ describe("applyLumaStatus", () => {
     expect(d.sendComms).toHaveBeenCalledWith("b1", "declined");
     expect(d.updateGuestOnLuma).toHaveBeenCalledWith("evt-1", "gst-1", "declined");
   });
+
+  it("approving a no-slot 1:1 guest sends cowork_only", async () => {
+    const d = deps();
+    await applyLumaStatus(
+      booking({ status: "no_help_needed", attend_reasons: "I need 1:1 help", luma_status: "pending" }),
+      "approved", { source: "dev" }, d,
+    );
+    expect(d.sendComms).toHaveBeenCalledWith("b1", "cowork_only");
+  });
+
+  it("approving a slot-booker does NOT send cowork_only", async () => {
+    const d = deps();
+    await applyLumaStatus(
+      booking({ status: "unassigned", attend_reasons: "I need 1:1 help" }),
+      "approved", { source: "dev" }, d,
+    );
+    expect(d.sendComms).not.toHaveBeenCalledWith("b1", "cowork_only");
+  });
+
+  it("declining a no-slot 1:1 guest never sends cowork_only", async () => {
+    const d = deps();
+    await applyLumaStatus(
+      booking({ status: "no_help_needed", attend_reasons: "I need 1:1 help" }),
+      "declined", { source: "dev" }, d,
+    );
+    expect(d.sendComms).not.toHaveBeenCalledWith("b1", "cowork_only");
+  });
 });

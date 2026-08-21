@@ -148,6 +148,16 @@ describe("renderComms", () => {
     expect(h.subject.toLowerCase()).toContain("freed");
     expect(h.text).toContain("released");
   });
+  it("guest_cancelled → helper only, attributes it to the guest cancelling", () => {
+    const h = renderComms("guest_cancelled", "helper", fields())!;
+    expect(h.subject.toLowerCase()).toContain("freed");
+    expect(h.text).toContain("cancelled their booking");
+    expect(h.text).toContain("released");
+    expect(h.text).not.toContain("at capacity");
+  });
+  it("guest_cancelled → guest gets nothing (expert-only kind)", () => {
+    expect(renderComms("guest_cancelled", "guest", fields())).toBeNull();
+  });
   it("waitlisted → guest gets the waitlist note, helper gets slot-freed", () => {
     const g = renderComms("waitlisted", "guest", fields())!;
     expect(g.text).toContain("waitlist");

@@ -4,6 +4,7 @@ import { upsertBookingFromLuma, checkInByLumaGuestId, getBookingByLumaGuestId } 
 import { pushBookingToWorkspaces } from "../notion/push";
 import { sendBookingComms } from "../email/comms";
 import { clearAllComms, clearCommsForKinds } from "../db/email-log";
+import { shouldSendGuestCancelled } from "./cancellation";
 import { approvalStatusToLumaStatus } from "../luma/approval";
 import type { NormalizedRegistration } from "../luma/parse";
 import type { Booking } from "../sync/types";
@@ -37,7 +38,7 @@ export async function ingestRegistration(
   // BEFORE the upsert releases the helper (which clears booked_by_email). Gated on
   // an actual transition so it never duplicates the Notion path's echo. Live only.
   if (opts.live && prior && prior.luma_status !== nextLumaStatus) {
-    if (nextLumaStatus === "declined") await sendBookingComms(prior.id, "declined");
+    if (shouldSendGuestCancelled(prior, nextLumaStatus)) await sendBookingComms(prior.id, "guest_cancelled");
     else if (nextLumaStatus === "waitlist") await sendBookingComms(prior.id, "waitlisted");
   }
 

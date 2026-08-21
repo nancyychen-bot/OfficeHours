@@ -1,5 +1,6 @@
 import type { Booking, LumaStatus } from "./types";
 import type { CommsKind } from "../email/templates";
+import { isCoworkOnlyMismatch } from "../events/cowork-notice";
 
 export type ApprovalSource = "luma" | "dev" | "ambassador" | "cron";
 
@@ -36,6 +37,10 @@ export async function applyLumaStatus(
   if (next === "declined" || next === "waitlist") {
     await deps.sendComms(booking.id, next === "declined" ? "declined" : "waitlisted");
     if (wasAssigned) current = (await deps.resetAssignment(booking.id, releaseTo)) ?? current;
+  }
+
+  if (next === "approved" && isCoworkOnlyMismatch(booking)) {
+    await deps.sendComms(booking.id, "cowork_only");
   }
 
   if (opts.source !== "luma") {

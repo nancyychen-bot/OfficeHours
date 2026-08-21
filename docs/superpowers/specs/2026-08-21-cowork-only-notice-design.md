@@ -95,6 +95,14 @@ Run once now for the New York / Aug 28 event to catch already-approved guests;
 `email_log` dedup makes re-runs safe. Add an npm script `send:cowork` alongside the
 other `send:*` entries in `package.json`.
 
+**Test-send gate (required before any real backfill):** the script supports a
+`--test <email>` (or `TEST_EMAIL=`) mode that renders the `cowork_only` email for a
+representative qualifying guest of the event and sends the single copy **only** to
+that address (default the operator's own), touching no real guests and writing no
+`email_log` rows for them. The operator reviews the real rendered email, and only
+then runs the script without `--test` to send for real. This gates the actual
+deploy/backfill on a human eyeballing the exact email first.
+
 ## Testing
 
 - **Predicate** (`isCoworkOnlyMismatch`): true for `no_help_needed` + reasons
@@ -111,9 +119,12 @@ other `send:*` entries in `package.json`.
 
 1. Apply the `email_log` migration.
 2. Deploy code (predicate + `applyLumaStatus` branch + template + recipient).
-3. Run `npm run send:cowork` for the New York / Aug 28 event to backfill the
-   already-approved guests.
-4. Going forward, approving a qualifying guest in Notion sends the notice
+3. **Test-send first:** run the backfill script in `--test` mode to send one
+   rendered copy to the operator (nchen@makenotion.com) and confirm the email
+   looks right.
+4. After approval, run `npm run send:cowork` for the New York / Aug 28 event to
+   backfill the already-approved guests.
+5. Going forward, approving a qualifying guest in Notion sends the notice
    automatically.
 
 ## Open questions / risks

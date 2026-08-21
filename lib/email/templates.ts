@@ -79,8 +79,31 @@ function guestSessionLines(f: CommsFields): string[] {
 }
 
 /** Clean, guest-facing calendar-invite body (the .ics DESCRIPTION). */
-export function inviteDescription(f: CommsFields): string {
+/** "Christina, Product Manager at Acme" — adapts to whichever of role/company exist. */
+function guestContextLine(f: CommsFields): string {
+  if (f.role && f.company) return `${f.guestName}, ${f.role} at ${f.company}`;
+  if (f.role) return `${f.guestName}, ${f.role}`;
+  if (f.company) return `${f.guestName} (${f.company})`;
+  return f.guestName;
+}
+
+export function inviteDescription(f: CommsFields, role: Recipient = "guest"): string {
   const place = f.address ?? f.location;
+
+  // Expert (helper) variant: framed for the expert, with who they're meeting and
+  // what the guest wants help with — so they can prep before the 1:1.
+  if (role === "helper") {
+    const lines = ["You're confirmed as the Notion expert for a Notion Build Bar 1:1! Details:", ""];
+    if (f.slotName) lines.push(`Time slot: ${f.slotName}`);
+    if (place) lines.push(`Location: ${place}`);
+    lines.push(`Meeting: ${guestContextLine(f)}`);
+    if (f.challenge) lines.push(`What they'd like help with: ${f.challenge}`);
+    lines.push("");
+    lines.push("Please arrive 5 minutes before the start of your booking.");
+    return lines.join("\n");
+  }
+
+  // Guest variant (unchanged): names their assigned expert.
   const lines = ["You're confirmed for your Notion Build Bar 1:1! Details:", ""];
   if (f.slotName) lines.push(`Time slot: ${f.slotName}`);
   if (place) lines.push(`Location: ${place}`);

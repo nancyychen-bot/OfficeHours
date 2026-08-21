@@ -186,7 +186,7 @@ export async function sendBookingComms(
           slotEndsAt: f.slotEndsAt,
           // Prefer the specific street address for the calendar invite; fall back to city.
           location: f.address ?? f.location,
-          descriptionText: inviteDescription(f),
+          descriptionText: inviteDescription(f, role),
           summary,
         };
         const ics =

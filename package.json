@@ -18,6 +18,7 @@
     "setup:filtered": "tsx --env-file=.env.local scripts/add-filtered-property.ts",
     "send:feedback": "tsx --env-file=.env.local scripts/send-feedback.ts",
     "send:prep": "tsx --env-file=.env.local scripts/send-prep.ts",
+    "send:cowork": "tsx --env-file=.env.local scripts/send-cowork-notice.ts",
     "sync:luma-stats": "tsx --env-file=.env.local scripts/sync-luma-stats.ts",
     "backup": "tsx --env-file=.env.local scripts/backup-db.ts",
     "gen:types": "supabase gen types typescript --project-id jldgxdaemtdqcfrdzeby --schema public > lib/supabase/types.ts"

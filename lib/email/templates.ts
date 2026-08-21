@@ -455,6 +455,8 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
+  // declined__* fires only from the organizer/cron decline path (applyLumaStatus).
+  // A guest self-cancellation uses guest_cancelled__helper instead.
   declined__guest: {
     label: "Declined (at capacity)", description: "Luma Status set to Declined", role: "guest",
     subject: "An update on your Notion Build Bar booking",

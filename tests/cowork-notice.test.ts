@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isCoworkOnlyMismatch } from "../lib/events/cowork-notice";
+import { isCoworkOnlyMismatch, selectCoworkOnlyBackfill } from "../lib/events/cowork-notice";
 import type { Booking } from "../lib/sync/types";
 
 const bk = (over: Partial<Booking>): Booking =>
@@ -24,5 +24,16 @@ describe("isCoworkOnlyMismatch", () => {
   it("false: empty / null reasons", () => {
     expect(isCoworkOnlyMismatch(bk({ attend_reasons: "" }))).toBe(false);
     expect(isCoworkOnlyMismatch(bk({ attend_reasons: null }))).toBe(false);
+  });
+});
+
+describe("selectCoworkOnlyBackfill", () => {
+  it("includes approved no-slot 1:1 guests, excludes pending and slot-bookers", () => {
+    const rows = [
+      bk({ id: "ok", luma_status: "approved", status: "no_help_needed", attend_reasons: "I need 1:1 help" }),
+      bk({ id: "pending", luma_status: "pending", status: "no_help_needed", attend_reasons: "I need 1:1 help" }),
+      bk({ id: "slot", luma_status: "approved", status: "unassigned", attend_reasons: "I need 1:1 help" }),
+    ];
+    expect(selectCoworkOnlyBackfill(rows).map((b) => b.id)).toEqual(["ok"]);
   });
 });

@@ -12,6 +12,7 @@ export function isCoworkOnlyMismatch(booking: Booking): boolean {
   return (
     booking.status === "no_help_needed" &&
     !!booking.attend_reasons &&
+    // Matches the Luma reasons option "I need 1:1 help"; update if that label is reworded.
     booking.attend_reasons.toLowerCase().includes("1:1 help")
   );
 }

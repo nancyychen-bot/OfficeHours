@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const SUB = [
   { href: "/settings/emails", label: "Emails" },
+  { href: "/settings/emails/log", label: "Sent log" },
   { href: "/settings/slack", label: "Slack" },
   { href: "/settings/backups", label: "Backups" },
   { href: "/settings/admins", label: "Admins" },
@@ -15,7 +16,9 @@ export function SettingsNav() {
   return (
     <div className="mb-6 flex gap-1 border-b border-line">
       {SUB.map((s) => {
-        const active = pathname.startsWith(s.href);
+        const active = s.href === "/settings/emails"
+          ? pathname === "/settings/emails"
+          : pathname.startsWith(s.href);
         return (
           <Link
             key={s.href}

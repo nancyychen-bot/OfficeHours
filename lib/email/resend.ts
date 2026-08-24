@@ -41,3 +41,28 @@ export async function sendEmail(input: {
   if (error) throw new Error(`Resend send failed: ${error.message ?? String(error)}`);
   return { id: data?.id ?? "" };
 }
+
+/**
+ * Fetch a previously-sent email's exact content from Resend by id, or null
+ * (empty id / aged-out 404 / error). Best-effort — used by the Hub email log.
+ */
+export async function getSentEmail(
+  resendId: string,
+): Promise<{ subject: string; html: string; text: string; to: string[] } | null> {
+  if (!resendId) return null;
+  try {
+    const res = await fetch(`https://api.resend.com/emails/${resendId}`, {
+      headers: { Authorization: `Bearer ${env.comms.apiKey()}` },
+    });
+    if (!res.ok) return null;
+    const d = (await res.json()) as { subject?: string; html?: string; text?: string; to?: string[] | string };
+    return {
+      subject: d.subject ?? "",
+      html: d.html ?? "",
+      text: d.text ?? "",
+      to: Array.isArray(d.to) ? d.to : d.to ? [d.to] : [],
+    };
+  } catch {
+    return null;
+  }
+}

@@ -7,6 +7,14 @@ import type { Booking } from "../sync/types";
 export const PREP_LEAD_DAYS = 3;
 
 /**
+ * The Notion plan value (verbatim from the Luma dropdown) that means "Free". It's
+ * the sole arbiter splitting the two day-before emails — Free gets the Notion AI
+ * nudge, everyone else gets the plain checklist — so both predicates key off this
+ * one constant. If the Luma option label changes, update it here.
+ */
+export const FREE_PLAN = "Free";
+
+/**
  * A booking that should get the pre-event prep emails (both the 3-day prep and the
  * day-before reminder): an APPROVED guest on the FREE Notion plan, with an email,
  * not filtered, not cancelled. Free-only because the prep nudges activating a free
@@ -15,7 +23,7 @@ export const PREP_LEAD_DAYS = 3;
 export function isEligibleForPrep(b: Booking): boolean {
   return (
     b.luma_status === "approved" &&
-    b.notion_plan === "Free" &&
+    b.notion_plan === FREE_PLAN &&
     !b.filtered &&
     !!b.guest_email &&
     b.status !== "cancelled"
@@ -57,7 +65,7 @@ export async function sendPrepForLeadWindow(now: Date = new Date()): Promise<{ e
 export function isEligibleForDayBeforePaid(b: Booking): boolean {
   return (
     b.luma_status === "approved" &&
-    b.notion_plan !== "Free" &&
+    b.notion_plan !== FREE_PLAN &&
     !b.filtered &&
     !!b.guest_email &&
     b.status !== "cancelled"

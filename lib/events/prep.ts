@@ -7,6 +7,14 @@ import type { Booking } from "../sync/types";
 export const PREP_LEAD_DAYS = 3;
 
 /**
+ * The Notion plan value (verbatim from the Luma dropdown) that means "Free". It's
+ * the sole arbiter splitting the two day-before emails — Free gets the Notion AI
+ * nudge, everyone else gets the plain checklist — so both predicates key off this
+ * one constant. If the Luma option label changes, update it here.
+ */
+export const FREE_PLAN = "Free";
+
+/**
  * A booking that should get the pre-event prep emails (both the 3-day prep and the
  * day-before reminder): an APPROVED guest on the FREE Notion plan, with an email,
  * not filtered, not cancelled. Free-only because the prep nudges activating a free
@@ -15,7 +23,7 @@ export const PREP_LEAD_DAYS = 3;
 export function isEligibleForPrep(b: Booking): boolean {
   return (
     b.luma_status === "approved" &&
-    b.notion_plan === "Free" &&
+    b.notion_plan === FREE_PLAN &&
     !b.filtered &&
     !!b.guest_email &&
     b.status !== "cancelled"
@@ -45,6 +53,37 @@ export async function sendPrepForLeadWindow(now: Date = new Date()): Promise<{ e
   for (const ev of events) {
     guests += await sendPrepForEvent(ev.id);
   }
+  return { events: events.length, guests };
+}
+
+/**
+ * A booking that should get the NON-Free day-before checklist: an APPROVED guest
+ * NOT on the Free plan (paid plans and blank/unknown), with an email, not filtered,
+ * not cancelled. Complements isEligibleForPrep so every approved guest gets exactly
+ * one day-before checklist. No Notion AI step (that's the Free nudge).
+ */
+export function isEligibleForDayBeforePaid(b: Booking): boolean {
+  return (
+    b.luma_status === "approved" &&
+    b.notion_plan !== FREE_PLAN &&
+    !b.filtered &&
+    !!b.guest_email &&
+    b.status !== "cancelled"
+  );
+}
+
+/** Send the non-Free day-before checklist to every eligible guest of one event. Idempotent. */
+export async function sendPrepDayBeforePaidForEvent(eventId: string): Promise<number> {
+  const eligible = (await listBookingsForEvent(eventId)).filter(isEligibleForDayBeforePaid);
+  for (const b of eligible) await sendBookingComms(b.id, "prep_reminder_day_before_paid");
+  return eligible.length;
+}
+
+/** Send the non-Free day-before checklist for every event happening tomorrow (now + 1). */
+export async function sendPrepDayBeforePaidForLeadWindow(now: Date = new Date()): Promise<{ events: number; guests: number }> {
+  const events = await listEventsByDate(isoDatePlusDays(now, 1));
+  let guests = 0;
+  for (const ev of events) guests += await sendPrepDayBeforePaidForEvent(ev.id);
   return { events: events.length, guests };
 }
 

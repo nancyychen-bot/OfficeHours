@@ -177,10 +177,26 @@ describe("renderComms", () => {
 });
 
 describe("prep_reminder_day_before__guest", () => {
-  it("renders a 'tomorrow' reminder with the slot-change link", () => {
+  it("renders a 'tomorrow' reminder (no slot-change link at T-1 — too late)", () => {
     const r = renderComms("prep_reminder_day_before", "guest", fields())!;
     expect(r.subject.toLowerCase()).toContain("tomorrow");
     expect(r.text.toLowerCase()).toContain("tomorrow");
-    expect(r.html).toContain("Change your slot");
+    expect(r.text).not.toContain("Change your slot");
+  });
+});
+
+describe("prep_reminder_day_before_paid", () => {
+  it("prep_reminder_day_before_paid → guest: what to bring, no Notion AI, no slot change", () => {
+    const r = renderComms("prep_reminder_day_before_paid", "guest", fields())!;
+    expect(r.text).toContain("What to bring");
+    expect(r.text).toContain("Your laptop");
+    expect(r.text).not.toContain("Notion AI");
+    expect(r.text).not.toContain("Change your slot");
+  });
+  it("Free day-before no longer offers a slot change (too late at T-1)", () => {
+    const r = renderComms("prep_reminder_day_before", "guest", fields())!;
+    expect(r.text).not.toContain("Change your slot");
+    // T-3 prep still offers it (changes still possible that far out):
+    expect(renderComms("prep_reminder", "guest", fields())!.text).toContain("Change your slot");
   });
 });

@@ -99,6 +99,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   feedback_request: ["guest"],
   prep_reminder: ["guest"],
   prep_reminder_day_before: ["guest"],
+  prep_reminder_day_before_paid: ["guest"],
   cowork_only: ["guest"],
   reassigned_off: ["helper"],
   already_claimed: [], // sent directly to the would-be claimer via sendCommsToEmail

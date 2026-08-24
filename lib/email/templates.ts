@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "guest_cancelled";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "guest_cancelled" | "prep_reminder_day_before_paid";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -157,6 +157,7 @@ function wrapRich(bodyLines: string[]): { html: string; text: string } {
 export type TemplateKey =
   | "prep_reminder__guest"
   | "prep_reminder_day_before__guest"
+  | "prep_reminder_day_before_paid__guest"
   | "day_of_agenda__helper"
   | "assigned__guest" | "assigned__helper"
   | "checked_in__guest__matched" | "checked_in__guest__unmatched" | "checked_in__guest__nohelp" | "checked_in__helper"
@@ -214,7 +215,19 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "✅ Notion AI activated — if you haven't yet, **[start your free Notion AI trial]({{trialLink}})** (about a minute)",
       "✅ Laptop + the question or workspace you want help with", "",
       "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
-      "Need a different time? **[Change your slot]({{slotChangeLink}})** and we'll help reassign you.", "",
+      "See you tomorrow,", SIGNOFF, "", `*${SUPPORT}*`,
+    ),
+  },
+  prep_reminder_day_before_paid__guest: {
+    label: "Prep reminder — day before (non-Free)", description: "1 day before — approved guests not on Free", role: "guest",
+    subject: "Your Notion Build Bar 1:1 is tomorrow ✨",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Quick reminder — your **Notion Build Bar** session is **tomorrow**. We can't wait to build with you!", "",
+      "**What to bring:**",
+      "✅ Your 1:1 slot — check for the calendar invite (if you have one)",
+      "✅ Your laptop", "",
+      "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
       "See you tomorrow,", SIGNOFF, "", `*${SUPPORT}*`,
     ),
   },

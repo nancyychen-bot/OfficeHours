@@ -28,7 +28,7 @@ const STAGES: Array<{ title: string; blurb: string; keys: TemplateKey[] }> = [
   {
     title: "Before the event",
     blurb: "Warming guests up in the days leading up to Build Bar.",
-    keys: ["prep_reminder__guest", "prep_reminder_day_before__guest"],
+    keys: ["prep_reminder__guest", "prep_reminder_day_before__guest", "prep_reminder_day_before_paid__guest"],
   },
   {
     title: "Booking a 1:1",

@@ -50,6 +50,7 @@ export interface GuestCancelledInput {
   channelId: string | null;
 }
 
+/** DM blocks nudging an expert to claim a replacement after their guest cancels. Pure. */
 export function buildGuestCancelledBlocks(i: GuestCancelledInput): unknown[] {
   const when = [i.eventDate ? shortDate(i.eventDate) : null, i.slotName].filter(Boolean).join(" · ");
   const ev = i.eventName ? ` · ${i.eventName}` : "";

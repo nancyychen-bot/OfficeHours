@@ -23,6 +23,7 @@ function publicUrlFrom(input: string): string | null {
 export interface RegisterResult {
   eventId: string;
   eventName: string;
+  city: string;
   inserted: number;
   updated: number;
   deleted: number;
@@ -124,6 +125,7 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
   return {
     eventId: event.id,
     eventName: event.name,
+    city,
     inserted: plan.toInsert.length,
     updated: plan.toUpdate.length,
     deleted: deletable.length,

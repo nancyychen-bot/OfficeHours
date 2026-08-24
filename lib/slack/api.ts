@@ -90,6 +90,20 @@ export async function lookupChannelIdByName(name: string | null | undefined): Pr
   return null;
 }
 
+/**
+ * The channel_id to store when saving a city channel: an explicitly provided id
+ * wins; otherwise resolve it from the channel name via Slack. Null if neither yields
+ * one. Best-effort (never throws) — a save must succeed even if resolution fails.
+ */
+export async function resolveChannelIdForSave(
+  explicitId: string | null | undefined,
+  channelName: string | null | undefined,
+): Promise<string | null> {
+  const id = (explicitId ?? "").trim();
+  if (id) return id;
+  return lookupChannelIdByName(channelName);
+}
+
 /** Post Block Kit blocks to a channel/DM id. Best-effort. */
 export async function postToChannel(channel: string, blocks: unknown[], text: string): Promise<SlackResult> {
   const body = await callSlack("chat.postMessage", { channel, blocks, text });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { dmByEmail, lookupUserByEmail, postToChannel, lookupChannelIdByName } from "../lib/slack/api";
+import { dmByEmail, lookupUserByEmail, postToChannel, lookupChannelIdByName, resolveChannelIdForSave } from "../lib/slack/api";
 
 interface Call { url: string; contentType: string; raw: string; body: unknown }
 const calls: Call[] = [];
@@ -100,5 +100,22 @@ describe("lookupChannelIdByName", () => {
     await lookupChannelIdByName("build-bar-nyc");
     const call = calls.find((c) => c.url.includes("conversations.list"))!;
     expect(call.contentType).toContain("application/x-www-form-urlencoded");
+  });
+});
+
+describe("resolveChannelIdForSave", () => {
+  it("keeps an explicitly provided id without calling Slack", async () => {
+    stubFetch(() => ({ ok: false }));
+    expect(await resolveChannelIdForSave("C999", "#build-bar-nyc")).toBe("C999");
+    expect(calls).toHaveLength(0);
+  });
+  it("resolves from the channel name when no id is given", async () => {
+    stubFetch(() => ({ ok: true, channels: [{ id: "C1", name: "build-bar-nyc" }] }));
+    expect(await resolveChannelIdForSave("", "#build-bar-nyc")).toBe("C1");
+  });
+  it("returns null with no id and no name (no lookup)", async () => {
+    stubFetch(() => ({ ok: true, channels: [] }));
+    expect(await resolveChannelIdForSave("", null)).toBeNull();
+    expect(calls).toHaveLength(0);
   });
 });

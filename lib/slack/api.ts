@@ -61,6 +61,35 @@ export async function openDM(userId: string): Promise<string | null> {
   return body.ok && channel?.id ? channel.id : null;
 }
 
+/**
+ * The Slack channel id (C…) for a channel name, or null. Walks conversations.list
+ * (public + private, non-archived), matching the name case-insensitively and
+ * ignoring a leading "#". Best-effort: null on not-found / missing scope / error.
+ * conversations.list is a read method — pass params form-encoded (like lookupByEmail).
+ */
+export async function lookupChannelIdByName(name: string | null | undefined): Promise<string | null> {
+  const needle = (name ?? "").trim().replace(/^#/, "").toLowerCase();
+  if (!needle) return null;
+  let cursor: string | undefined;
+  for (let page = 0; page < 20; page++) {
+    const params: Record<string, string> = {
+      types: "public_channel,private_channel",
+      exclude_archived: "true",
+      limit: "200",
+    };
+    if (cursor) params.cursor = cursor;
+    const body = await callSlack("conversations.list", params, true);
+    if (!body.ok) return null;
+    const channels = (body.channels as Array<{ id?: string; name?: string }> | undefined) ?? [];
+    const match = channels.find((c) => (c.name ?? "").toLowerCase() === needle);
+    if (match?.id) return match.id;
+    const meta = body.response_metadata as { next_cursor?: string } | undefined;
+    cursor = meta?.next_cursor || undefined;
+    if (!cursor) break;
+  }
+  return null;
+}
+
 /** Post Block Kit blocks to a channel/DM id. Best-effort. */
 export async function postToChannel(channel: string, blocks: unknown[], text: string): Promise<SlackResult> {
   const body = await callSlack("chat.postMessage", { channel, blocks, text });

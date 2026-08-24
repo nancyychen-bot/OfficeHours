@@ -85,8 +85,15 @@ export async function lookupChannelIdByName(name: string | null | undefined): Pr
     if (match?.id) return match.id;
     const meta = body.response_metadata as { next_cursor?: string } | undefined;
     cursor = meta?.next_cursor || undefined;
-    if (!cursor) break;
+    if (!cursor) return null; // exhausted all pages → genuinely not found
   }
+  // Fell out of the loop with pages still remaining: hit the 20-page cap.
+  await logSync({
+    direction: "luma_in",
+    result: "error",
+    action: "slack_conversations.list",
+    note: `channel "${needle}" not found within 20 pages (cap hit)`,
+  });
   return null;
 }
 

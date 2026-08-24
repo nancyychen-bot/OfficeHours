@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { sendPrepForLeadWindow, sendPrepDayBeforeForLeadWindow, PREP_LEAD_DAYS } from "@/lib/events/prep";
+import { sendPrepForLeadWindow, sendPrepDayBeforeForLeadWindow, sendPrepDayBeforePaidForLeadWindow, PREP_LEAD_DAYS } from "@/lib/events/prep";
 import { logSync } from "@/lib/sync/log";
 
 export const runtime = "nodejs";
@@ -23,13 +23,14 @@ export async function POST(req: Request) {
 
   const prep = await sendPrepForLeadWindow();
   const dayBefore = await sendPrepDayBeforeForLeadWindow();
+  const dayBeforePaid = await sendPrepDayBeforePaidForLeadWindow();
   await logSync({
     direction: "luma_in",
     result: "applied",
     action: "prep_reminder_cron",
-    note: `lead=${PREP_LEAD_DAYS}d events=${prep.events} guests=${prep.guests}; dayBefore events=${dayBefore.events} guests=${dayBefore.guests}`,
+    note: `lead=${PREP_LEAD_DAYS}d events=${prep.events} guests=${prep.guests}; dayBefore events=${dayBefore.events} guests=${dayBefore.guests}; dayBeforePaid events=${dayBeforePaid.events} guests=${dayBeforePaid.guests}`,
   });
-  return NextResponse.json({ prep, dayBefore });
+  return NextResponse.json({ prep, dayBefore, dayBeforePaid });
 }
 
 // Vercel Cron issues GET by default; accept both.

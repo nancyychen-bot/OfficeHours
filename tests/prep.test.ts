@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isEligibleForPrep, isoDatePlusDays } from "../lib/events/prep";
+import { isEligibleForPrep, isEligibleForDayBeforePaid, isoDatePlusDays } from "../lib/events/prep";
 import type { Booking } from "../lib/sync/types";
 
 const base = (over: Partial<Booking>): Booking =>
@@ -59,5 +59,19 @@ describe("day-before window date", () => {
   it("targets tomorrow (now + 1)", () => {
     const now = new Date("2026-08-25T20:00:00Z");
     expect(isoDatePlusDays(now, 1)).toBe("2026-08-26");
+  });
+});
+
+describe("isEligibleForDayBeforePaid", () => {
+  it("includes approved non-Free (paid or blank plan)", () => {
+    expect(isEligibleForDayBeforePaid(base({ notion_plan: "Business" }))).toBe(true);
+    expect(isEligibleForDayBeforePaid(base({ notion_plan: null as unknown as string }))).toBe(true);
+  });
+  it("excludes Free, non-approved, cancelled, filtered, or no email", () => {
+    expect(isEligibleForDayBeforePaid(base({ notion_plan: "Free" }))).toBe(false);
+    expect(isEligibleForDayBeforePaid(base({ notion_plan: "Business", luma_status: "pending" }))).toBe(false);
+    expect(isEligibleForDayBeforePaid(base({ notion_plan: "Business", status: "cancelled" }))).toBe(false);
+    expect(isEligibleForDayBeforePaid(base({ notion_plan: "Business", filtered: true }))).toBe(false);
+    expect(isEligibleForDayBeforePaid(base({ notion_plan: "Business", guest_email: "" }))).toBe(false);
   });
 });

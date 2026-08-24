@@ -48,6 +48,37 @@ export async function sendPrepForLeadWindow(now: Date = new Date()): Promise<{ e
   return { events: events.length, guests };
 }
 
+/**
+ * A booking that should get the NON-Free day-before checklist: an APPROVED guest
+ * NOT on the Free plan (paid plans and blank/unknown), with an email, not filtered,
+ * not cancelled. Complements isEligibleForPrep so every approved guest gets exactly
+ * one day-before checklist. No Notion AI step (that's the Free nudge).
+ */
+export function isEligibleForDayBeforePaid(b: Booking): boolean {
+  return (
+    b.luma_status === "approved" &&
+    b.notion_plan !== "Free" &&
+    !b.filtered &&
+    !!b.guest_email &&
+    b.status !== "cancelled"
+  );
+}
+
+/** Send the non-Free day-before checklist to every eligible guest of one event. Idempotent. */
+export async function sendPrepDayBeforePaidForEvent(eventId: string): Promise<number> {
+  const eligible = (await listBookingsForEvent(eventId)).filter(isEligibleForDayBeforePaid);
+  for (const b of eligible) await sendBookingComms(b.id, "prep_reminder_day_before_paid");
+  return eligible.length;
+}
+
+/** Send the non-Free day-before checklist for every event happening tomorrow (now + 1). */
+export async function sendPrepDayBeforePaidForLeadWindow(now: Date = new Date()): Promise<{ events: number; guests: number }> {
+  const events = await listEventsByDate(isoDatePlusDays(now, 1));
+  let guests = 0;
+  for (const ev of events) guests += await sendPrepDayBeforePaidForEvent(ev.id);
+  return { events: events.length, guests };
+}
+
 /** Send the day-before reminder to every eligible guest of one event. Idempotent
  * (distinct email_log kind, so it isn't suppressed by the 3-day prep dedup). */
 export async function sendPrepDayBeforeForEvent(eventId: string): Promise<number> {

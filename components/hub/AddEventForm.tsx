@@ -29,6 +29,10 @@ export function AddEventForm({ token }: { token: string }) {
         <span className="text-neutral-600">Luma event URL or id *</span>
         <input name="lumaEvent" required placeholder="https://lu.ma/..." className={`mt-1 ${field}`} />
       </label>
+      <label className="block text-sm">
+        <span className="text-neutral-600">Slack channel *</span>
+        <input name="slackChannel" required placeholder="#build-bar-nyc" className={`mt-1 ${field}`} />
+      </label>
       <details className="text-sm">
         <summary className="cursor-pointer text-neutral-500">Optional overrides</summary>
         <div className="mt-2 space-y-2">

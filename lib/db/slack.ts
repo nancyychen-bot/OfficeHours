@@ -24,6 +24,10 @@ export async function getSlackChannelForCity(city: string | null | undefined): P
     return names.includes(needle);
   });
   if (!match) return null;
+  // A name-only row (channel captured at event-add, but no webhook and no resolved
+  // channel_id yet) isn't postable — treat as unconfigured so recruit posts log a
+  // clean skip instead of a "no channel_id or webhook_url" error.
+  if (!match.webhook_url && !match.channel_id) return null;
   return { webhookUrl: match.webhook_url, channelName: match.channel_name, channelId: match.channel_id ?? null };
 }
 
@@ -108,4 +112,44 @@ export async function setSlackChannelId(city: string, channelId: string): Promis
 /** Remove a city's channel config. */
 export async function deleteSlackChannel(city: string): Promise<void> {
   await getAdminClient().from("slack_channels").delete().eq("city", city);
+}
+
+/**
+ * The slack_channels row to write when attaching a channel to a city: update
+ * name + id, but PRESERVE an existing webhook/aliases (adding an event never
+ * wipes them). A new city starts with an empty webhook ("" = not set up yet).
+ * Pure.
+ */
+export function mergeCityChannelRow(
+  existing: { webhook_url: string; aliases: string[] } | null,
+  next: { city: string; channelName: string; channelId: string | null },
+): { city: string; channel_name: string; channel_id: string | null; webhook_url: string; aliases: string[] } {
+  return {
+    city: next.city,
+    channel_name: next.channelName,
+    channel_id: next.channelId,
+    webhook_url: existing?.webhook_url ?? "",
+    aliases: existing?.aliases ?? [],
+  };
+}
+
+/** Attach a channel (name + resolved id) to a city, preserving any existing webhook. */
+export async function setCityChannelName(input: {
+  city: string;
+  channelName: string;
+  channelId: string | null;
+}): Promise<void> {
+  const supabase = getAdminClient();
+  const { data: existing } = await supabase
+    .from("slack_channels")
+    .select("webhook_url, aliases")
+    .eq("city", input.city)
+    .maybeSingle();
+  const row = mergeCityChannelRow(
+    existing ? { webhook_url: existing.webhook_url, aliases: existing.aliases ?? [] } : null,
+    { city: input.city, channelName: input.channelName, channelId: input.channelId },
+  );
+  await supabase
+    .from("slack_channels")
+    .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "city" });
 }

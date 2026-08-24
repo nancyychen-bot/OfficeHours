@@ -5,6 +5,7 @@ import { pushBookingToWorkspaces } from "../notion/push";
 import { sendBookingComms } from "../email/comms";
 import { clearAllComms, clearCommsForKinds } from "../db/email-log";
 import { shouldSendGuestCancelled } from "./cancellation";
+import { postGuestCancelledDM } from "../slack/notify";
 import { approvalStatusToLumaStatus } from "../luma/approval";
 import type { NormalizedRegistration } from "../luma/parse";
 import type { Booking } from "../sync/types";
@@ -38,8 +39,12 @@ export async function ingestRegistration(
   // BEFORE the upsert releases the helper (which clears booked_by_email). Gated on
   // an actual transition so it never duplicates the Notion path's echo. Live only.
   if (opts.live && prior && prior.luma_status !== nextLumaStatus) {
-    if (shouldSendGuestCancelled(prior, nextLumaStatus)) await sendBookingComms(prior.id, "guest_cancelled");
-    else if (nextLumaStatus === "waitlist") await sendBookingComms(prior.id, "waitlisted");
+    if (shouldSendGuestCancelled(prior, nextLumaStatus)) {
+      await sendBookingComms(prior.id, "guest_cancelled");
+      await postGuestCancelledDM(prior.id);
+    } else if (nextLumaStatus === "waitlist") {
+      await sendBookingComms(prior.id, "waitlisted");
+    }
   }
 
   const slot = norm.requestedSlot

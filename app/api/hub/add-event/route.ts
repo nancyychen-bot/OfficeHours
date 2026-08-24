@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { verifyFormToken } from "@/lib/auth/form-token";
 import { registerEventFromLuma } from "@/lib/events/register";
+import { lookupChannelIdByName } from "@/lib/slack/api";
+import { setCityChannelName } from "@/lib/db/slack";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -17,6 +19,10 @@ export async function POST(req: Request) {
   if (!lumaEvent) {
     return NextResponse.json({ ok: false, error: "A Luma event URL or id is required." }, { status: 400 });
   }
+  const slackChannel = String(form.get("slackChannel") ?? "").trim();
+  if (!slackChannel) {
+    return NextResponse.json({ ok: false, error: "A Slack channel is required." }, { status: 400 });
+  }
   const city = String(form.get("city") ?? "").trim() || undefined;
   const slotStart = String(form.get("slotStart") ?? "").trim() || undefined;
   const lengthRaw = String(form.get("length") ?? "").trim();
@@ -24,6 +30,15 @@ export async function POST(req: Request) {
 
   try {
     const result = await registerEventFromLuma({ lumaEvent, city, slotStart, slotLengthMinutes });
+    // Attach the channel to the event's city (best-effort; never fails the add).
+    if (result.city) {
+      try {
+        const channelId = await lookupChannelIdByName(slackChannel);
+        await setCityChannelName({ city: result.city, channelName: slackChannel, channelId });
+      } catch (chErr) {
+        console.error("[add-event] channel save failed", chErr);
+      }
+    }
     return NextResponse.json({
       ok: true,
       event: {

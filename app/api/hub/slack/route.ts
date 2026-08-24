@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isValidSession, SESSION_COOKIE } from "@/lib/auth/session";
 import { upsertSlackChannel, deleteSlackChannel } from "@/lib/db/slack";
+import { resolveChannelIdForSave } from "@/lib/slack/api";
 
 export const runtime = "nodejs";
 
@@ -47,13 +48,9 @@ export async function POST(req: Request) {
         .split(",")
         .map((a) => a.trim())
         .filter(Boolean);
-      await upsertSlackChannel({
-        city,
-        channelName: (body.channelName ?? "").trim() || null,
-        webhookUrl,
-        aliases,
-        channelId: body.channelId ?? null,
-      });
+      const channelName = (body.channelName ?? "").trim() || null;
+      const channelId = await resolveChannelIdForSave(body.channelId, channelName);
+      await upsertSlackChannel({ city, channelName, webhookUrl, aliases, channelId });
       return NextResponse.json({ ok: true });
     }
     return NextResponse.json({ error: "unknown action" }, { status: 400 });

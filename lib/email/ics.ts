@@ -86,7 +86,7 @@ function buildEvent(
   return lines.filter((l): l is string => l !== null).join("\r\n");
 }
 
-/** METHOD:REQUEST invite that holds the slot. */
+/** METHOD:PUBLISH add-to-calendar event that holds the slot (no RSVP — see buildEvent). */
 export function buildInvite(f: IcsFields, fromEmail: string, stampISO: string): string | null {
   return buildEvent(f, fromEmail, stampISO, "request");
 }

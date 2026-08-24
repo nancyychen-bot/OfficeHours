@@ -21,6 +21,7 @@
     "send:cowork": "tsx --env-file=.env.local scripts/send-cowork-notice.ts",
     "sync:luma-stats": "tsx --env-file=.env.local scripts/sync-luma-stats.ts",
     "backup": "tsx --env-file=.env.local scripts/backup-db.ts",
+    "backfill:slack-ids": "tsx --env-file=.env.local scripts/backfill-slack-channel-ids.ts",
     "gen:types": "supabase gen types typescript --project-id jldgxdaemtdqcfrdzeby --schema public > lib/supabase/types.ts"
   },
   "dependencies": {

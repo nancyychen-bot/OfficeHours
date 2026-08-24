@@ -97,6 +97,14 @@ export async function upsertSlackChannel(input: {
     );
 }
 
+/** Set just the channel_id for a city (used by the backfill). */
+export async function setSlackChannelId(city: string, channelId: string): Promise<void> {
+  await getAdminClient()
+    .from("slack_channels")
+    .update({ channel_id: channelId, updated_at: new Date().toISOString() })
+    .eq("city", city);
+}
+
 /** Remove a city's channel config. */
 export async function deleteSlackChannel(city: string): Promise<void> {
   await getAdminClient().from("slack_channels").delete().eq("city", city);

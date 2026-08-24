@@ -28,7 +28,7 @@ const STAGES: Array<{ title: string; blurb: string; keys: TemplateKey[] }> = [
   {
     title: "Before the event",
     blurb: "Warming guests up in the days leading up to Build Bar.",
-    keys: ["prep_reminder__guest"],
+    keys: ["prep_reminder__guest", "prep_reminder_day_before__guest"],
   },
   {
     title: "Booking a 1:1",
@@ -46,13 +46,13 @@ const STAGES: Array<{ title: string; blurb: string; keys: TemplateKey[] }> = [
   },
   {
     title: "Capacity & approval",
-    blurb: "When we're full — waitlisted or declined.",
-    keys: ["waitlisted__guest", "waitlisted__helper", "declined__guest", "declined__helper"],
+    blurb: "Approval outcomes — waitlisted, declined, or approved to cowork only.",
+    keys: ["waitlisted__guest", "waitlisted__helper", "declined__guest", "declined__helper", "cowork_only__guest"],
   },
   {
     title: "Cancellations",
     blurb: "When a booking or the whole event falls through.",
-    keys: ["cancelled__guest", "cancelled__helper", "event_cancelled__guest", "event_cancelled__helper"],
+    keys: ["cancelled__guest", "cancelled__helper", "event_cancelled__guest", "event_cancelled__helper", "guest_cancelled__helper"],
   },
   {
     title: "After the event",

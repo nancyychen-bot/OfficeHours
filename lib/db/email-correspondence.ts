@@ -65,15 +65,16 @@ export async function listGroupRecipients(opts: {
   day: string;
 }): Promise<EmailRecipient[]> {
   const supabase = getAdminClient();
-  // Day is a UTC calendar day → [day 00:00, next day 00:00).
+  // Day is a UTC calendar day → half-open [day 00:00, next day 00:00) to mirror the
+  // view's `(created_at at time zone 'UTC')::date` exactly (no sub-ms boundary gap).
   const start = `${opts.day}T00:00:00Z`;
-  const end = `${opts.day}T23:59:59.999Z`;
+  const next = new Date(new Date(start).getTime() + 24 * 60 * 60_000).toISOString();
   let q = supabase
     .from("email_log")
     .select("recipient_email, status, resend_id, created_at, bookings!inner(guest_name, event_id)")
     .eq("event_kind", opts.kind)
     .gte("created_at", start)
-    .lte("created_at", end)
+    .lt("created_at", next)
     .order("created_at", { ascending: false });
   if (opts.eventId) q = q.eq("bookings.event_id", opts.eventId);
   const { data, error } = await q;

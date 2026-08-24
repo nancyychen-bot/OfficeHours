@@ -24,6 +24,10 @@ export async function getSlackChannelForCity(city: string | null | undefined): P
     return names.includes(needle);
   });
   if (!match) return null;
+  // A name-only row (channel captured at event-add, but no webhook and no resolved
+  // channel_id yet) isn't postable — treat as unconfigured so recruit posts log a
+  // clean skip instead of a "no channel_id or webhook_url" error.
+  if (!match.webhook_url && !match.channel_id) return null;
   return { webhookUrl: match.webhook_url, channelName: match.channel_name, channelId: match.channel_id ?? null };
 }
 

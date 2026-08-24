@@ -482,7 +482,8 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     subject: "Slot freed — {{guestName}} won't be joining",
     body: b(
       "Hi {{firstName}},", "",
-      "Quick update: {{guestName}} has cancelled their booking and won't be joining, so the slot you'd claimed has been released. Nothing you need to do.", "",
+      "Quick update: {{guestName}} has cancelled their booking and won't be joining, so the slot you'd claimed has been released.", "",
+      "Want to pick up another? Head to your city's Build Bar Slack channel to claim an open 1:1 — we'd love to keep you building.", "",
       SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },

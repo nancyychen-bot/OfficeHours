@@ -41,6 +41,27 @@ export function buildFeedbackBlocks(p: ExpertFeedbackPrompt): unknown[] {
   return blocks;
 }
 
+export interface GuestCancelledInput {
+  guestName: string;
+  eventName: string | null;
+  eventDate: string | null;
+  slotName: string | null;
+  /** City recruit channel id for a clickable <#…> mention, or null if none configured. */
+  channelId: string | null;
+}
+
+export function buildGuestCancelledBlocks(i: GuestCancelledInput): unknown[] {
+  const when = [i.eventDate ? shortDate(i.eventDate) : null, i.slotName].filter(Boolean).join(" · ");
+  const ev = i.eventName ? ` · ${i.eventName}` : "";
+  const lines = [
+    `😕 *${i.guestName}'s 1:1 was cancelled*, so your slot${when ? ` at *${when}*` : ""}${ev} just freed up.`,
+    i.channelId
+      ? `Want to pick up another? Grab an open 1:1 in <#${i.channelId}>.`
+      : `Want to pick up another? Check your city's Build Bar channel for an open 1:1.`,
+  ].join("\n");
+  return [{ type: "section", text: { type: "mrkdwn", text: lines } }];
+}
+
 /** DM blocks for one expert's day-of agenda. Pure. Mirrors the agenda email content. */
 export function buildAgendaBlocks(a: ExpertAgenda): unknown[] {
   const when = shortDate(a.eventDate);

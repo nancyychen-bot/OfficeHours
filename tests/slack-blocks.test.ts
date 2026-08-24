@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildAgendaBlocks, buildClaimConfirmBlocks, buildFeedbackBlocks } from "../lib/slack/blocks";
+import { buildAgendaBlocks, buildClaimConfirmBlocks, buildFeedbackBlocks, buildGuestCancelledBlocks } from "../lib/slack/blocks";
 
 const agenda = {
   email: "grace@x.com",
@@ -42,6 +42,26 @@ describe("buildClaimConfirmBlocks", () => {
       guestName: "Ada", slotName: "2:00 PM", eventName: null, eventDate: null, cardUrl: null,
     }));
     expect(json).not.toContain("Open your card");
+  });
+});
+
+describe("buildGuestCancelledBlocks", () => {
+  it("names the guest and links the city channel when one is known", () => {
+    const json = JSON.stringify(buildGuestCancelledBlocks({
+      guestName: "Ada Lovelace", eventName: "Build Bar NYC", eventDate: "2026-08-26",
+      slotName: "2:00 PM", channelId: "C12345",
+    }));
+    expect(json).toContain("Ada Lovelace");
+    expect(json).toContain("<#C12345>");
+    expect(json).toContain("freed up");
+  });
+  it("falls back to a generic nudge when no channel is known", () => {
+    const json = JSON.stringify(buildGuestCancelledBlocks({
+      guestName: "Ada Lovelace", eventName: null, eventDate: null, slotName: null, channelId: null,
+    }));
+    expect(json).toContain("Ada Lovelace");
+    expect(json).not.toContain("<#");
+    expect(json.toLowerCase()).toContain("build bar channel");
   });
 });
 

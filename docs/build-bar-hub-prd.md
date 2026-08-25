@@ -71,6 +71,9 @@ the others — in real time, exactly once, and consistently.
 - **No duplicate emails** — every email goes out exactly once, even if something retries.
 - **Scheduled automation** — reminders, no-show detection, day-of agendas, replacement
   recruiting, and nightly backups all run on a timer.
+- **Works in any timezone** — events in the US, Europe, and Asia each send their reminders at
+  the right **local** time (e.g. the morning before), not a single global clock. The system
+  refuses to create an event whose timezone is unknown, so nothing gets scheduled wrong.
 - **Slack bot** — DMs experts when they claim, posts open slots to each city's channel, and
   nudges experts to grab a replacement when a guest cancels.
 - **Admin hub** — add an event by pasting a Luma link, edit any email template, and browse a
@@ -203,9 +206,10 @@ per-run agent fees that would balloon as events and RSVPs grow.
 - **Cost is flat per booking.** Because the day-to-day runs on deterministic code, not AI
   calls, 10 bookings or 10,000 cost the same per action. There's no usage meter that grows
   with volume.
-- **Multi-event, multi-city by design.** The hub already handles many events at once, routes
-  each to the right city's Slack channel, and keeps both Notion workspaces in sync — adding an
-  event is pasting a Luma link.
+- **Multi-event, multi-city, multi-region by design.** The hub already handles many events at
+  once, routes each to the right city's Slack channel, keeps both Notion workspaces in sync, and
+  now schedules every event in its **own timezone** — so expanding from US to Europe and Asia is
+  just adding events, not re-architecting. Adding an event is pasting a Luma link.
 - **New behavior is a config or a small change, not a rebuild.** Email copy is editable in the
   admin hub with no code; new email types or rules are small additions (several shipped in a
   single day).
@@ -229,10 +233,15 @@ per-run agent fees that would balloon as events and RSVPs grow.
   each step — not "type a prompt and ship." Small bugs surfaced along the way and had to be
   caught and fixed; the process handled them, but it takes discipline, and code shouldn't go out
   unreviewed.
-- **Some setup is still manual, and some of it depends on others.** Per-city Slack channels,
-  database updates, and a Slack permission grant are done by hand — a Slack scope we needed is
-  still pending and blocks one feature until it's approved. This groundwork has to be finished
-  before the system can scale and automate more broadly.
+- **Some setup is manual, and depends on others.** Per-city Slack channels, database updates,
+  and Slack permission grants are done by hand. Example: enabling the "grab a replacement" Slack
+  link needed a new permission on the Slack app, a reinstall, and — because Notion's workspace
+  has ~10,000 channels — a fix to how we look channels up. It works now, but real-world platform
+  integrations (Slack scopes, Enterprise Grid limits, Notion's own quirks) reliably take more
+  poking than expected.
+- **Going global surfaced hidden assumptions.** The scheduling logic quietly assumed US time.
+  Expanding to Europe and Asia forced us to make every reminder fire in the event's own local
+  time — a good reminder that "it works" for today's data can still hide a scaling cliff.
 - **Cost tracked rework.** A meaningful share of the ~$1.5K went to iteration and course-
   correction. Tighter specs up front would bring that down next time.
 - **It needs documentation to be maintainable.** The system spans several services, so it can't

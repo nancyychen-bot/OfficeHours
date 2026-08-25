@@ -34,6 +34,17 @@ describe("computeResults attendance", () => {
     expect(r.attendanceRate).toBeCloseTo(0.5); // 1 checked-in / 2 approved
   });
 
+  it("counts cancelled/declined bookings toward registered (total ever) in mirror mode", () => {
+    const bookings = [
+      bk("A", { status: "checked_in" }),
+      bk("A", { status: "no_show" }),
+      bk("A", { status: "cancelled", luma_status: "declined" }), // registered once, later declined
+    ];
+    const r = computeResults(bookings, [], [ev("A", "SF")]).perEvent[0];
+    expect(r.attendanceSource).toBe("mirror");
+    expect(r.registered).toBe(3); // total ever — the decline does not shrink it
+  });
+
   it("prefers luma_stats when present (no-show still from bookings)", () => {
     const stats: LumaStats = { registered: 40, approved: 30, checkedIn: 24, waitlist: 5, pending: 0, capacity: null };
     const bookings = [bk("A", { status: "no_show" })];

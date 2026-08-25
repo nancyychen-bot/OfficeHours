@@ -34,7 +34,10 @@ const hasHelper = (b: HubBooking) => !!b.booked_by_display_name;
 
 function attendanceFromBookings(bookings: HubBooking[]) {
   return {
-    registered: bookings.filter((b) => b.status !== "cancelled").length,
+    // Total ever registered: every mirrored booking, incl. declined/cancelled, so
+    // the day-before auto-decline sweep never shrinks the number (mirror parity
+    // with fetchEventStats' `registered`).
+    registered: bookings.length,
     approved: bookings.filter((b) => b.luma_status === "approved").length,
     checkedIn: bookings.filter((b) => b.status === "checked_in").length,
     waitlist: bookings.filter((b) => b.luma_status === "waitlist").length,

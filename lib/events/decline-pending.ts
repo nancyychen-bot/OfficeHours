@@ -32,24 +32,46 @@ function declineDeps(bookingId: string): ApplyDeps {
   };
 }
 
-/** Decline every still-pending booking of one event. Best-effort per booking. */
+/**
+ * How many guests to decline in parallel. Each decline is ~7 sequential network
+ * calls (status write → declined email → Luma write-back → Notion push ×2 workspaces),
+ * so a strictly-sequential loop only cleared ~15–20 guests before the 60s function
+ * budget killed it mid-run — stranding the rest as `pending`. A bounded pool lifts
+ * throughput ~5× while staying gentle on the Luma/Notion/Resend rate limits. Kept
+ * modest on purpose. See the route's `maxDuration` for the matching time budget.
+ */
+const DECLINE_CONCURRENCY = 5;
+
+/** Decline every still-pending booking of one event. Best-effort per booking,
+ * bounded-concurrency so a large pending list drains within the function budget. */
 export async function declinePendingForEvent(eventId: string): Promise<number> {
   const pendings = selectDeclinablePendings(await listBookingsForEvent(eventId));
   let declined = 0;
-  for (const b of pendings) {
-    try {
-      await applyLumaStatus(b, "declined", { source: "cron" }, declineDeps(b.id));
-      declined++;
-    } catch (err) {
-      await logSync({
-        direction: "luma_in",
-        result: "error",
-        bookingId: b.id,
-        action: "decline_pending_error",
-        note: err instanceof Error ? err.message : String(err),
-      });
+  let cursor = 0;
+
+  // Shared-cursor worker pool: each worker pulls the next pending booking until
+  // the list is drained. `declined++` is safe (single-threaded; only mutated
+  // synchronously right after an await resolves).
+  async function worker(): Promise<void> {
+    while (cursor < pendings.length) {
+      const b = pendings[cursor++];
+      try {
+        await applyLumaStatus(b, "declined", { source: "cron" }, declineDeps(b.id));
+        declined++;
+      } catch (err) {
+        await logSync({
+          direction: "luma_in",
+          result: "error",
+          bookingId: b.id,
+          action: "decline_pending_error",
+          note: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   }
+
+  const workers = Array.from({ length: Math.min(DECLINE_CONCURRENCY, pendings.length) }, worker);
+  await Promise.all(workers);
   return declined;
 }
 

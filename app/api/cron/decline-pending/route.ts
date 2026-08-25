@@ -4,7 +4,11 @@ import { dispatchDeclinePendingForTomorrow } from "@/lib/events/decline-pending"
 import { logSync } from "@/lib/sync/log";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Popular events can leave 100+ guests pending the day before. Declining each is
+// ~7 sequential network calls; at 60s the function was killed mid-sweep (never
+// reaching the completion log), stranding the rest. 300s + bounded concurrency
+// (see DECLINE_CONCURRENCY) lets a full sweep finish in one invocation.
+export const maxDuration = 300;
 
 /**
  * Day-before auto-decline. Vercel Cron calls this daily (ahead of the agenda /

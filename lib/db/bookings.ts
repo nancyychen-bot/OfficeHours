@@ -46,7 +46,7 @@ export async function listRecruitReminderCandidates(): Promise<RecruitReminderRo
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("bookings")
-    .select("id, slack_recruit_posted_at, slack_recruit_r1_at, slack_recruit_r2_at, events!inner(event_date)")
+    .select("id, slack_recruit_posted_at, slack_recruit_r1_at, slack_recruit_r2_at, events!inner(event_date, timezone)")
     .not("slack_recruit_posted_at", "is", null)
     .eq("status", "unassigned")
     .eq("filtered", false)
@@ -60,6 +60,7 @@ export async function listRecruitReminderCandidates(): Promise<RecruitReminderRo
     slack_recruit_r1_at: (r.slack_recruit_r1_at as string | null) ?? null,
     slack_recruit_r2_at: (r.slack_recruit_r2_at as string | null) ?? null,
     event_date: (Array.isArray(r.events) ? r.events[0]?.event_date : r.events?.event_date) as string,
+    timezone: (Array.isArray(r.events) ? r.events[0]?.timezone : r.events?.timezone) as string,
   }));
 }
 

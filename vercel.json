@@ -1,12 +1,12 @@
 {
   "crons": [
-    { "path": "/api/cron/decline-pending", "schedule": "0 13 * * *" },
+    { "path": "/api/cron/decline-pending", "schedule": "0 * * * *" },
     { "path": "/api/cron/no-show", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/comms-retry", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/recruit-reminder", "schedule": "0 15 * * *" },
-    { "path": "/api/cron/prep-reminder", "schedule": "0 16 * * *" },
-    { "path": "/api/cron/agenda", "schedule": "0 14 * * *" },
-    { "path": "/api/cron/rematch-apology", "schedule": "0 17 * * *" },
+    { "path": "/api/cron/recruit-reminder", "schedule": "0 * * * *" },
+    { "path": "/api/cron/prep-reminder", "schedule": "0 * * * *" },
+    { "path": "/api/cron/agenda", "schedule": "0 * * * *" },
+    { "path": "/api/cron/rematch-apology", "schedule": "0 * * * *" },
     { "path": "/api/cron/feedback", "schedule": "* * * * *" },
     { "path": "/api/cron/luma-stats", "schedule": "*/15 * * * *" },
     { "path": "/api/cron/reconcile", "schedule": "0 * * * *" },

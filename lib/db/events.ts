@@ -37,13 +37,15 @@ export async function setEventStatus(
   if (error) throw error;
 }
 
-/** Events happening on a specific calendar date (YYYY-MM-DD). Used by the T-3 prep cron. */
-export async function listEventsByDate(dateISO: string): Promise<EventRow[]> {
-  const supabase = getAdminClient();
-  const { data, error } = await supabase
+/** Events whose local event_date falls in [fromYmd, toYmd] (inclusive), excluding
+ * cancelled. Used by the timezone-aware cron dispatchers, which filter the result
+ * per-event with isSendDue. */
+export async function listEventsInDateRange(fromYmd: string, toYmd: string): Promise<EventRow[]> {
+  const { data, error } = await getAdminClient()
     .from("events")
     .select("*")
-    .eq("event_date", dateISO)
+    .gte("event_date", fromYmd)
+    .lte("event_date", toYmd)
     .neq("status", "cancelled");
   if (error) throw error;
   return data ?? [];

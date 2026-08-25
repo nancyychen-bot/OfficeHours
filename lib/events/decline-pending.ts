@@ -1,11 +1,11 @@
 import { listBookingsForEvent, setLumaStatus, resetAssignment } from "../db/bookings";
-import { listEventsByDate, getEventById } from "../db/events";
+import { listEventsInDateRange, getEventById } from "../db/events";
 import { sendBookingComms } from "../email/comms";
 import { pushBookingToWorkspaces } from "../notion/push";
 import { updateGuestStatus } from "../luma/client";
 import { applyLumaStatus, type ApplyDeps } from "../sync/approval";
 import { logSync } from "../sync/log";
-import { isoDatePlusDays } from "./prep";
+import { isSendDue, scanWindow, DECLINE_HOUR } from "./schedule";
 import type { Booking } from "../sync/types";
 
 /**
@@ -53,12 +53,13 @@ export async function declinePendingForEvent(eventId: string): Promise<number> {
   return declined;
 }
 
-/** For every event happening TOMORROW, decline all still-pending guests. */
+/** Decline still-pending guests at 8am local, the day before each event (before
+ * the 9am reminders, so declines are reflected). */
 export async function dispatchDeclinePendingForTomorrow(
   now: Date = new Date(),
 ): Promise<{ events: number; guests: number }> {
-  const target = isoDatePlusDays(now, 1);
-  const events = await listEventsByDate(target);
+  const { from, to } = scanWindow(now);
+  const events = (await listEventsInDateRange(from, to)).filter((e) => isSendDue(now, e, { offsetDays: -1, targetHour: DECLINE_HOUR }));
   let guests = 0;
   for (const ev of events) guests += await declinePendingForEvent(ev.id);
   return { events: events.length, guests };

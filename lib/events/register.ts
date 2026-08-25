@@ -31,6 +31,20 @@ export interface RegisterResult {
   importedGuests: number; // existing Luma guests pulled in via backfill
 }
 
+/** The event's IANA timezone, or throw. Guards the Luma ingest path so a missing
+ * timezone surfaces at registration rather than corrupting downstream local-date
+ * calcs for an international event. (Non-ingest inserts still fall back to the
+ * events.timezone DB default of 'America/Los_Angeles'.) */
+export function requireTimezone(tz: string | null | undefined, eventId: string): string {
+  const t = (tz ?? "").trim();
+  if (!t) {
+    throw new Error(
+      `No timezone for ${eventId}: Luma didn't return an event timezone — set it in Luma and retry.`,
+    );
+  }
+  return t;
+}
+
 /**
  * Register a Notion Build Bar event from Luma: upsert the event, then generate its
  * slots from the Luma slot dropdown (labels verbatim, times from start+length).
@@ -41,7 +55,7 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
   const eventId = await resolveLumaEventId(input.lumaEvent);
   const detail = await getLumaEvent(eventId);
 
-  const timezone = detail.timezone ?? "America/Los_Angeles";
+  const timezone = requireTimezone(detail.timezone, detail.id);
   const eventDate = localCalendarDate(detail.start_at, timezone);
 
   // Prefer the city from the Luma event's address (source of truth, no typos);

@@ -1,7 +1,7 @@
 import { listBookingsForEvent } from "../db/bookings";
-import { listEventsByDate } from "../db/events";
+import { listEventsInDateRange } from "../db/events";
 import { sendBookingComms } from "../email/comms";
-import { isoDatePlusDays } from "./prep";
+import { isSendDue, scanWindow, SEND_HOUR } from "./schedule";
 import type { Booking } from "../sync/types";
 
 /**
@@ -29,10 +29,10 @@ export async function sendRematchForEvent(eventId: string): Promise<number> {
   return eligible.length;
 }
 
-/** For every event happening TOMORROW, email still-unmatched approved 1:1 guests. */
+/** Email still-unmatched approved 1:1 guests at 9am local, the day before each event. */
 export async function dispatchRematchForTomorrow(now: Date = new Date()): Promise<{ events: number; guests: number }> {
-  const target = isoDatePlusDays(now, 1);
-  const events = await listEventsByDate(target);
+  const { from, to } = scanWindow(now);
+  const events = (await listEventsInDateRange(from, to)).filter((e) => isSendDue(now, e, { offsetDays: -1, targetHour: SEND_HOUR }));
   let guests = 0;
   for (const ev of events) guests += await sendRematchForEvent(ev.id);
   return { events: events.length, guests };

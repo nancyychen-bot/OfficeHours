@@ -49,6 +49,20 @@ export async function listEventsByDate(dateISO: string): Promise<EventRow[]> {
   return data ?? [];
 }
 
+/** Events whose local event_date falls in [fromYmd, toYmd] (inclusive), excluding
+ * cancelled. Used by the timezone-aware cron dispatchers, which filter the result
+ * per-event with isSendDue. */
+export async function listEventsInDateRange(fromYmd: string, toYmd: string): Promise<EventRow[]> {
+  const { data, error } = await getAdminClient()
+    .from("events")
+    .select("*")
+    .gte("event_date", fromYmd)
+    .lte("event_date", toYmd)
+    .neq("status", "cancelled");
+  if (error) throw error;
+  return data ?? [];
+}
+
 /** Events not yet feedback-dispatched (feedback_sent_at null, not cancelled). */
 export async function listEventsPendingFeedback(): Promise<EventRow[]> {
   const supabase = getAdminClient();

@@ -1,6 +1,7 @@
 import { listBookingsForEvent } from "../db/bookings";
-import { listEventsByDate } from "../db/events";
+import { listEventsInDateRange } from "../db/events";
 import { sendBookingComms } from "../email/comms";
+import { isSendDue, scanWindow } from "./schedule";
 import type { Booking } from "../sync/types";
 
 /** How many days before an event the prep email goes out. */
@@ -45,14 +46,12 @@ export function isoDatePlusDays(from: Date, n: number): string {
   return new Date(from.getTime() + n * 86_400_000).toISOString().slice(0, 10);
 }
 
-/** Send prep emails for every event happening exactly PREP_LEAD_DAYS from `now`. */
+/** Send the T-3 prep email at 9am local, PREP_LEAD_DAYS before each event. */
 export async function sendPrepForLeadWindow(now: Date = new Date()): Promise<{ events: number; guests: number }> {
-  const targetDate = isoDatePlusDays(now, PREP_LEAD_DAYS);
-  const events = await listEventsByDate(targetDate);
+  const { from, to } = scanWindow(now);
+  const events = (await listEventsInDateRange(from, to)).filter((e) => isSendDue(now, e, { offsetDays: -PREP_LEAD_DAYS, targetHour: 9 }));
   let guests = 0;
-  for (const ev of events) {
-    guests += await sendPrepForEvent(ev.id);
-  }
+  for (const ev of events) guests += await sendPrepForEvent(ev.id);
   return { events: events.length, guests };
 }
 
@@ -79,9 +78,10 @@ export async function sendPrepDayBeforePaidForEvent(eventId: string): Promise<nu
   return eligible.length;
 }
 
-/** Send the non-Free day-before checklist for every event happening tomorrow (now + 1). */
+/** Send the non-Free day-before checklist at 9am local, the day before each event. */
 export async function sendPrepDayBeforePaidForLeadWindow(now: Date = new Date()): Promise<{ events: number; guests: number }> {
-  const events = await listEventsByDate(isoDatePlusDays(now, 1));
+  const { from, to } = scanWindow(now);
+  const events = (await listEventsInDateRange(from, to)).filter((e) => isSendDue(now, e, { offsetDays: -1, targetHour: 9 }));
   let guests = 0;
   for (const ev of events) guests += await sendPrepDayBeforePaidForEvent(ev.id);
   return { events: events.length, guests };
@@ -95,9 +95,10 @@ export async function sendPrepDayBeforeForEvent(eventId: string): Promise<number
   return eligible.length;
 }
 
-/** Send the day-before reminder for every event happening tomorrow (now + 1). */
+/** Send the Free day-before reminder at 9am local, the day before each event. */
 export async function sendPrepDayBeforeForLeadWindow(now: Date = new Date()): Promise<{ events: number; guests: number }> {
-  const events = await listEventsByDate(isoDatePlusDays(now, 1));
+  const { from, to } = scanWindow(now);
+  const events = (await listEventsInDateRange(from, to)).filter((e) => isSendDue(now, e, { offsetDays: -1, targetHour: 9 }));
   let guests = 0;
   for (const ev of events) guests += await sendPrepDayBeforeForEvent(ev.id);
   return { events: events.length, guests };

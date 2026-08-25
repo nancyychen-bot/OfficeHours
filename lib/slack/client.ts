@@ -159,15 +159,17 @@ async function buildRecruitContext(
 
 /** Re-post a still-unclaimed recruit slot as a reminder. Best-effort; does NOT
  * touch slack_recruit_posted_at (keeps the original first-post time). */
-export async function postSlackRecruitReminder(bookingId: string): Promise<void> {
+export async function postSlackRecruitReminder(bookingId: string): Promise<boolean> {
   try {
     const ctx = await buildRecruitContext(bookingId);
-    if (!ctx) return;
+    if (!ctx) return false;
     const blocks = buildRecruitBlocks({ ...ctx.input, reminder: true });
     await postToCityChannel(ctx.channel, blocks, "A recruited 1:1 slot is still open.");
     await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_reminder_posted", note: ctx.channel.channelName ?? undefined });
+    return true;
   } catch (err) {
     await logSync({ direction: "luma_in", result: "error", bookingId, action: "slack_recruit_reminder", note: err instanceof Error ? err.message : String(err) });
+    return false;
   }
 }
 

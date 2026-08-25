@@ -69,7 +69,8 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     publicUrl,
     eventDate,
     timezone,
-    status: "planned",
+    // Status intentionally omitted: a new event gets the DB default ('planned'),
+    // and re-registering an existing event must not reset its status.
   });
 
   const labels = extractSlotOptions(detail.registration_questions ?? []);

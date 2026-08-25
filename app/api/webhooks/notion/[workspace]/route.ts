@@ -1,5 +1,6 @@
 import { NextResponse, after } from "next/server";
 import { env } from "@/lib/env";
+import { constantTimeEquals } from "@/lib/auth/token";
 import { isEcho } from "@/lib/sync/hash";
 import type { NotionWorkspace } from "@/lib/notion/client";
 import { getNotionClient } from "@/lib/notion/client";
@@ -117,7 +118,7 @@ export async function POST(
 
   const secret = workspace === "dev" ? env.notionDev.webhookSecret() : env.notionAmbassador.webhookSecret();
   const provided = secretHeader ?? body.secret;
-  if (secret && provided !== secret) {
+  if (secret && !constantTimeEquals(provided ?? "", secret)) {
     await logSync({ direction, result: "error", action: "verify", note: "bad secret" });
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

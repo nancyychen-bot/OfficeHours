@@ -105,6 +105,14 @@ export async function clearCommsForKinds(bookingId: string, kinds: string[]): Pr
   if (error) throw error;
 }
 
+/** True if this Resend id belongs to one of OUR sends (ledger row exists). Scopes
+ * the email-log content viewer to this app's emails, not the whole Resend account. */
+export async function isOwnResendId(resendId: string): Promise<boolean> {
+  const { data, error } = await table().select("id").eq("resend_id", resendId).limit(1);
+  if (error) throw error;
+  return !!(data && data.length > 0);
+}
+
 /** True if the `assigned` email to this helper has a ledger row (any status) —
  * i.e. comms were at least attempted. Used to gate the claim self-heal. */
 export async function hasAssignedCommsFor(bookingId: string, helperEmail: string): Promise<boolean> {

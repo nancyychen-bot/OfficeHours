@@ -101,7 +101,10 @@ export async function upsertEvent(input: {
         ...(input.publicUrl ? { public_url: input.publicUrl } : {}),
         event_date: input.eventDate,
         timezone: input.timezone,
-        status: input.status ?? "planned",
+        // Only set status when explicitly provided — a plain re-register must NOT
+        // resurrect a cancelled/completed event back to 'planned'. New rows get the
+        // DB default ('planned', per migration 0001).
+        ...(input.status ? { status: input.status } : {}),
       },
       { onConflict: "luma_event_id" },
     )

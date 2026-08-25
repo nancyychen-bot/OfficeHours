@@ -62,20 +62,28 @@ export async function openDM(userId: string): Promise<string | null> {
 }
 
 /**
- * The Slack channel id (C…) for a channel name, or null. Walks conversations.list
- * (public + private, non-archived), matching the name case-insensitively and
- * ignoring a leading "#". Best-effort: null on not-found / missing scope / error.
- * conversations.list is a read method — pass params form-encoded (like lookupByEmail).
+ * The Slack channel id (C…) for a PUBLIC channel name, or null. Walks
+ * conversations.list, matching the name case-insensitively and ignoring a leading
+ * "#". Best-effort: null on not-found / missing scope / error.
+ *
+ * Public channels only: including `private_channel` in `types` makes Slack reject
+ * the whole call with `missing_scope` unless the app also has `groups:read` — and
+ * the Build Bar city channels are public. conversations.list is a read method —
+ * pass params form-encoded (like lookupByEmail).
  */
 export async function lookupChannelIdByName(name: string | null | undefined): Promise<string | null> {
   const needle = (name ?? "").trim().replace(/^#/, "").toLowerCase();
   if (!needle) return null;
   let cursor: string | undefined;
-  for (let page = 0; page < 20; page++) {
+  // Large orgs (Notion's workspace has ~10k+ public channels) blow past a small
+  // cap, so page at Slack's max (1000) and allow enough pages to cover the whole
+  // workspace. We stop the moment the name matches, so this only pages fully on a
+  // genuine miss.
+  for (let page = 0; page < 50; page++) {
     const params: Record<string, string> = {
-      types: "public_channel,private_channel",
+      types: "public_channel",
       exclude_archived: "true",
-      limit: "200",
+      limit: "1000",
     };
     if (cursor) params.cursor = cursor;
     const body = await callSlack("conversations.list", params, true);
@@ -87,12 +95,12 @@ export async function lookupChannelIdByName(name: string | null | undefined): Pr
     cursor = meta?.next_cursor || undefined;
     if (!cursor) return null; // exhausted all pages → genuinely not found
   }
-  // Fell out of the loop with pages still remaining: hit the 20-page cap.
+  // Fell out of the loop with pages still remaining: hit the 50-page cap.
   await logSync({
     direction: "luma_in",
     result: "error",
     action: "slack_conversations.list",
-    note: `channel "${needle}" not found within 20 pages (cap hit)`,
+    note: `channel "${needle}" not found within the page cap`,
   });
   return null;
 }

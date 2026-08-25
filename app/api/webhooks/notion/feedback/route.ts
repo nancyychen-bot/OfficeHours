@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { constantTimeEquals } from "@/lib/auth/token";
 import { getNotionClient } from "@/lib/notion/client";
 import {
   FEEDBACK_DEV_DS,
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
   const provided =
     req.headers.get("x-webhook-secret") ?? req.headers.get("x-office-hours-secret") ?? body.secret;
   const secret = env.notionAmbassador.webhookSecret();
-  if (secret && provided !== secret) {
+  if (secret && !constantTimeEquals(provided ?? "", secret)) {
     await logSync({ direction, result: "error", action: "feedback_verify", note: "bad secret" });
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

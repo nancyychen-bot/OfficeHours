@@ -28,7 +28,13 @@ export async function POST(req: Request) {
   const candidates = await listRecruitReminderCandidates();
   const due = selectDueRecruitReminders(candidates, Date.now());
   for (const { id, stages } of due) {
-    await postSlackRecruitReminder(id);
+    // Only mark the stage sent if the Slack post actually succeeded — otherwise
+    // leave it due so the next run retries, rather than silently dropping it.
+    const posted = await postSlackRecruitReminder(id);
+    if (!posted) {
+      await logSync({ direction: "luma_in", result: "error", bookingId: id, action: `slack_recruit_reminder_unsent:${stages.join("+")}`, note: "post failed; not marked" });
+      continue;
+    }
     await markRecruitReminderSent(id, stages, new Date().toISOString());
     await logSync({ direction: "luma_in", result: "applied", bookingId: id, action: `slack_recruit_reminder:${stages.join("+")}` });
   }

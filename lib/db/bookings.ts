@@ -206,24 +206,17 @@ export async function upsertBookingFromLuma(input: {
     // spread last so it wins over the plain slot_id above when clearing.
     ...statusPatch,
   };
-  const first = await supabase
+  const { data, error } = await supabase
     .from("bookings")
     .upsert(row, { onConflict: "luma_guest_id" })
     .select("*")
     .single();
-  if (!first.error) return first.data;
-
-  // Slot already taken by another guest → keep the booking, drop the slot.
-  if (first.error.code === "23505" && input.slotId) {
-    const retry = await supabase
-      .from("bookings")
-      .upsert({ ...row, slot_id: null }, { onConflict: "luma_guest_id" })
-      .select("*")
-      .single();
-    if (retry.error) throw retry.error;
-    return retry.data;
-  }
-  throw first.error;
+  // Note: many bookings per slot are allowed (the one-per-slot unique index was
+  // dropped in migration 0015), so the only unique constraint here is
+  // luma_guest_id — the onConflict target, which upserts rather than raising. So
+  // there's no slot-collision (23505) path to recover from.
+  if (error) throw error;
+  return data;
 }
 
 export type ClaimResult =

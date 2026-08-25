@@ -1,6 +1,6 @@
 import { getAdminClient } from "../supabase/admin";
 import { listEventsInDateRange } from "../db/events";
-import { isSendDue, scanWindow } from "./schedule";
+import { isSendDue, scanWindow, SEND_HOUR } from "./schedule";
 import { renderAgenda, type AgendaItem, type OverrideMap } from "../email/templates";
 import { getLiveOverrideMap } from "../db/email-overrides";
 import { reserveCommsSlot, finalizeComms } from "../db/email-log";
@@ -113,7 +113,7 @@ export async function sendAgendasForEvent(eventId: string): Promise<number> {
 /** Send each expert's day-of agenda at 9am local on the event day. */
 export async function sendAgendasForToday(now: Date = new Date()): Promise<{ events: number; experts: number }> {
   const { from, to } = scanWindow(now);
-  const events = (await listEventsInDateRange(from, to)).filter((e) => isSendDue(now, e, { offsetDays: 0, targetHour: 9 }));
+  const events = (await listEventsInDateRange(from, to)).filter((e) => isSendDue(now, e, { offsetDays: 0, targetHour: SEND_HOUR }));
   let experts = 0;
   for (const ev of events) experts += await sendAgendasForEvent(ev.id);
   return { events: events.length, experts };

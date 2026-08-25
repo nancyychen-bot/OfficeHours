@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isEligibleForPrep, isEligibleForDayBeforePaid, isoDatePlusDays } from "../lib/events/prep";
+import { isEligibleForPrep, isEligibleForDayBeforePaid } from "../lib/events/prep";
 import type { Booking } from "../lib/sync/types";
 
 const base = (over: Partial<Booking>): Booking =>
@@ -26,13 +26,6 @@ describe("isEligibleForPrep", () => {
   });
 });
 
-describe("isoDatePlusDays", () => {
-  it("adds days in UTC without drift", () => {
-    expect(isoDatePlusDays(new Date("2026-08-05T16:00:00Z"), 3)).toBe("2026-08-08");
-    expect(isoDatePlusDays(new Date("2026-08-30T16:00:00Z"), 3)).toBe("2026-09-02");
-  });
-});
-
 describe("isEligibleForPrep — filtered", () => {
   const approved = { luma_status: "approved", notion_plan: "Free", guest_email: "a@x.com", status: "unassigned", filtered: false } as any;
   it("eligible when approved + not filtered", () => {
@@ -52,13 +45,6 @@ describe("isEligibleForPrep — Free plan only", () => {
     for (const plan of ["Plus", "Business", "Enterprise", null]) {
       expect(isEligibleForPrep({ ...free, notion_plan: plan })).toBe(false);
     }
-  });
-});
-
-describe("day-before window date", () => {
-  it("targets tomorrow (now + 1)", () => {
-    const now = new Date("2026-08-25T20:00:00Z");
-    expect(isoDatePlusDays(now, 1)).toBe("2026-08-26");
   });
 });
 

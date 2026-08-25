@@ -5,7 +5,7 @@ import { pushBookingToWorkspaces } from "../notion/push";
 import { updateGuestStatus } from "../luma/client";
 import { applyLumaStatus, type ApplyDeps } from "../sync/approval";
 import { logSync } from "../sync/log";
-import { isSendDue, scanWindow } from "./schedule";
+import { isSendDue, scanWindow, DECLINE_HOUR } from "./schedule";
 import type { Booking } from "../sync/types";
 
 /**
@@ -59,7 +59,7 @@ export async function dispatchDeclinePendingForTomorrow(
   now: Date = new Date(),
 ): Promise<{ events: number; guests: number }> {
   const { from, to } = scanWindow(now);
-  const events = (await listEventsInDateRange(from, to)).filter((e) => isSendDue(now, e, { offsetDays: -1, targetHour: 8 }));
+  const events = (await listEventsInDateRange(from, to)).filter((e) => isSendDue(now, e, { offsetDays: -1, targetHour: DECLINE_HOUR }));
   let guests = 0;
   for (const ev of events) guests += await declinePendingForEvent(ev.id);
   return { events: events.length, guests };

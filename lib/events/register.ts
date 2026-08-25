@@ -31,8 +31,10 @@ export interface RegisterResult {
   importedGuests: number; // existing Luma guests pulled in via backfill
 }
 
-/** The event's IANA timezone, or throw — never silently default (would corrupt
- * every downstream local-date calc for an international event). */
+/** The event's IANA timezone, or throw. Guards the Luma ingest path so a missing
+ * timezone surfaces at registration rather than corrupting downstream local-date
+ * calcs for an international event. (Non-ingest inserts still fall back to the
+ * events.timezone DB default of 'America/Los_Angeles'.) */
 export function requireTimezone(tz: string | null | undefined, eventId: string): string {
   const t = (tz ?? "").trim();
   if (!t) {

@@ -1,4 +1,4 @@
-import { isSendDue } from "./schedule";
+import { isSendDue, SEND_HOUR } from "./schedule";
 
 /**
  * Decide which recruit reminders are due for still-open recruited bookings.
@@ -37,7 +37,7 @@ export function selectDueRecruitReminders(
     if (r.slack_recruit_r1_at == null && nowMs >= Date.parse(r.slack_recruit_posted_at) + r1AfterMs) {
       stages.push("r1");
     }
-    if (r.slack_recruit_r2_at == null && isSendDue(now, { event_date: r.event_date, timezone: r.timezone }, { offsetDays: -r2DaysBeforeEvent, targetHour: 9 })) {
+    if (r.slack_recruit_r2_at == null && isSendDue(now, { event_date: r.event_date, timezone: r.timezone }, { offsetDays: -r2DaysBeforeEvent, targetHour: SEND_HOUR })) {
       stages.push("r2");
     }
     if (stages.length) out.push({ id: r.id, stages });

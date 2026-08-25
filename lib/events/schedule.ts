@@ -4,6 +4,11 @@ export interface SendRule {
   targetHour: number; // 0–23, event-local
 }
 
+/** Target local hour for guest/expert day-based sends. */
+export const SEND_HOUR = 9;
+/** Decline-pending runs an hour earlier so declines are reflected before the 9am reminders. */
+export const DECLINE_HOUR = 8;
+
 /** The event-local calendar date (YYYY-MM-DD) and hour (0–23) of an instant. */
 export function localNowParts(now: Date, timeZone: string): { date: string; hour: number } {
   const parts = new Intl.DateTimeFormat("en-CA", {

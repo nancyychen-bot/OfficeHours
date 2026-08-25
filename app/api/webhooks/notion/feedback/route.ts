@@ -13,6 +13,7 @@ import {
 } from "@/lib/notion/feedback";
 import {
   findEventForFeedback,
+  findHelperForGuest,
   getFeedbackMirror,
   upsertFeedbackMirror,
 } from "@/lib/db/feedback";
@@ -24,10 +25,13 @@ export const maxDuration = 30;
 /**
  * Feedback form → hub webhook. The Ambassador feedback form creates a row; a
  * Notion automation ("When page added → Send webhook") calls this route. We:
- *   1. match the respondent's email to a recent booking → Event Date + Location
+ *   1. attach the Helper (Notion Expert) — the expert from the guest's most
+ *      recent Build Bar 1:1, which only the hub knows. Event Date / Location /
+ *      Needs review are NOT written: the Notion agent owns those on the Dev row.
  *   2. derive a numeric Satisfaction score from the satisfaction select
- *   3. write those onto the Ambassador row (or flag Needs review if no match)
- *   4. mirror the whole response into the identical Dev feedback DB (idempotent)
+ *   3. write those onto the Ambassador row + mirror into the Dev feedback DB
+ *   4. keep the Supabase feedback_mirror attribution (matched_event_id) current
+ *      so the hub results dashboard's per-event rollups still work
  *
  * Best-effort: always returns 200 so Notion doesn't retry-storm.
  */
@@ -68,15 +72,16 @@ export async function POST(req: Request) {
     const submittedAt: string = page.created_time ?? new Date().toISOString();
     const content = readFeedbackContent(props);
 
-    const match = email ? await findEventForFeedback(email, submittedAt) : null;
-    const needsReview = !match;
+    // Supabase attribution (feeds the hub results dashboard) — unchanged.
+    const eventMatch = email ? await findEventForFeedback(email, submittedAt) : null;
+    const needsReview = !eventMatch;
+    // The Helper: the expert from the guest's most recent Build Bar 1:1. Computed
+    // independently of the agent, which owns event/location/date on the Dev row.
+    const helper = email ? await findHelperForGuest(email, submittedAt) : null;
 
     const enrichment = enrichmentProperties({
       guestName,
-      eventDate: match?.eventDate ?? null,
-      city: match?.city ?? null,
-      helperName: match?.helperName ?? null,
-      needsReview,
+      helperName: helper?.helperName ?? null,
       satisfactionScore: content.satisfactionScore,
     });
 
@@ -92,7 +97,7 @@ export async function POST(req: Request) {
     await upsertFeedbackMirror({
       ambassadorPageId: pageId,
       devPageId,
-      matchedEventId: match?.eventId ?? null,
+      matchedEventId: eventMatch?.eventId ?? null,
       needsReview,
       guestName,
       guestEmail: email,
@@ -102,7 +107,7 @@ export async function POST(req: Request) {
       interests: content.interests,
       featureIntent: content.featureIntent,
       highlight: content.highlight,
-      notionExpert: match?.helperName ?? null,
+      notionExpert: helper?.helperName ?? null,
       submittedAt,
     });
 
@@ -110,9 +115,9 @@ export async function POST(req: Request) {
       direction,
       result: "applied",
       action: needsReview ? "feedback_unmatched" : "feedback_enriched",
-      note: `email=${email ?? "none"} score=${content.satisfactionScore ?? "—"}${match ? ` date=${match.eventDate} city=${match.city ?? "—"}` : ""}`,
+      note: `email=${email ?? "none"} score=${content.satisfactionScore ?? "—"} helper=${helper?.helperName ?? "—"}${eventMatch ? ` date=${eventMatch.eventDate} city=${eventMatch.city ?? "—"}` : ""}`,
     });
-    return NextResponse.json({ received: true, matched: !!match });
+    return NextResponse.json({ received: true, matched: !!eventMatch });
   } catch (err) {
     await logSync({ direction, result: "error", action: "feedback_process", note: err instanceof Error ? err.message : String(err) });
     return NextResponse.json({ received: true, error: "processing failed" });

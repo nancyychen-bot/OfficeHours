@@ -93,23 +93,21 @@ export function readFeedbackContent(props: Props): FeedbackContent {
   };
 }
 
-/** Build the enrichment write payload for a feedback row. */
+/**
+ * Build the enrichment write payload for a feedback row. Event Date, Location,
+ * and Needs review are deliberately NOT written here — the Notion agent owns
+ * those (it cross-references the internal event DBs). We write only the Helper
+ * (which the agent can't determine) plus the form-derived score + row title.
+ */
 export function enrichmentProperties(input: {
   guestName: string | null;
-  eventDate: string | null;
-  city: string | null;
   helperName: string | null;
-  needsReview: boolean;
   satisfactionScore: number | null;
 }): Props {
   const props: Props = {
-    [FB.eventDate]: { date: input.eventDate ? { start: input.eventDate } : null },
-    // Location is a select; Notion auto-creates the option if the city is new.
-    [FB.location]: { select: input.city ? { name: input.city } : null },
     [FB.helper]: {
       rich_text: input.helperName ? [{ type: "text", text: { content: input.helperName.slice(0, 2000) } }] : [],
     },
-    [FB.needsReview]: { checkbox: input.needsReview },
   };
   if (input.satisfactionScore != null) {
     props[FB.satisfactionScore] = { number: input.satisfactionScore };

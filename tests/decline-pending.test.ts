@@ -58,6 +58,19 @@ describe("declinePendingForEvent (best-effort loop)", () => {
     expect(declined).toBe(2); // p1 + p3 succeeded, p2 threw
     expect(applyLumaStatus).toHaveBeenCalledTimes(3); // the throw did not abort the loop
   });
+
+  it("declines every pending in a large list (bounded concurrency drains all)", async () => {
+    const ids = Array.from({ length: 23 }, (_, i) => `p${i}`);
+    listBookingsForEvent.mockResolvedValue(ids.map((id) => bk({ id })));
+    applyLumaStatus.mockResolvedValue(undefined);
+
+    const declined = await declinePendingForEvent("ev1");
+
+    expect(declined).toBe(23); // none left behind
+    expect(applyLumaStatus).toHaveBeenCalledTimes(23);
+    const seen = applyLumaStatus.mock.calls.map((c) => c[0].id).sort();
+    expect(seen).toEqual([...ids].sort());
+  });
 });
 
 describe("dispatchDeclinePendingForTomorrow (timezone filter)", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus } from "@/lib/luma/client";
+import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus, fetchEventStats } from "@/lib/luma/client";
 import type { LumaRegistrationQuestion } from "@/lib/luma/types";
 
 describe("parseLumaEventId", () => {
@@ -118,5 +118,37 @@ describe("updateGuestStatus", () => {
     await expect(
       updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "approved" }),
     ).rejects.toThrow("Luma update-guest-status failed: HTTP 422");
+  });
+});
+
+describe("fetchEventStats", () => {
+  beforeEach(() => {
+    process.env.LUMA_API_KEY = "test-key";
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.LUMA_API_KEY;
+  });
+
+  it("counts declined guests toward registered (total ever), not toward the approval buckets", async () => {
+    const entries = [
+      { approval_status: "approved", event_tickets: [{ checked_in_at: "2026-08-26T00:00:00Z" }] },
+      { approval_status: "approved", event_tickets: [] },
+      { approval_status: "pending_approval", event_tickets: [] },
+      { approval_status: "waitlist", event_tickets: [] },
+      { approval_status: "declined", event_tickets: [] },
+      { approval_status: "declined", event_tickets: [] },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({ entries, has_more: false }) } as Response)),
+    );
+
+    const stats = await fetchEventStats("evt-1");
+    expect(stats.registered).toBe(6); // total ever, incl. the 2 later-declined
+    expect(stats.approved).toBe(2);
+    expect(stats.pending).toBe(1);
+    expect(stats.waitlist).toBe(1);
+    expect(stats.checkedIn).toBe(1);
   });
 });

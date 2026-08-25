@@ -87,7 +87,10 @@ export async function fetchEventStats(eventId: string): Promise<LumaEventStats> 
   const stats: LumaEventStats = { registered: 0, approved: 0, checkedIn: 0, waitlist: 0, pending: 0, capacity: null };
   for (const g of guests) {
     const st = g.approval_status;
-    if (st === "declined") continue; // declined aren't "registered" attendees
+    // `registered` = total ever registered (every guest-list entry, INCLUDING
+    // later-declined). It must be monotonic so the day-before auto-decline sweep
+    // doesn't shrink the dashboard's headline number. The approval sub-buckets
+    // still exclude declined.
     stats.registered++;
     if (st === "approved") stats.approved++;
     else if (st === "waitlist") stats.waitlist++;

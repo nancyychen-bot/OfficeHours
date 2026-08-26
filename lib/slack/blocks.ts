@@ -28,9 +28,20 @@ export function buildClaimConfirmBlocks(i: ClaimConfirmInput): unknown[] {
 export function buildFeedbackBlocks(p: ExpertFeedbackPrompt): unknown[] {
   const when = shortDate(p.eventDate);
   const blocks: unknown[] = [
-    { type: "section", text: { type: "mrkdwn", text: `🙌 *How did your Build Bar 1:1s go?* — ${p.eventName ?? "Build Bar"}${when ? ` (${when})` : ""}\nTap *Give feedback* for each guest.` } },
-    { type: "divider" },
+    { type: "section", text: { type: "mrkdwn", text: `🙌 *How did your Build Bar go?* — ${p.eventName ?? "Build Bar"}${when ? ` (${when})` : ""}` } },
   ];
+  // Overall event feedback (guest-less) at the top — opens a written-box modal.
+  if (p.eventId) {
+    blocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: "Share your overall thoughts on the event 👇" },
+      accessory: { type: "button", action_id: "gfb_open", text: { type: "plain_text", text: "📝 Overall event feedback", emoji: true }, value: `${p.eventId}|${p.email}` },
+    });
+  }
+  blocks.push({ type: "divider" });
+  if (p.items.length) {
+    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: "Optionally, leave feedback on each 1:1:" }] });
+  }
   for (const it of p.items) {
     blocks.push({
       type: "section",

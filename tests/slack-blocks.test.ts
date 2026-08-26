@@ -76,9 +76,13 @@ describe("buildFeedbackBlocks", () => {
 
   it("renders one 'Give feedback' button per 1:1 carrying the booking id", () => {
     const blocks = buildFeedbackBlocks(prompt) as Array<{ type: string; accessory?: { type: string; action_id?: string; value?: string } }>;
-    const withButton = blocks.filter((b) => b.accessory);
-    expect(withButton).toHaveLength(2); // one section+button per 1:1
-    expect(withButton.map((b) => b.accessory!.action_id)).toEqual(["fb_open", "fb_open"]);
-    expect(withButton.map((b) => b.accessory!.value)).toEqual(["b1", "b2"]);
+    const guestButtons = blocks.filter((b) => b.accessory?.action_id === "fb_open");
+    expect(guestButtons.map((b) => b.accessory!.value)).toEqual(["b1", "b2"]);
+  });
+
+  it("renders a top-level 'Overall event feedback' button carrying event|expert", () => {
+    const blocks = buildFeedbackBlocks(prompt) as Array<{ accessory?: { action_id?: string; value?: string } }>;
+    const overall = blocks.find((b) => b.accessory?.action_id === "gfb_open");
+    expect(overall?.accessory?.value).toBe("e1|grace@x.com");
   });
 });

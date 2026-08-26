@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseInteraction, feedbackModalView } from "../lib/slack/interaction";
+import { parseInteraction, feedbackModalView, generalFeedbackModalView } from "../lib/slack/interaction";
 
 describe("parseInteraction", () => {
   it("parses the 'Give feedback' button → open_feedback", () => {
@@ -69,23 +69,33 @@ describe("feedbackModalView", () => {
   });
 });
 
-describe("parseInteraction — general feedback", () => {
-  it("reads the general field on submit", () => {
-    const payload = { type: "view_submission", view: { private_metadata: "b1", state: { values: { general: { general_v: { value: "great crowd, more power strips" } } } } } };
-    expect(parseInteraction(payload)).toMatchObject({ kind: "feedback_submit", bookingId: "b1", general: "great crowd, more power strips" });
+describe("parseInteraction — overall event feedback", () => {
+  it("opens the general modal from the top button (gfb_open) carrying event+expert", () => {
+    const payload = { type: "block_actions", trigger_id: "t1", actions: [{ action_id: "gfb_open", value: "ev1|grace@x.com" }] };
+    expect(parseInteraction(payload)).toEqual({ kind: "open_general", eventId: "ev1", expertEmail: "grace@x.com", triggerId: "t1" });
   });
-  it("leaves general undefined when blank", () => {
-    const payload = { type: "view_submission", view: { private_metadata: "b2", state: { values: {} } } };
-    expect((parseInteraction(payload) as { general?: string }).general).toBeUndefined();
+  it("reads a general_submit from the g:-prefixed private_metadata", () => {
+    const payload = { type: "view_submission", view: { private_metadata: "g:ev1|grace@x.com", state: { values: { general: { general_v: { value: "great crowd, more power strips" } } } } } };
+    expect(parseInteraction(payload)).toEqual({ kind: "general_submit", eventId: "ev1", expertEmail: "grace@x.com", note: "great crowd, more power strips" });
+  });
+  it("general_submit note is undefined when blank", () => {
+    const payload = { type: "view_submission", view: { private_metadata: "g:ev1|grace@x.com", state: { values: {} } } };
+    expect((parseInteraction(payload) as { note?: string }).note).toBeUndefined();
+  });
+  it("the per-1:1 modal no longer carries a general field", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const v = feedbackModalView("b1", { guestName: "Ada" }) as any;
+    expect(v.blocks.some((b: any) => b.block_id === "general")).toBe(false);
   });
 });
 
-describe("feedbackModalView — general field", () => {
+describe("generalFeedbackModalView", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const find = (v: any, id: string) => v.blocks.find((b: any) => b.block_id === id);
-  it("includes a general input, pre-filled when provided", () => {
+  it("is a single written box, pre-filled, with event+expert in private_metadata", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const v = feedbackModalView("b1", { guestName: "Ada", general: "learned a lot" }) as any;
+    const v = generalFeedbackModalView("ev1", "grace@x.com", { note: "learned a lot" }) as any;
+    expect(v.private_metadata).toBe("g:ev1|grace@x.com");
     expect(find(v, "general").element.initial_value).toBe("learned a lot");
   });
 });

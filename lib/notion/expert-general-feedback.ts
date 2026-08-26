@@ -35,7 +35,7 @@ export function generalFeedbackProperties(r: GeneralFeedbackNotionRow): Props {
     [EF.location]: rich(r.location),
     [EF.note]: rich(r.note),
     [EF.respondedAt]: { date: r.responded_at ? { start: r.responded_at } : null },
-    [EF.feedbackType]: { select: { name: "General" } },
+    [EF.feedbackType]: { select: { name: "Event" } },
   };
 }
 

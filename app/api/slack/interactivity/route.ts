@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { env } from "@/lib/env";
 import { verifySlackSignature } from "@/lib/slack/verify";
-import { parseInteraction, feedbackModalView } from "@/lib/slack/interaction";
+import { parseInteraction, feedbackModalView, generalFeedbackModalView } from "@/lib/slack/interaction";
 import { openModal } from "@/lib/slack/api";
 import { upsertFeedbackAnswer, getFeedbackRow } from "@/lib/db/expert-feedback";
 import { getGeneralFeedback, upsertGeneralFeedback } from "@/lib/db/expert-general-feedback";
@@ -44,7 +44,6 @@ export async function POST(req: Request) {
       case "open_feedback": {
         // Fetch current answers so the modal pre-fills (re-open shows what was saved).
         const row = await getFeedbackRow(interaction.bookingId);
-        const gen = row?.event_id ? await getGeneralFeedback(row.event_id, row.expert_email) : null;
         await openModal(
           interaction.triggerId,
           feedbackModalView(interaction.bookingId, {
@@ -52,7 +51,6 @@ export async function POST(req: Request) {
             attended: row?.attended,
             rating: row?.rating,
             note: row?.note,
-            general: gen?.note ?? null,
           }),
         );
         break;
@@ -65,29 +63,38 @@ export async function POST(req: Request) {
           note: interaction.note,
         });
         after(() => pushExpertFeedback(interaction.bookingId));
-        // General feedback (if any) is one entry per (event, expert), guest-less.
-        if (interaction.general) {
-          const row = await getFeedbackRow(interaction.bookingId);
-          if (row?.event_id) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data: bd } = await (getAdminClient() as any)
-              .from("booking_details")
-              .select("event_name, event_date, location")
-              .eq("id", interaction.bookingId)
-              .maybeSingle();
-            await upsertGeneralFeedback({
-              eventId: row.event_id,
-              expertEmail: row.expert_email,
-              expertName: row.expert_name,
-              note: interaction.general,
-              eventName: bd?.event_name ?? null,
-              eventDate: bd?.event_date ?? null,
-              location: bd?.location ?? null,
-            });
-            const evId = row.event_id;
-            after(() => pushGeneralFeedback(evId, row.expert_email));
-          }
-        }
+        break;
+      }
+      case "open_general": {
+        // Overall event feedback (guest-less) — pre-fill from any prior submission.
+        const gen = await getGeneralFeedback(interaction.eventId, interaction.expertEmail);
+        await openModal(
+          interaction.triggerId,
+          generalFeedbackModalView(interaction.eventId, interaction.expertEmail, { note: gen?.note ?? null }),
+        );
+        break;
+      }
+      case "general_submit": {
+        const { eventId, expertEmail, note } = interaction;
+        // Pull the event + expert display context for the Notion page.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: bd } = await (getAdminClient() as any)
+          .from("booking_details")
+          .select("event_name, event_date, location, booked_by_display_name")
+          .eq("event_id", eventId)
+          .eq("booked_by_email", expertEmail)
+          .limit(1)
+          .maybeSingle();
+        await upsertGeneralFeedback({
+          eventId,
+          expertEmail,
+          expertName: bd?.booked_by_display_name ?? null,
+          note: note ?? "",
+          eventName: bd?.event_name ?? null,
+          eventDate: bd?.event_date ?? null,
+          location: bd?.location ?? null,
+        });
+        after(() => pushGeneralFeedback(eventId, expertEmail));
         break;
       }
       case "ignore":

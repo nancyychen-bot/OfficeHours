@@ -1,4 +1,3 @@
-import { env } from "../env";
 import type {
   LumaEventDetail,
   LumaRegistrationQuestion,
@@ -55,7 +54,7 @@ export async function resolveLumaEventId(input: string): Promise<string> {
  * by the backfill to import guests who registered before the hub tracked the
  * event — Luma doesn't resend webhooks retroactively.
  */
-export async function listEventGuests(eventId: string): Promise<LumaGuestListEntry[]> {
+export async function listEventGuests(eventId: string, apiKey: string): Promise<LumaGuestListEntry[]> {
   const out: LumaGuestListEntry[] = [];
   let cursor: string | undefined;
   do {
@@ -63,7 +62,7 @@ export async function listEventGuests(eventId: string): Promise<LumaGuestListEnt
     url.searchParams.set("event_id", eventId);
     url.searchParams.set("pagination_limit", "50");
     if (cursor) url.searchParams.set("pagination_cursor", cursor);
-    const res = await fetch(url, { headers: { "x-luma-api-key": env.luma.apiKey() } });
+    const res = await fetch(url, { headers: { "x-luma-api-key": apiKey } });
     if (!res.ok) throw new Error(`Luma guests/list ${eventId} failed: HTTP ${res.status}`);
     const body = (await res.json()) as LumaGuestListResponse;
     out.push(...(body.entries ?? []));
@@ -82,8 +81,8 @@ export interface LumaEventStats {
 }
 
 /** Authoritative per-event counts straight from Luma's guest list. */
-export async function fetchEventStats(eventId: string): Promise<LumaEventStats> {
-  const guests = await listEventGuests(eventId);
+export async function fetchEventStats(eventId: string, apiKey: string): Promise<LumaEventStats> {
+  const guests = await listEventGuests(eventId, apiKey);
   const stats: LumaEventStats = { registered: 0, approved: 0, checkedIn: 0, waitlist: 0, pending: 0, capacity: null };
   for (const g of guests) {
     const st = g.approval_status;
@@ -129,9 +128,9 @@ export function extractSlotOptions(questions: LumaRegistrationQuestion[]): strin
 }
 
 /** Fetch full event detail (host-only) incl. registration_questions. */
-export async function getLumaEvent(eventId: string): Promise<LumaEventDetail> {
+export async function getLumaEvent(eventId: string, apiKey: string): Promise<LumaEventDetail> {
   const res = await fetch(`${BASE}/v1/event/get?api_id=${encodeURIComponent(eventId)}`, {
-    headers: { "x-luma-api-key": env.luma.apiKey() },
+    headers: { "x-luma-api-key": apiKey },
   });
   if (!res.ok) {
     throw new Error(`Luma getEvent ${eventId} failed: HTTP ${res.status}`);
@@ -163,11 +162,12 @@ export async function updateGuestStatus(params: {
   eventLumaId: string; // evt-…
   guestLumaId: string; // gst-…
   status: LumaStatus;
+  apiKey: string; // the owning calendar's key
 }): Promise<void> {
   const res = await fetch(`${BASE}/v1/events/guests/update-status`, {
     method: "POST",
     headers: {
-      "x-luma-api-key": env.luma.apiKey(),
+      "x-luma-api-key": params.apiKey,
       "content-type": "application/json",
     },
     body: JSON.stringify({

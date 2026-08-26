@@ -1,4 +1,6 @@
 import { getLumaEvent, extractSlotOptions, resolveLumaEventId } from "../luma/client";
+import { lumaCalendars } from "../luma/calendars";
+import type { LumaEventDetail } from "../luma/types";
 import { generateSlotsFromOptions } from "./slots-gen";
 import { reconcileSlots } from "./reconcile";
 import { backfillEventGuests } from "./backfill";
@@ -53,7 +55,28 @@ export function requireTimezone(tz: string | null | undefined, eventId: string):
 export async function registerEventFromLuma(input: RegisterInput): Promise<RegisterResult> {
   const supabase = getAdminClient();
   const eventId = await resolveLumaEventId(input.lumaEvent);
-  const detail = await getLumaEvent(eventId);
+
+  // Auto-detect the owning calendar: the host-only event endpoint returns the
+  // event only for the calendar whose key owns it. Probe each configured calendar;
+  // the first that resolves identifies it, and its key is used for the backfill.
+  let detail: LumaEventDetail | null = null;
+  let calendarId = "default";
+  let apiKey = "";
+  for (const cal of lumaCalendars()) {
+    try {
+      detail = await getLumaEvent(eventId, cal.apiKey);
+      calendarId = cal.id;
+      apiKey = cal.apiKey;
+      break;
+    } catch {
+      // Not this calendar's event — try the next configured key.
+    }
+  }
+  if (!detail) {
+    throw new Error(
+      `Luma event ${eventId} not found in any configured calendar — check the URL, or that the owning calendar's API key is set.`,
+    );
+  }
 
   const timezone = requireTimezone(detail.timezone, detail.id);
   const eventDate = localCalendarDate(detail.start_at, timezone);
@@ -83,6 +106,7 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     publicUrl,
     eventDate,
     timezone,
+    lumaCalendar: calendarId,
     // Status intentionally omitted: a new event gets the DB default ('planned'),
     // and re-registering an existing event must not reset its status.
   });
@@ -131,7 +155,7 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
   // doesn't resend webhooks). Best-effort: never fail the registration over it.
   let importedGuests = 0;
   try {
-    const backfill = await backfillEventGuests(detail.id);
+    const backfill = await backfillEventGuests(detail.id, apiKey);
     importedGuests = backfill.imported;
   } catch (err) {
     console.error("[register] guest backfill failed", err);

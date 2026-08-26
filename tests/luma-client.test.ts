@@ -88,7 +88,7 @@ describe("updateGuestStatus", () => {
       return { ok: true } as Response;
     });
 
-    await updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "approved" });
+    await updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "approved", apiKey: "test-key" });
 
     expect(capturedUrl).toContain("/v1/events/guests/update-status");
     expect(capturedInit?.method).toBe("POST");
@@ -103,7 +103,7 @@ describe("updateGuestStatus", () => {
       return { ok: true } as Response;
     });
 
-    await updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "pending" });
+    await updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "pending", apiKey: "test-key" });
 
     expect(capturedBody?.status).toBe("pending_approval");
   });
@@ -116,7 +116,7 @@ describe("updateGuestStatus", () => {
     } as Response));
 
     await expect(
-      updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "approved" }),
+      updateGuestStatus({ eventLumaId: "evt-123", guestLumaId: "gst-456", status: "approved", apiKey: "test-key" }),
     ).rejects.toThrow("Luma update-guest-status failed: HTTP 422");
   });
 });
@@ -144,7 +144,7 @@ describe("fetchEventStats", () => {
       vi.fn(async () => ({ ok: true, json: async () => ({ entries, has_more: false }) } as Response)),
     );
 
-    const stats = await fetchEventStats("evt-1");
+    const stats = await fetchEventStats("evt-1", "test-key");
     expect(stats.registered).toBe(6); // total ever, incl. the 2 later-declined
     expect(stats.approved).toBe(2);
     expect(stats.pending).toBe(1);

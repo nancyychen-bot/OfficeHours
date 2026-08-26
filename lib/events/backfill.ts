@@ -19,8 +19,8 @@ export interface BackfillResult {
  * Idempotent (keyed on the Luma guest id) and silent (no emails). Per-guest
  * failures are logged and skipped so one bad row can't abort the whole import.
  */
-export async function backfillEventGuests(lumaEventId: string): Promise<BackfillResult> {
-  const guests = await listEventGuests(lumaEventId);
+export async function backfillEventGuests(lumaEventId: string, apiKey: string): Promise<BackfillResult> {
+  const guests = await listEventGuests(lumaEventId, apiKey);
   const result: BackfillResult = { imported: 0, ignored: 0, failed: 0 };
 
   for (const g of guests) {

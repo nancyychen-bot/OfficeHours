@@ -3,6 +3,7 @@ import { listEventsInDateRange, getEventById } from "../db/events";
 import { sendBookingComms } from "../email/comms";
 import { pushBookingToWorkspaces } from "../notion/push";
 import { updateGuestStatus } from "../luma/client";
+import { apiKeyForCalendar } from "../luma/calendars";
 import { applyLumaStatus, type ApplyDeps } from "../sync/approval";
 import { logSync } from "../sync/log";
 import { isSendDue, scanWindow, DECLINE_HOUR } from "./schedule";
@@ -17,14 +18,15 @@ export function selectDeclinablePendings(bookings: Booking[]): Booking[] {
   return bookings.filter((b) => b.luma_status === "pending");
 }
 
-/** applyLumaStatus deps for a cron-origin decline (same shape as the Notion route). */
-function declineDeps(bookingId: string): ApplyDeps {
+/** applyLumaStatus deps for a cron-origin decline (same shape as the Notion route).
+ * `apiKey` is the owning calendar's key, resolved once per event by the caller. */
+function declineDeps(bookingId: string, apiKey: string): ApplyDeps {
   return {
     setLumaStatus,
     resetAssignment,
     pushToWorkspaces: (b) => pushBookingToWorkspaces(b),
     updateGuestOnLuma: (eventLumaId, guestLumaId, next) =>
-      updateGuestStatus({ eventLumaId, guestLumaId, status: next }),
+      updateGuestStatus({ eventLumaId, guestLumaId, status: next, apiKey }),
     sendComms: (bid, kind) => sendBookingComms(bid, kind),
     getEventLumaId: async (eventId) => (await getEventById(eventId))?.luma_event_id ?? null,
     log: async (e) =>
@@ -46,6 +48,8 @@ const DECLINE_CONCURRENCY = 5;
  * bounded-concurrency so a large pending list drains within the function budget. */
 export async function declinePendingForEvent(eventId: string): Promise<number> {
   const pendings = selectDeclinablePendings(await listBookingsForEvent(eventId));
+  // Resolve the owning calendar's key once — every pending shares this event.
+  const apiKey = apiKeyForCalendar((await getEventById(eventId))?.luma_calendar);
   let declined = 0;
   let cursor = 0;
 
@@ -56,7 +60,7 @@ export async function declinePendingForEvent(eventId: string): Promise<number> {
     while (cursor < pendings.length) {
       const b = pendings[cursor++];
       try {
-        await applyLumaStatus(b, "declined", { source: "cron" }, declineDeps(b.id));
+        await applyLumaStatus(b, "declined", { source: "cron" }, declineDeps(b.id, apiKey));
         declined++;
       } catch (err) {
         await logSync({

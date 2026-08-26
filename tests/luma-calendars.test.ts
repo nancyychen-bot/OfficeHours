@@ -1,0 +1,70 @@
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { createHmac } from "node:crypto";
+import { lumaCalendars, apiKeyForCalendar, lumaWebhookSecrets } from "@/lib/luma/calendars";
+import { verifyAnyLumaSignature } from "@/lib/luma/verify";
+
+describe("lumaCalendars", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("always includes the default calendar from LUMA_API_KEY / LUMA_WEBHOOK_SECRET", () => {
+    vi.stubEnv("LUMA_API_KEY", "default-key");
+    vi.stubEnv("LUMA_WEBHOOK_SECRET", "whsec_default");
+    const def = lumaCalendars().find((c) => c.id === "default");
+    expect(def).toEqual({ id: "default", apiKey: "default-key", webhookSecret: "whsec_default" });
+  });
+
+  it("discovers extra calendars from LUMA_API_KEY_<SUFFIX> + matching secret", () => {
+    vi.stubEnv("LUMA_API_KEY", "default-key");
+    vi.stubEnv("LUMA_API_KEY_SYDNEY", "sydney-key");
+    vi.stubEnv("LUMA_WEBHOOK_SECRET_SYDNEY", "whsec_sydney");
+    const syd = lumaCalendars().find((c) => c.id === "sydney");
+    expect(syd).toEqual({ id: "sydney", apiKey: "sydney-key", webhookSecret: "whsec_sydney" });
+  });
+
+  it("collects all configured webhook secrets", () => {
+    vi.stubEnv("LUMA_API_KEY", "default-key");
+    vi.stubEnv("LUMA_WEBHOOK_SECRET", "whsec_default");
+    vi.stubEnv("LUMA_API_KEY_SYDNEY", "sydney-key");
+    vi.stubEnv("LUMA_WEBHOOK_SECRET_SYDNEY", "whsec_sydney");
+    expect(lumaWebhookSecrets().sort()).toEqual(["whsec_default", "whsec_sydney"]);
+  });
+});
+
+describe("apiKeyForCalendar", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("resolves a calendar's key; null/empty → default", () => {
+    vi.stubEnv("LUMA_API_KEY", "default-key");
+    vi.stubEnv("LUMA_API_KEY_SYDNEY", "sydney-key");
+    expect(apiKeyForCalendar("sydney")).toBe("sydney-key");
+    expect(apiKeyForCalendar(null)).toBe("default-key");
+    expect(apiKeyForCalendar("")).toBe("default-key");
+    expect(apiKeyForCalendar("default")).toBe("default-key");
+  });
+
+  it("throws for an unknown (unconfigured) calendar", () => {
+    vi.stubEnv("LUMA_API_KEY", "default-key");
+    expect(() => apiKeyForCalendar("tokyo")).toThrow(/tokyo/i);
+  });
+});
+
+describe("verifyAnyLumaSignature", () => {
+  const rawBody = JSON.stringify({ type: "guest.registered", data: {} });
+  const now = 1_800_000_000;
+  const sign = (secret: string) =>
+    `t=${now},v1=${createHmac("sha256", secret).update(`${now}.${rawBody}`).digest("hex")}`;
+
+  it("accepts a payload signed by ANY configured secret", () => {
+    const header = sign("whsec_sydney");
+    expect(
+      verifyAnyLumaSignature({ rawBody, signatureHeader: header, secrets: ["whsec_default", "whsec_sydney"], nowSec: now }),
+    ).toBe(true);
+  });
+
+  it("rejects a payload signed by none of them", () => {
+    const header = sign("whsec_other");
+    expect(
+      verifyAnyLumaSignature({ rawBody, signatureHeader: header, secrets: ["whsec_default", "whsec_sydney"], nowSec: now }),
+    ).toBe(false);
+  });
+});

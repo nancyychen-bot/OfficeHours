@@ -226,6 +226,7 @@ export type Database = {
           event_date: string
           feedback_sent_at: string | null
           id: string
+          luma_calendar: string
           luma_event_id: string | null
           luma_stats: Json | null
           luma_synced_at: string | null
@@ -242,6 +243,7 @@ export type Database = {
           event_date: string
           feedback_sent_at?: string | null
           id?: string
+          luma_calendar?: string
           luma_event_id?: string | null
           luma_stats?: Json | null
           luma_synced_at?: string | null
@@ -258,6 +260,7 @@ export type Database = {
           event_date?: string
           feedback_sent_at?: string | null
           id?: string
+          luma_calendar?: string
           luma_event_id?: string | null
           luma_stats?: Json | null
           luma_synced_at?: string | null

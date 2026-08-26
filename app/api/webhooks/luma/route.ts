@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { env } from "@/lib/env";
-import { verifyLumaSignature } from "@/lib/luma/verify";
+import { verifyAnyLumaSignature } from "@/lib/luma/verify";
+import { lumaWebhookSecrets } from "@/lib/luma/calendars";
 import { normalizeGuest } from "@/lib/luma/parse";
 import type { LumaWebhookEnvelope } from "@/lib/luma/types";
 import { ingestRegistration } from "@/lib/events/ingest";
@@ -20,11 +20,14 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   // Must read the RAW body BEFORE parsing — signature is over `{t}.{rawBody}`.
   const rawBody = await req.text();
-  const secret = env.luma.webhookSecret();
+  // Multi-calendar: accept a signature from ANY configured calendar's secret.
+  // Routing to the right event is by luma_event_id (globally unique), not by which
+  // secret matched — so a shared endpoint serves every calendar safely.
+  const secrets = lumaWebhookSecrets();
   const signatureHeader = req.headers.get("Webhook-Signature");
 
-  if (secret) {
-    const ok = verifyLumaSignature({ rawBody, signatureHeader, secret });
+  if (secrets.length > 0) {
+    const ok = verifyAnyLumaSignature({ rawBody, signatureHeader, secrets });
     if (!ok) {
       await logSync({ direction: "luma_in", result: "error", action: "verify", note: "bad signature" });
       return NextResponse.json({ error: "invalid signature" }, { status: 401 });

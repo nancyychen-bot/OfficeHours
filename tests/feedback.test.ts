@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { selectEventForFeedback, isoDateMinusDays, type EventCandidate } from "../lib/db/feedback";
-import { parseSatisfactionScore } from "../lib/notion/feedback";
+import {
+  selectEventForFeedback,
+  selectHelperBooking,
+  isoDateMinusDays,
+  type EventCandidate,
+  type HelperCandidate,
+} from "../lib/db/feedback";
+import { parseSatisfactionScore, enrichmentProperties, FB } from "../lib/notion/feedback";
 
 describe("parseSatisfactionScore", () => {
   it("extracts a leading integer, ignoring copy", () => {
@@ -56,5 +62,77 @@ describe("selectEventForFeedback", () => {
     );
     expect(r?.eventId).toBe("newer");
     expect(r?.city).toBe("New York");
+  });
+});
+
+describe("selectHelperBooking", () => {
+  const submittedAt = "2026-08-10T18:00:00.000Z"; // submission date 2026-08-10
+  const mk = (id: string, date: string, helperName: string | null): HelperCandidate => ({
+    eventId: id,
+    eventDate: date,
+    helperName,
+  });
+
+  it("returns null when there are no candidates", () => {
+    expect(selectHelperBooking([], submittedAt)).toBeNull();
+  });
+
+  it("returns null when no candidate has an assigned helper", () => {
+    expect(selectHelperBooking([mk("a", "2026-08-09", null)], submittedAt)).toBeNull();
+  });
+
+  it("picks the most recent booking that HAS a helper, skipping a newer no-helper booking", () => {
+    const r = selectHelperBooking(
+      [
+        mk("old", "2026-06-01", "Ada"),
+        mk("recent", "2026-08-09", "Grace"),
+        mk("newest-no-helper", "2026-08-10", null),
+      ],
+      submittedAt,
+    );
+    expect(r).toEqual({ eventId: "recent", helperName: "Grace" });
+  });
+
+  it("excludes bookings dated after submission (can't review a future event)", () => {
+    const r = selectHelperBooking(
+      [mk("future", "2026-08-20", "Future"), mk("past", "2026-08-05", "Past")],
+      submittedAt,
+    );
+    expect(r?.helperName).toBe("Past");
+  });
+
+  it("has no lower-bound window — an older-than-7-days 1:1 still counts", () => {
+    const r = selectHelperBooking([mk("old", "2026-07-01", "Ada")], submittedAt);
+    expect(r?.helperName).toBe("Ada");
+  });
+});
+
+describe("enrichmentProperties (helper always; event/location best-effort, never clobber)", () => {
+  const base = { guestName: "G", eventDate: null, city: null, helperName: null, satisfactionScore: null };
+
+  it("writes the Notion Expert, satisfaction score, and title", () => {
+    const p = enrichmentProperties({ ...base, guestName: "Glenelys", helperName: "Jenna", satisfactionScore: 5 });
+    expect(p[FB.helper]).toEqual({ rich_text: [{ type: "text", text: { content: "Jenna" } }] });
+    expect(p[FB.satisfactionScore]).toEqual({ number: 5 });
+    expect(p[FB.title]).toBeDefined();
+  });
+
+  it("writes Event Date + Location when a Build Bar match resolved them", () => {
+    const p = enrichmentProperties({ ...base, eventDate: "2026-08-26", city: "New York" });
+    expect(p[FB.eventDate]).toEqual({ date: { start: "2026-08-26" } });
+    expect(p[FB.location]).toEqual({ select: { name: "New York" } });
+  });
+
+  it("never clobbers: omits Event Date / Location entirely when unresolved (agent owns them)", () => {
+    const p = enrichmentProperties(base);
+    expect(p).not.toHaveProperty(FB.eventDate);
+    expect(p).not.toHaveProperty(FB.location);
+    // Needs review is never written by the webhook.
+    expect(p).not.toHaveProperty(FB.needsReview);
+  });
+
+  it("writes an empty Notion Expert when there is no helper", () => {
+    const p = enrichmentProperties(base);
+    expect(p[FB.helper]).toEqual({ rich_text: [] });
   });
 });

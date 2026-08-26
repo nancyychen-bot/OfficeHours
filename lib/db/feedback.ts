@@ -78,6 +78,69 @@ export async function findEventForFeedback(
   return selectEventForFeedback(candidates, submittedAtISO);
 }
 
+// ---- Helper (Notion Expert) assignment -------------------------------------
+// The Notion agent now owns event/location/date (it cross-references the two
+// internal event DBs). The one thing it can't know is the Helper — that lives
+// only here, in the hub's bookings. We attach the expert from the guest's most
+// recent Build Bar 1:1.
+
+export interface HelperCandidate {
+  eventId: string;
+  eventDate: string; // ISO "YYYY-MM-DD"
+  helperName: string | null; // booked_by_display_name, null if no 1:1 claimed
+}
+
+/**
+ * Pure + unit-tested. Of the candidate bookings, keep those with an assigned
+ * helper dated on/before submission (a guest can't review a future event) and
+ * return the most recent one's `{ eventId, helperName }`. No lower-bound window:
+ * feedback may arrive late, and event attribution is the agent's job now.
+ */
+export function selectHelperBooking(
+  candidates: HelperCandidate[],
+  submittedAtISO: string,
+): { eventId: string; helperName: string } | null {
+  const sub = submittedAtISO.slice(0, 10);
+  const withHelper = candidates.filter((c) => c.helperName && c.eventDate <= sub);
+  if (withHelper.length === 0) return null;
+  const best = withHelper.reduce((a, b) => (b.eventDate > a.eventDate ? b : a));
+  return { eventId: best.eventId, helperName: best.helperName! };
+}
+
+/**
+ * Find the expert who ran a guest's most recent Build Bar 1:1: a booking whose
+ * guest OR notion email matches (case-insensitive) that has an assigned helper.
+ * Returns null when the guest had no 1:1 (correct — Helper is left blank).
+ */
+export async function findHelperForGuest(
+  email: string,
+  submittedAtISO: string,
+): Promise<{ eventId: string; helperName: string } | null> {
+  const wanted = email.trim().toLowerCase();
+  if (!wanted) return null;
+  const supabase = getAdminClient();
+  const sub = submittedAtISO.slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("guest_email, notion_email, booked_by_display_name, events!inner(id, event_date)")
+    .not("booked_by_display_name", "is", null)
+    .lte("events.event_date", sub);
+  if (error) throw error;
+
+  const candidates: HelperCandidate[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const row of (data ?? []) as any[]) {
+    const g = (row.guest_email ?? "").toLowerCase();
+    const n = (row.notion_email ?? "").toLowerCase();
+    if (g !== wanted && n !== wanted) continue;
+    const ev = row.events;
+    if (!ev) continue;
+    candidates.push({ eventId: ev.id, eventDate: ev.event_date, helperName: row.booked_by_display_name ?? null });
+  }
+  return selectHelperBooking(candidates, submittedAtISO);
+}
+
 // ---- feedback_mirror (idempotency map) — loose access, not in generated types --
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

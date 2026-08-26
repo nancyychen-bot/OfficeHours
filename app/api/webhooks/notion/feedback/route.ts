@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { constantTimeEquals } from "@/lib/auth/token";
 import { getNotionClient } from "@/lib/notion/client";
 import {
+  FB,
   FEEDBACK_DEV_DS,
   readFeedbackEmail,
   readFeedbackName,
@@ -11,8 +12,10 @@ import {
   copyableProperties,
   upsertMirrorRow,
 } from "@/lib/notion/feedback";
+import { findNotion101Event, eventTypeLabel } from "@/lib/notion/notion101";
 import {
   findEventForFeedback,
+  findHelperForGuest,
   getFeedbackMirror,
   upsertFeedbackMirror,
 } from "@/lib/db/feedback";
@@ -24,10 +27,15 @@ export const maxDuration = 30;
 /**
  * Feedback form → hub webhook. The Ambassador feedback form creates a row; a
  * Notion automation ("When page added → Send webhook") calls this route. We:
- *   1. match the respondent's email to a recent booking → Event Date + Location
- *   2. derive a numeric Satisfaction score from the satisfaction select
- *   3. write those onto the Ambassador row (or flag Needs review if no match)
- *   4. mirror the whole response into the identical Dev feedback DB (idempotent)
+ *   1. attach the Helper (Notion Expert) — the expert from the guest's most
+ *      recent Build Bar 1:1, which only the hub knows.
+ *   2. fill Event Date / Location by cross-referencing the guest's email against
+ *      both event sources (hub Build Bar bookings + the Notion 101 Guest DB) and
+ *      taking the most recent. Best-effort + never writes null, so it's a safety
+ *      net that never clobbers what the Notion agent set.
+ *   3. derive a numeric Satisfaction score; mirror the row into the Dev DB
+ *   4. keep the Supabase feedback_mirror attribution (matched_event_id) current
+ *      so the hub results dashboard's per-event rollups still work
  *
  * Best-effort: always returns 200 so Notion doesn't retry-storm.
  */
@@ -68,15 +76,28 @@ export async function POST(req: Request) {
     const submittedAt: string = page.created_time ?? new Date().toISOString();
     const content = readFeedbackContent(props);
 
-    const match = email ? await findEventForFeedback(email, submittedAt) : null;
-    const needsReview = !match;
+    // Cross-reference both event sources by email (the code plays "agent"):
+    //  - Build Bar attendees live in the hub (Supabase) — also drives the results
+    //    dashboard attribution + the 1:1 helper.
+    //  - Everyone else (Notion 101, …) lives in the Notion 101 Guest Database.
+    const bbMatch = email ? await findEventForFeedback(email, submittedAt) : null;
+    const n101 = email ? await findNotion101Event(email, submittedAt) : null;
+    const needsReview = !bbMatch; // hub/dashboard attribution is Build Bar only
+    const helper = email ? await findHelperForGuest(email, submittedAt) : null;
+
+    // Event Date + Location come from whichever event is most recent across the
+    // two sources. Best-effort (never writes null → never clobbers the agent).
+    const sources = [
+      bbMatch && { eventDate: bbMatch.eventDate, city: bbMatch.city, type: "Build Bar" as const },
+      n101 && { eventDate: n101.eventDate, city: n101.city, type: eventTypeLabel(n101.event) },
+    ].filter(Boolean) as Array<{ eventDate: string; city: string | null; type: "Build Bar" | "Notion 101" }>;
+    const chosen = sources.sort((a, b) => (a.eventDate < b.eventDate ? 1 : -1))[0] ?? null;
 
     const enrichment = enrichmentProperties({
       guestName,
-      eventDate: match?.eventDate ?? null,
-      city: match?.city ?? null,
-      helperName: match?.helperName ?? null,
-      needsReview,
+      eventDate: chosen?.eventDate ?? null,
+      city: chosen?.city ?? null,
+      helperName: helper?.helperName ?? null,
       satisfactionScore: content.satisfactionScore,
     });
 
@@ -85,14 +106,21 @@ export async function POST(req: Request) {
     await ambassador.pages.update({ page_id: pageId, properties: enrichment as any });
 
     // 2) Mirror into the Dev DB (all copyable form fields + the same enrichment).
+    //    The Event-type select ("Build Bar" | "Notion 101") is Dev-only — the
+    //    Ambassador form DB has no such property — and best-effort (only when we
+    //    resolved an event, so it never clobbers the agent).
     const mirror = await getFeedbackMirror(pageId);
-    const devProps = { ...copyableProperties(props), ...enrichment };
+    const devProps = {
+      ...copyableProperties(props),
+      ...enrichment,
+      ...(chosen ? { [FB.event]: { select: { name: chosen.type } } } : {}),
+    };
     const devPageId = await upsertMirrorRow(dev, FEEDBACK_DEV_DS, devProps, mirror?.dev_page_id);
 
     await upsertFeedbackMirror({
       ambassadorPageId: pageId,
       devPageId,
-      matchedEventId: match?.eventId ?? null,
+      matchedEventId: bbMatch?.eventId ?? null,
       needsReview,
       guestName,
       guestEmail: email,
@@ -102,17 +130,17 @@ export async function POST(req: Request) {
       interests: content.interests,
       featureIntent: content.featureIntent,
       highlight: content.highlight,
-      notionExpert: match?.helperName ?? null,
+      notionExpert: helper?.helperName ?? null,
       submittedAt,
     });
 
     await logSync({
       direction,
       result: "applied",
-      action: needsReview ? "feedback_unmatched" : "feedback_enriched",
-      note: `email=${email ?? "none"} score=${content.satisfactionScore ?? "—"}${match ? ` date=${match.eventDate} city=${match.city ?? "—"}` : ""}`,
+      action: chosen ? "feedback_enriched" : "feedback_unmatched",
+      note: `email=${email ?? "none"} score=${content.satisfactionScore ?? "—"} helper=${helper?.helperName ?? "—"}${chosen ? ` date=${chosen.eventDate} city=${chosen.city ?? "—"} src=${bbMatch ? "buildbar" : "notion101"}` : ""}`,
     });
-    return NextResponse.json({ received: true, matched: !!match });
+    return NextResponse.json({ received: true, matched: !!chosen });
   } catch (err) {
     await logSync({ direction, result: "error", action: "feedback_process", note: err instanceof Error ? err.message : String(err) });
     return NextResponse.json({ received: true, error: "processing failed" });

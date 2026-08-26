@@ -11,6 +11,7 @@ export const FB = {
   email: "What email do you use for Notion?",
   eventDate: "Event Date",
   location: "Location",
+  event: "Event", // select: "Build Bar" | "Notion 101" (Dev DB only)
   helper: "Notion Expert",
   needsReview: "Needs review",
   satisfaction: "How satisfied were you with this event?",
@@ -93,27 +94,36 @@ export function readFeedbackContent(props: Props): FeedbackContent {
   };
 }
 
-/** Build the enrichment write payload for a feedback row. */
+/**
+ * Build the enrichment write payload for a feedback row.
+ *
+ * The Notion agent is the primary source for Event Date / Location (it cross-
+ * references the internal event DBs and covers every event type). The hub writes
+ * them **best-effort** only when it can match a Build Bar booking — a safety net
+ * so those fields aren't blank if the agent fails — and the agent overrides.
+ * Crucially, event/location are written ONLY when we have a value, so a repeat
+ * webhook or a non-hub event never clobbers what the agent set. Needs review is
+ * left entirely to the agent so non-hub events aren't false-flagged.
+ *
+ * The Helper (Notion Expert) is hub-owned — the agent can't determine it — so it
+ * is always written (empty when the guest had no 1:1).
+ */
 export function enrichmentProperties(input: {
   guestName: string | null;
   eventDate: string | null;
   city: string | null;
   helperName: string | null;
-  needsReview: boolean;
   satisfactionScore: number | null;
 }): Props {
   const props: Props = {
-    [FB.eventDate]: { date: input.eventDate ? { start: input.eventDate } : null },
-    // Location is a select; Notion auto-creates the option if the city is new.
-    [FB.location]: { select: input.city ? { name: input.city } : null },
     [FB.helper]: {
       rich_text: input.helperName ? [{ type: "text", text: { content: input.helperName.slice(0, 2000) } }] : [],
     },
-    [FB.needsReview]: { checkbox: input.needsReview },
   };
-  if (input.satisfactionScore != null) {
-    props[FB.satisfactionScore] = { number: input.satisfactionScore };
-  }
+  // Best-effort, never-clobber: only write when we actually resolved a value.
+  if (input.eventDate) props[FB.eventDate] = { date: { start: input.eventDate } };
+  if (input.city) props[FB.location] = { select: { name: input.city } };
+  if (input.satisfactionScore != null) props[FB.satisfactionScore] = { number: input.satisfactionScore };
   // Set the page title (the "Submission" title property) to the respondent's name.
   if (input.guestName) {
     props[FB.title] = { title: [{ type: "text", text: { content: input.guestName.slice(0, 2000) } }] };

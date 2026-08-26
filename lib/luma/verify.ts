@@ -36,6 +36,22 @@ export function verifyLumaSignature(params: {
   return safeEqualHex(expected, v1);
 }
 
+/**
+ * Verify against ANY of the configured secrets (multi-calendar inbound): the
+ * webhook is authentic if it was signed by one of our calendars. Routing to the
+ * right event still happens by the payload's globally-unique `luma_event_id`.
+ */
+export function verifyAnyLumaSignature(params: {
+  rawBody: string;
+  signatureHeader: string | null | undefined;
+  secrets: string[];
+  toleranceSec?: number;
+  nowSec?: number;
+}): boolean {
+  const { secrets, ...rest } = params;
+  return secrets.some((secret) => verifyLumaSignature({ ...rest, secret }));
+}
+
 function parseSignatureHeader(header: string): { t: string; v1: string } | null {
   const parts = header.split(",").map((p) => p.trim());
   let t: string | undefined;

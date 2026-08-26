@@ -1,12 +1,13 @@
 import { getAdminClient } from "../supabase/admin";
 import { listEvents } from "../db/events";
 import { fetchEventStats } from "../luma/client";
+import { apiKeyForCalendar } from "../luma/calendars";
 import { logSync } from "../sync/log";
 
 /** Fetch + persist Luma stats for one event (by luma_event_id). Best-effort. */
-export async function syncLumaStatsForEvent(eventId: string, lumaEventId: string): Promise<boolean> {
+export async function syncLumaStatsForEvent(eventId: string, lumaEventId: string, apiKey: string): Promise<boolean> {
   try {
-    const stats = await fetchEventStats(lumaEventId);
+    const stats = await fetchEventStats(lumaEventId, apiKey);
     const supabase = getAdminClient();
     const { error } = await supabase
       .from("events")
@@ -32,7 +33,7 @@ export async function syncAllLumaStats(): Promise<{ synced: number; failed: numb
   let failed = 0;
   for (const e of events) {
     if (!e.luma_event_id) continue;
-    const ok = await syncLumaStatsForEvent(e.id, e.luma_event_id);
+    const ok = await syncLumaStatsForEvent(e.id, e.luma_event_id, apiKeyForCalendar(e.luma_calendar));
     if (ok) synced++;
     else failed++;
   }

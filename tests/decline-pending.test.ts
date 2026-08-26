@@ -23,6 +23,7 @@ vi.mock("@/lib/db/events", () => ({
 vi.mock("@/lib/email/comms", () => ({ sendBookingComms: vi.fn() }));
 vi.mock("@/lib/notion/push", () => ({ pushBookingToWorkspaces: vi.fn() }));
 vi.mock("@/lib/luma/client", () => ({ updateGuestStatus: vi.fn() }));
+vi.mock("@/lib/luma/calendars", () => ({ apiKeyForCalendar: () => "test-key" }));
 vi.mock("@/lib/sync/approval", () => ({
   applyLumaStatus: (...a: any[]) => (applyLumaStatus as any)(...a),
 }));

@@ -19,8 +19,9 @@ import {
   resetAssignment,
 } from "@/lib/db/bookings";
 import { matchSlotForEvent } from "@/lib/db/slots";
-import { getEventById } from "@/lib/db/events";
+import { getEventById, getEventByLumaId } from "@/lib/db/events";
 import { updateGuestStatus } from "@/lib/luma/client";
+import { apiKeyForCalendar } from "@/lib/luma/calendars";
 import { applyLumaStatus, type ApplyDeps } from "@/lib/sync/approval";
 import type { SyncDirection } from "@/lib/sync/types";
 import { pushBookingToWorkspaces, clearBookingInWorkspaces, clearUnclaimRequestedByInWorkspaces } from "@/lib/notion/push";
@@ -43,8 +44,10 @@ function approvalDeps(direction: SyncDirection, bookingId: string): ApplyDeps {
     setLumaStatus,
     resetAssignment,
     pushToWorkspaces: (b) => pushBookingToWorkspaces(b),
-    updateGuestOnLuma: (eventLumaId, guestLumaId, next) =>
-      updateGuestStatus({ eventLumaId, guestLumaId, status: next }),
+    updateGuestOnLuma: async (eventLumaId, guestLumaId, next) => {
+      const cal = (await getEventByLumaId(eventLumaId))?.luma_calendar;
+      await updateGuestStatus({ eventLumaId, guestLumaId, status: next, apiKey: apiKeyForCalendar(cal) });
+    },
     sendComms: (bid, kind) => sendBookingComms(bid, kind),
     getEventLumaId: async (eventId) => (await getEventById(eventId))?.luma_event_id ?? null,
     log: async (e) =>

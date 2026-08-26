@@ -94,13 +94,23 @@ export function readFeedbackContent(props: Props): FeedbackContent {
 }
 
 /**
- * Build the enrichment write payload for a feedback row. Event Date, Location,
- * and Needs review are deliberately NOT written here — the Notion agent owns
- * those (it cross-references the internal event DBs). We write only the Helper
- * (which the agent can't determine) plus the form-derived score + row title.
+ * Build the enrichment write payload for a feedback row.
+ *
+ * The Notion agent is the primary source for Event Date / Location (it cross-
+ * references the internal event DBs and covers every event type). The hub writes
+ * them **best-effort** only when it can match a Build Bar booking — a safety net
+ * so those fields aren't blank if the agent fails — and the agent overrides.
+ * Crucially, event/location are written ONLY when we have a value, so a repeat
+ * webhook or a non-hub event never clobbers what the agent set. Needs review is
+ * left entirely to the agent so non-hub events aren't false-flagged.
+ *
+ * The Helper (Notion Expert) is hub-owned — the agent can't determine it — so it
+ * is always written (empty when the guest had no 1:1).
  */
 export function enrichmentProperties(input: {
   guestName: string | null;
+  eventDate: string | null;
+  city: string | null;
   helperName: string | null;
   satisfactionScore: number | null;
 }): Props {
@@ -109,9 +119,10 @@ export function enrichmentProperties(input: {
       rich_text: input.helperName ? [{ type: "text", text: { content: input.helperName.slice(0, 2000) } }] : [],
     },
   };
-  if (input.satisfactionScore != null) {
-    props[FB.satisfactionScore] = { number: input.satisfactionScore };
-  }
+  // Best-effort, never-clobber: only write when we actually resolved a value.
+  if (input.eventDate) props[FB.eventDate] = { date: { start: input.eventDate } };
+  if (input.city) props[FB.location] = { select: { name: input.city } };
+  if (input.satisfactionScore != null) props[FB.satisfactionScore] = { number: input.satisfactionScore };
   // Set the page title (the "Submission" title property) to the respondent's name.
   if (input.guestName) {
     props[FB.title] = { title: [{ type: "text", text: { content: input.guestName.slice(0, 2000) } }] };

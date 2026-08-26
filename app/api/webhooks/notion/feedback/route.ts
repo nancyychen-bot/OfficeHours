@@ -26,10 +26,11 @@ export const maxDuration = 30;
  * Feedback form → hub webhook. The Ambassador feedback form creates a row; a
  * Notion automation ("When page added → Send webhook") calls this route. We:
  *   1. attach the Helper (Notion Expert) — the expert from the guest's most
- *      recent Build Bar 1:1, which only the hub knows. Event Date / Location /
- *      Needs review are NOT written: the Notion agent owns those on the Dev row.
- *   2. derive a numeric Satisfaction score from the satisfaction select
- *   3. write those onto the Ambassador row + mirror into the Dev feedback DB
+ *      recent Build Bar 1:1, which only the hub knows.
+ *   2. fill Event Date / Location best-effort from a Build Bar match — a safety
+ *      net so they aren't blank if the Notion agent (which owns event/location/
+ *      date across all event types) fails; the agent overrides. Never clobbers.
+ *   3. derive a numeric Satisfaction score; mirror the row into the Dev DB
  *   4. keep the Supabase feedback_mirror attribution (matched_event_id) current
  *      so the hub results dashboard's per-event rollups still work
  *
@@ -72,15 +73,18 @@ export async function POST(req: Request) {
     const submittedAt: string = page.created_time ?? new Date().toISOString();
     const content = readFeedbackContent(props);
 
-    // Supabase attribution (feeds the hub results dashboard) — unchanged.
+    // Build Bar match from the hub: Supabase attribution (feeds the results
+    // dashboard) + a best-effort Event Date/Location safety net for Notion.
     const eventMatch = email ? await findEventForFeedback(email, submittedAt) : null;
     const needsReview = !eventMatch;
     // The Helper: the expert from the guest's most recent Build Bar 1:1. Computed
-    // independently of the agent, which owns event/location/date on the Dev row.
+    // independently of the event pick.
     const helper = email ? await findHelperForGuest(email, submittedAt) : null;
 
     const enrichment = enrichmentProperties({
       guestName,
+      eventDate: eventMatch?.eventDate ?? null,
+      city: eventMatch?.city ?? null,
       helperName: helper?.helperName ?? null,
       satisfactionScore: content.satisfactionScore,
     });

@@ -18,16 +18,25 @@ Build Bar–style events have experts.
 Make the **Helper** correct, and stop the webhook from fighting the agent — without disturbing
 anything else.
 
-## Scope (exactly two behavior changes)
+## Scope
 
 1. **Fix the Helper.** Attach the expert from the guest's **most recent Build Bar 1:1**
    (their latest booking, dated on/before submission, that has an assigned helper).
-2. **Stop writing agent-owned fields to Notion.** The webhook no longer writes Event Date,
-   Location, or Needs review onto the Ambassador/Dev rows.
+2. **Event Date / Location = best-effort safety net.** The Notion agent is the primary
+   source (it cross-references the internal event DBs across all event types). The webhook
+   writes Event Date/Location **only when it can match a Build Bar booking**, and only when it
+   has a value — so it never clobbers what the agent set, but nothing is blank for Build Bars
+   if the agent fails. **Needs review is never written by the webhook** (agent owns it), so
+   non-hub events aren't false-flagged.
 
 Everything else is untouched: satisfaction score, row title, the form-field mirror into the
 Dev DB, and the Supabase `feedback_mirror` attribution (`matched_event_id` / `needs_review`)
 that feeds the hub results dashboard.
+
+> **Decision history:** initially scoped as "Helper only, agent owns event/location/date."
+> Revised after considering agent failure → the webhook keeps a best-effort event/location
+> safety net for Build Bars (agent overrides). See the follow-up below for the larger
+> "code becomes the agent" option.
 
 ## Design
 
@@ -65,6 +74,20 @@ Refactor signature to drop `eventDate`, `city`, `needsReview`. Emits `Notion Exp
 If a guest attended an old Build Bar 1:1 and later gives feedback about a different
 (non–Build-Bar) event, the old helper could be attached. Rare; acceptable per the decoupled
 "most recent 1:1" choice. Revisit with an agent-scoped lookup only if it proves wrong in practice.
+
+## Follow-up (blocked on access): code becomes the agent for all event types
+
+Rather than depend on the (unreliable) Notion agent, the code can cross-reference the sources
+itself: hub Supabase (Build Bar) **plus** a Notion "Notion 101 registrations" data source
+(`3c7b35e6e67f8018a4b5cb5134c830e5`, dev workspace) keyed by email → event (select:
+Notion 101 / Build Bar) + date. Then the webhook fully owns event/date/location + helper and
+the Notion agent is retired.
+
+**Blocked:** the hub's dev integration (**`Luma - Notion Dev`**) is not yet connected to that
+database — `databases.retrieve` returns `data_sources: []`, so its columns/rows can't be read
+and a **Location** property can't be added. Once connected: read the exact property names +
+data-source id, add the Location property, add `findEventFromNotion101(email)`, and extend the
+webhook to consult it alongside the Build Bar match.
 
 ## Tests
 - `findHelperForGuest`: most-recent selection among multiple helper bookings; `notion_email`

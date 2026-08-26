@@ -107,23 +107,32 @@ describe("selectHelperBooking", () => {
   });
 });
 
-describe("enrichmentProperties (helper-only; agent owns event/location/date)", () => {
+describe("enrichmentProperties (helper always; event/location best-effort, never clobber)", () => {
+  const base = { guestName: "G", eventDate: null, city: null, helperName: null, satisfactionScore: null };
+
   it("writes the Notion Expert, satisfaction score, and title", () => {
-    const p = enrichmentProperties({ guestName: "Glenelys", helperName: "Jenna", satisfactionScore: 5 });
+    const p = enrichmentProperties({ ...base, guestName: "Glenelys", helperName: "Jenna", satisfactionScore: 5 });
     expect(p[FB.helper]).toEqual({ rich_text: [{ type: "text", text: { content: "Jenna" } }] });
     expect(p[FB.satisfactionScore]).toEqual({ number: 5 });
     expect(p[FB.title]).toBeDefined();
   });
 
-  it("does NOT write agent-owned fields (Event Date, Location, Needs review)", () => {
-    const p = enrichmentProperties({ guestName: "G", helperName: null, satisfactionScore: null });
+  it("writes Event Date + Location when a Build Bar match resolved them", () => {
+    const p = enrichmentProperties({ ...base, eventDate: "2026-08-26", city: "New York" });
+    expect(p[FB.eventDate]).toEqual({ date: { start: "2026-08-26" } });
+    expect(p[FB.location]).toEqual({ select: { name: "New York" } });
+  });
+
+  it("never clobbers: omits Event Date / Location entirely when unresolved (agent owns them)", () => {
+    const p = enrichmentProperties(base);
     expect(p).not.toHaveProperty(FB.eventDate);
     expect(p).not.toHaveProperty(FB.location);
+    // Needs review is never written by the webhook.
     expect(p).not.toHaveProperty(FB.needsReview);
   });
 
   it("writes an empty Notion Expert when there is no helper", () => {
-    const p = enrichmentProperties({ guestName: "G", helperName: null, satisfactionScore: null });
+    const p = enrichmentProperties(base);
     expect(p[FB.helper]).toEqual({ rich_text: [] });
   });
 });

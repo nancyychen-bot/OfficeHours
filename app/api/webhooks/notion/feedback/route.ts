@@ -17,6 +17,7 @@ import {
   getFeedbackMirror,
   upsertFeedbackMirror,
 } from "@/lib/db/feedback";
+import { findNotion101Event } from "@/lib/notion/notion101";
 import { logSync } from "@/lib/sync/log";
 
 export const runtime = "nodejs";
@@ -27,9 +28,10 @@ export const maxDuration = 30;
  * Notion automation ("When page added → Send webhook") calls this route. We:
  *   1. attach the Helper (Notion Expert) — the expert from the guest's most
  *      recent Build Bar 1:1, which only the hub knows.
- *   2. fill Event Date / Location best-effort from a Build Bar match — a safety
- *      net so they aren't blank if the Notion agent (which owns event/location/
- *      date across all event types) fails; the agent overrides. Never clobbers.
+ *   2. fill Event Date / Location by cross-referencing the guest's email against
+ *      both event sources (hub Build Bar bookings + the Notion 101 Guest DB) and
+ *      taking the most recent. Best-effort + never writes null, so it's a safety
+ *      net that never clobbers what the Notion agent set.
  *   3. derive a numeric Satisfaction score; mirror the row into the Dev DB
  *   4. keep the Supabase feedback_mirror attribution (matched_event_id) current
  *      so the hub results dashboard's per-event rollups still work
@@ -73,18 +75,27 @@ export async function POST(req: Request) {
     const submittedAt: string = page.created_time ?? new Date().toISOString();
     const content = readFeedbackContent(props);
 
-    // Build Bar match from the hub: Supabase attribution (feeds the results
-    // dashboard) + a best-effort Event Date/Location safety net for Notion.
-    const eventMatch = email ? await findEventForFeedback(email, submittedAt) : null;
-    const needsReview = !eventMatch;
-    // The Helper: the expert from the guest's most recent Build Bar 1:1. Computed
-    // independently of the event pick.
+    // Cross-reference both event sources by email (the code plays "agent"):
+    //  - Build Bar attendees live in the hub (Supabase) — also drives the results
+    //    dashboard attribution + the 1:1 helper.
+    //  - Everyone else (Notion 101, …) lives in the Notion 101 Guest Database.
+    const bbMatch = email ? await findEventForFeedback(email, submittedAt) : null;
+    const n101 = email ? await findNotion101Event(email, submittedAt) : null;
+    const needsReview = !bbMatch; // hub/dashboard attribution is Build Bar only
     const helper = email ? await findHelperForGuest(email, submittedAt) : null;
+
+    // Event Date + Location come from whichever event is most recent across the
+    // two sources. Best-effort (never writes null → never clobbers the agent).
+    const sources = [
+      bbMatch && { eventDate: bbMatch.eventDate, city: bbMatch.city },
+      n101 && { eventDate: n101.eventDate, city: n101.city },
+    ].filter(Boolean) as Array<{ eventDate: string; city: string | null }>;
+    const chosen = sources.sort((a, b) => (a.eventDate < b.eventDate ? 1 : -1))[0] ?? null;
 
     const enrichment = enrichmentProperties({
       guestName,
-      eventDate: eventMatch?.eventDate ?? null,
-      city: eventMatch?.city ?? null,
+      eventDate: chosen?.eventDate ?? null,
+      city: chosen?.city ?? null,
       helperName: helper?.helperName ?? null,
       satisfactionScore: content.satisfactionScore,
     });
@@ -101,7 +112,7 @@ export async function POST(req: Request) {
     await upsertFeedbackMirror({
       ambassadorPageId: pageId,
       devPageId,
-      matchedEventId: eventMatch?.eventId ?? null,
+      matchedEventId: bbMatch?.eventId ?? null,
       needsReview,
       guestName,
       guestEmail: email,
@@ -118,10 +129,10 @@ export async function POST(req: Request) {
     await logSync({
       direction,
       result: "applied",
-      action: needsReview ? "feedback_unmatched" : "feedback_enriched",
-      note: `email=${email ?? "none"} score=${content.satisfactionScore ?? "—"} helper=${helper?.helperName ?? "—"}${eventMatch ? ` date=${eventMatch.eventDate} city=${eventMatch.city ?? "—"}` : ""}`,
+      action: chosen ? "feedback_enriched" : "feedback_unmatched",
+      note: `email=${email ?? "none"} score=${content.satisfactionScore ?? "—"} helper=${helper?.helperName ?? "—"}${chosen ? ` date=${chosen.eventDate} city=${chosen.city ?? "—"} src=${bbMatch ? "buildbar" : "notion101"}` : ""}`,
     });
-    return NextResponse.json({ received: true, matched: !!eventMatch });
+    return NextResponse.json({ received: true, matched: !!chosen });
   } catch (err) {
     await logSync({ direction, result: "error", action: "feedback_process", note: err instanceof Error ? err.message : String(err) });
     return NextResponse.json({ received: true, error: "processing failed" });

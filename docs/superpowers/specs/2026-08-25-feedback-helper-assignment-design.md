@@ -75,19 +75,24 @@ If a guest attended an old Build Bar 1:1 and later gives feedback about a differ
 (non–Build-Bar) event, the old helper could be attached. Rare; acceptable per the decoupled
 "most recent 1:1" choice. Revisit with an agent-scoped lookup only if it proves wrong in practice.
 
-## Follow-up (blocked on access): code becomes the agent for all event types
+## Code becomes the agent for all event types (IMPLEMENTED)
 
-Rather than depend on the (unreliable) Notion agent, the code can cross-reference the sources
-itself: hub Supabase (Build Bar) **plus** a Notion "Notion 101 registrations" data source
-(`3c7b35e6e67f8018a4b5cb5134c830e5`, dev workspace) keyed by email → event (select:
-Notion 101 / Build Bar) + date. Then the webhook fully owns event/date/location + helper and
-the Notion agent is retired.
+Rather than depend on the (unreliable) Notion agent, the code cross-references both sources by
+email: hub Supabase (Build Bar) **plus** the **"Notion 101 Guest Database"** (data source
+`3c7b35e6-e67f-805f-834f-000b61e0cd8a`, dev workspace — the `…8018` link the user shared is an
+inline linked view of it). That DB already has Email / Notion Account Email / Event / Event
+Date / **Location** (a full street address), so no property needed adding.
 
-**Blocked:** the hub's dev integration (**`Luma - Notion Dev`**) is not yet connected to that
-database — `databases.retrieve` returns `data_sources: []`, so its columns/rows can't be read
-and a **Location** property can't be added. Once connected: read the exact property names +
-data-source id, add the Location property, add `findEventFromNotion101(email)`, and extend the
-webhook to consult it alongside the Build Bar match.
+- `lib/notion/notion101.ts`: `findNotion101Event(email, submittedAt)` queries the data source
+  (email or notion-account-email match, `Event Date` on/before submission), returns the most
+  recent `{ eventDate, city, event }`. `cityFromAddress` extracts the city ("75 Varick St, New
+  York, NY 10013, USA" → "New York"); best-effort, falls back to the raw string. Errors → null
+  (never breaks feedback processing).
+- Webhook: Event Date + Location come from whichever of the two sources has the most recent
+  event. Helper stays hub-only; `matched_event_id` (dashboard) stays Build Bar-only.
+- Access: required connecting the dev integration (**`Luma - Notion Dev`**) to the database.
+
+Verified live: `nchen@makenotion.com` → `{ date: 2026-12-18, city: New York }`.
 
 ## Tests
 - `findHelperForGuest`: most-recent selection among multiple helper bookings; `notion_email`

@@ -111,9 +111,14 @@ export async function sendFeedbackForEvent(eventId: string): Promise<number> {
   return prompted;
 }
 
+/** Hours to wait after the last slot ends before DMing experts for feedback.
+ * 0 = fire at the first hourly cron tick once the event has ended (right as it
+ * wraps), rather than the old 2-hour buffer. */
+const FEEDBACK_DELAY_HOURS = 0;
+
 /**
- * Send feedback DMs for every event whose last slot ended >= 2h ago and hasn't
- * been prompted yet. Returns counts.
+ * Send feedback DMs for every event whose last slot has ended (>= FEEDBACK_DELAY_HOURS
+ * ago) and hasn't been prompted yet. Returns counts.
  */
 export async function sendFeedbackForEndedEvents(now: Date = new Date()): Promise<{ events: number; experts: number }> {
   const today = now.toISOString().slice(0, 10);
@@ -130,7 +135,7 @@ export async function sendFeedbackForEndedEvents(now: Date = new Date()): Promis
   for (const ev of (events ?? []) as Array<{ id: string; event_date: string }>) {
     const { data: slots } = await supabase.from("slots").select("ends_at").eq("event_id", ev.id);
     const ends = (slots ?? []).map((s: { ends_at: string }) => s.ends_at);
-    if (!lastSlotEndedHoursAgo(ends, 2, now)) continue;
+    if (!lastSlotEndedHoursAgo(ends, FEEDBACK_DELAY_HOURS, now)) continue;
     const n = await sendFeedbackForEvent(ev.id);
     if (n > 0) { eventsPrompted++; experts += n; }
   }

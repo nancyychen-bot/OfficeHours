@@ -82,7 +82,15 @@ export async function sendAgendasForEvent(eventId: string): Promise<number> {
 
   let sent = 0;
   for (const a of agendas) {
-    // Additive Slack DM (best-effort; email still sends below and is the source of truth).
+    const firstName = (a.name.trim().split(/\s+/)[0] || "there");
+    const rendered = renderAgenda({ firstName, eventName: a.eventName, eventDate: a.eventDate, items: a.items }, overrides);
+    // ONE agenda per expert per event. The email_log reserve is the dedup for BOTH
+    // the email and the additive Slack DM — the agenda cron self-heals hourly, so
+    // without this guard the DM re-posted every hour (the email was already safe).
+    if (!(await reserveCommsSlot(a.anchorBookingId, "day_of_agenda", "helper", a.email))) continue;
+
+    // Additive Slack DM (best-effort; the email below is the source of truth). Now
+    // inside the reserve guard, so it goes out exactly once.
     try {
       const dm = buildAgendaBlocks(a);
       await dmByEmail(a.email, dm, `Your Build Bar schedule today — ${a.eventName ?? "Build Bar"}`);
@@ -90,9 +98,6 @@ export async function sendAgendasForEvent(eventId: string): Promise<number> {
       await logSync({ direction: "luma_in", result: "error", bookingId: a.anchorBookingId, action: "agenda_dm", note: err instanceof Error ? err.message : String(err) });
     }
 
-    const firstName = (a.name.trim().split(/\s+/)[0] || "there");
-    const rendered = renderAgenda({ firstName, eventName: a.eventName, eventDate: a.eventDate, items: a.items }, overrides);
-    if (!(await reserveCommsSlot(a.anchorBookingId, "day_of_agenda", "helper", a.email))) continue;
     if (!env.comms.enabled()) {
       await finalizeComms(a.anchorBookingId, "day_of_agenda", a.email, { resendId: null, status: "skipped" });
       continue;

@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { constantTimeEquals } from "@/lib/auth/token";
 import { getNotionClient } from "@/lib/notion/client";
 import {
+  FB,
   FEEDBACK_DEV_DS,
   readFeedbackEmail,
   readFeedbackName,
@@ -11,13 +12,13 @@ import {
   copyableProperties,
   upsertMirrorRow,
 } from "@/lib/notion/feedback";
+import { findNotion101Event, eventTypeLabel } from "@/lib/notion/notion101";
 import {
   findEventForFeedback,
   findHelperForGuest,
   getFeedbackMirror,
   upsertFeedbackMirror,
 } from "@/lib/db/feedback";
-import { findNotion101Event } from "@/lib/notion/notion101";
 import { logSync } from "@/lib/sync/log";
 
 export const runtime = "nodejs";
@@ -87,9 +88,9 @@ export async function POST(req: Request) {
     // Event Date + Location come from whichever event is most recent across the
     // two sources. Best-effort (never writes null → never clobbers the agent).
     const sources = [
-      bbMatch && { eventDate: bbMatch.eventDate, city: bbMatch.city },
-      n101 && { eventDate: n101.eventDate, city: n101.city },
-    ].filter(Boolean) as Array<{ eventDate: string; city: string | null }>;
+      bbMatch && { eventDate: bbMatch.eventDate, city: bbMatch.city, type: "Build Bar" as const },
+      n101 && { eventDate: n101.eventDate, city: n101.city, type: eventTypeLabel(n101.event) },
+    ].filter(Boolean) as Array<{ eventDate: string; city: string | null; type: "Build Bar" | "Notion 101" }>;
     const chosen = sources.sort((a, b) => (a.eventDate < b.eventDate ? 1 : -1))[0] ?? null;
 
     const enrichment = enrichmentProperties({
@@ -105,8 +106,15 @@ export async function POST(req: Request) {
     await ambassador.pages.update({ page_id: pageId, properties: enrichment as any });
 
     // 2) Mirror into the Dev DB (all copyable form fields + the same enrichment).
+    //    The Event-type select ("Build Bar" | "Notion 101") is Dev-only — the
+    //    Ambassador form DB has no such property — and best-effort (only when we
+    //    resolved an event, so it never clobbers the agent).
     const mirror = await getFeedbackMirror(pageId);
-    const devProps = { ...copyableProperties(props), ...enrichment };
+    const devProps = {
+      ...copyableProperties(props),
+      ...enrichment,
+      ...(chosen ? { [FB.event]: { select: { name: chosen.type } } } : {}),
+    };
     const devPageId = await upsertMirrorRow(dev, FEEDBACK_DEV_DS, devProps, mirror?.dev_page_id);
 
     await upsertFeedbackMirror({

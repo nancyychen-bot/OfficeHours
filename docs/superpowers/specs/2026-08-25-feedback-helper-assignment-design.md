@@ -90,6 +90,9 @@ Date / **Location** (a full street address), so no property needed adding.
   (never breaks feedback processing).
 - Webhook: Event Date + Location come from whichever of the two sources has the most recent
   event. Helper stays hub-only; `matched_event_id` (dashboard) stays Build Bar-only.
+- **Event type select** ("Build Bar" | "Notion 101"): written to the **Dev row only** (the
+  Ambassador form DB has no such property). `eventTypeLabel(name)` classifies by event name
+  (hub matches are always Build Bar). Best-effort, Dev-only, never clobbers.
 - Access: required connecting the dev integration (**`Luma - Notion Dev`**) to the database.
 
 Verified live: `nchen@makenotion.com` → `{ date: 2026-12-18, city: New York }`.

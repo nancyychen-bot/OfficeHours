@@ -45,6 +45,15 @@ export function cityFromAddress(address: string | null | undefined): string | nu
   return parts[1] ?? s; // "street, city, …" fallback
 }
 
+/**
+ * Classify an event by its name into the feedback "Event" select label. Build Bar
+ * hub events read "Notion Build Bar …"; Notion 101 events read "Notion 101 …". The
+ * Notion 101 Guest DB can hold either, so we key off the name (default Notion 101).
+ */
+export function eventTypeLabel(name: string | null | undefined): "Build Bar" | "Notion 101" {
+  return /build\s*bar/i.test(name ?? "") ? "Build Bar" : "Notion 101";
+}
+
 /** Pure: most recent candidate dated on/before submission. Null if none qualify. */
 export function selectNotion101Event(
   candidates: Notion101Candidate[],

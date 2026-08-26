@@ -11,6 +11,7 @@ export const FB = {
   email: "What email do you use for Notion?",
   eventDate: "Event Date",
   location: "Location",
+  event: "Event", // select: "Build Bar" | "Notion 101" (Dev DB only)
   helper: "Notion Expert",
   needsReview: "Needs review",
   satisfaction: "How satisfied were you with this event?",

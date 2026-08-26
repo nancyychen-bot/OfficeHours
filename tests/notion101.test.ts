@@ -1,5 +1,22 @@
 import { describe, it, expect } from "vitest";
-import { cityFromAddress, selectNotion101Event, type Notion101Candidate } from "../lib/notion/notion101";
+import {
+  cityFromAddress,
+  eventTypeLabel,
+  selectNotion101Event,
+  type Notion101Candidate,
+} from "../lib/notion/notion101";
+
+describe("eventTypeLabel", () => {
+  it("labels Build Bar events by name", () => {
+    expect(eventTypeLabel("Notion Build Bar NYC")).toBe("Build Bar");
+    expect(eventTypeLabel("build bar — nyc aug")).toBe("Build Bar");
+  });
+  it("labels everything else Notion 101 (the default)", () => {
+    expect(eventTypeLabel("[TEMPLATE] Notion 101 for Small Businesses [CITY]")).toBe("Notion 101");
+    expect(eventTypeLabel(null)).toBe("Notion 101");
+    expect(eventTypeLabel("")).toBe("Notion 101");
+  });
+});
 
 describe("cityFromAddress", () => {
   it("pulls the city out of a US street address", () => {

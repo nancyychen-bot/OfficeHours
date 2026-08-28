@@ -31,8 +31,13 @@ export interface Notion101Candidate {
 /**
  * Best-effort city from a full street address, e.g.
  * "75 Varick St, New York, NY 10013, USA" → "New York". Keeps the feedback
- * Location select clean and consistent with Build Bar city options. Falls back
- * to the whole string when it can't parse a US "…, City, ST ZIP, …" shape.
+ * Location select clean and consistent with Build Bar city options.
+ *
+ * A bare label with no commas ("New York", "Online") is returned as-is. But a
+ * multi-segment address we can't confidently parse (i.e. no US "ST ZIP" segment
+ * — e.g. AU "…, Pyrmont NSW 2009, Australia" or UK/CA) returns **null** rather
+ * than guessing a street segment: a wrong city would clobber the Location the
+ * Notion agent set. Null → the caller leaves Location to the agent.
  */
 export function cityFromAddress(address: string | null | undefined): string | null {
   const s = (address ?? "").trim();
@@ -42,7 +47,7 @@ export function cityFromAddress(address: string | null | undefined): string | nu
   // The "ST ZIP" segment (e.g. "NY 10013" / "CA 95014-2083"); city is right before it.
   const stateIdx = parts.findIndex((p) => /^[A-Z]{2}\s+\d{5}(-\d{4})?$/.test(p));
   if (stateIdx > 0) return parts[stateIdx - 1];
-  return parts[1] ?? s; // "street, city, …" fallback
+  return null; // non-US / unparseable → don't guess; let the agent own Location
 }
 
 /**

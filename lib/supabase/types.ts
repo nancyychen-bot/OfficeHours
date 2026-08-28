@@ -224,6 +224,7 @@ export type Database = {
           city: string
           created_at: string
           event_date: string
+          feedback_reminder_sent_at: string | null
           feedback_sent_at: string | null
           id: string
           luma_calendar: string
@@ -241,6 +242,7 @@ export type Database = {
           city: string
           created_at?: string
           event_date: string
+          feedback_reminder_sent_at?: string | null
           feedback_sent_at?: string | null
           id?: string
           luma_calendar?: string
@@ -258,6 +260,7 @@ export type Database = {
           city?: string
           created_at?: string
           event_date?: string
+          feedback_reminder_sent_at?: string | null
           feedback_sent_at?: string | null
           id?: string
           luma_calendar?: string

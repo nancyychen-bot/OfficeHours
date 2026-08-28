@@ -70,6 +70,13 @@ export async function markFeedbackSent(eventId: string, at: string): Promise<voi
   if (error) throw error;
 }
 
+/** Mark an event's 2-day feedback reminder as dispatched so it never re-sends. */
+export async function markFeedbackReminderSent(eventId: string, at: string): Promise<void> {
+  const supabase = getAdminClient();
+  const { error } = await supabase.from("events").update({ feedback_reminder_sent_at: at }).eq("id", eventId);
+  if (error) throw error;
+}
+
 export async function listEvents(): Promise<EventRow[]> {
   const supabase = getAdminClient();
   const { data, error } = await supabase

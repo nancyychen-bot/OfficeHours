@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "guest_cancelled" | "prep_reminder_day_before_paid";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "guest_cancelled" | "prep_reminder_day_before_paid";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -172,6 +172,7 @@ export type TemplateKey =
   | "cancelled__guest" | "cancelled__helper"
   | "event_cancelled__guest" | "event_cancelled__helper"
   | "feedback_request__guest"
+  | "feedback_reminder__guest"
   | "cowork_only__guest";
 
 export interface TemplateDef {
@@ -548,6 +549,19 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "Thank you so much for coming to **Notion Build Bar** — it was so great to have you, and we hope you left with something you're excited to build.", "",
       "We'd love to hear how it went — it takes about **2 minutes**, and your feedback directly shapes the next event.", "",
+      "👉 **[Share your feedback]({{feedbackLink}})**", "",
+      "*If you worked one-on-one with a Notion expert, we'd especially love to hear how that went.*", "",
+      "To catch a future Build Bar or community event, follow our **[Notion calendar]({{calendarLink}})**.", "",
+      "With gratitude,", SIGNOFF, "", `*${SUPPORT}*`,
+    ),
+  },
+  feedback_reminder__guest: {
+    label: "Feedback reminder", description: "2 days after — checked-in guests who haven't responded", role: "guest",
+    subject: "One more nudge — we'd still love your Build Bar feedback 💜",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Thank you again for coming to **Notion Build Bar** — it was so great to have you, and we hope you left with something you're excited to build.", "",
+      "We haven't heard from you yet, and we'd still really love to know how it went — it takes about **2 minutes**, and your feedback directly shapes the next event.", "",
       "👉 **[Share your feedback]({{feedbackLink}})**", "",
       "*If you worked one-on-one with a Notion expert, we'd especially love to hear how that went.*", "",
       "To catch a future Build Bar or community event, follow our **[Notion calendar]({{calendarLink}})**.", "",

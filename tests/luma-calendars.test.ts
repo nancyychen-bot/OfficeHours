@@ -6,11 +6,21 @@ import { verifyAnyLumaSignature } from "@/lib/luma/verify";
 describe("lumaCalendars", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("always includes the default calendar from LUMA_API_KEY / LUMA_WEBHOOK_SECRET", () => {
+  it("includes the default calendar from LUMA_API_KEY / LUMA_WEBHOOK_SECRET when set", () => {
     vi.stubEnv("LUMA_API_KEY", "default-key");
     vi.stubEnv("LUMA_WEBHOOK_SECRET", "whsec_default");
     const def = lumaCalendars().find((c) => c.id === "default");
     expect(def).toEqual({ id: "default", apiKey: "default-key", webhookSecret: "whsec_default" });
+  });
+
+  it("omits the default calendar (and never throws) when LUMA_API_KEY is unset — so retiring it doesn't crash the shared webhook", () => {
+    vi.stubEnv("LUMA_API_KEY", "");
+    vi.stubEnv("LUMA_API_KEY_SYDNEY", "sydney-key");
+    vi.stubEnv("LUMA_WEBHOOK_SECRET_SYDNEY", "whsec_sydney");
+    const cals = lumaCalendars();
+    expect(cals.find((c) => c.id === "default")).toBeUndefined();
+    expect(cals.find((c) => c.id === "sydney")?.apiKey).toBe("sydney-key");
+    expect(lumaWebhookSecrets()).toEqual(["whsec_sydney"]);
   });
 
   it("discovers extra calendars from LUMA_API_KEY_<SUFFIX> + matching secret", () => {

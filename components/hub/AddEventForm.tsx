@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 type Result =
-  | { ok: true; event: { name: string; slots: number; importedGuests: number } }
+  | { ok: true; warning?: string; event: { name: string; slots: number; importedGuests: number } }
   | { ok: false; error: string };
 
 export function AddEventForm({ token }: { token: string }) {
@@ -56,6 +56,9 @@ export function AddEventForm({ token }: { token: string }) {
             : ""}
           .
         </p>
+      ) : null}
+      {result?.ok && result.warning ? (
+        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">⚠️ {result.warning}</p>
       ) : null}
       {result && !result.ok ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{result.error}</p>

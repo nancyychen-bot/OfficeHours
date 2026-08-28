@@ -31,16 +31,24 @@ export async function POST(req: Request) {
   try {
     const result = await registerEventFromLuma({ lumaEvent, city, slotStart, slotLengthMinutes });
     // Attach the channel to the event's city (best-effort; never fails the add).
+    // Surface a warning when the channel isn't actually postable yet, so a new
+    // city isn't silently saved unpostable (green success, no recruit posts).
+    let warning: string | undefined;
     if (result.city) {
       try {
         const channelId = await lookupChannelIdByName(slackChannel);
         await setCityChannelName({ city: result.city, channelName: slackChannel, channelId });
+        if (!channelId) {
+          warning = `Event added, but the Slack channel "${slackChannel}" couldn't be resolved — invite @build_bar_bot to it, then run the channel-id backfill (or set a webhook_url). Until then, recruit posts for ${result.city} won't send.`;
+        }
       } catch (chErr) {
         console.error("[add-event] channel save failed", chErr);
+        warning = `Event added, but attaching the Slack channel failed — configure the channel for ${result.city} manually so recruit posts can send.`;
       }
     }
     return NextResponse.json({
       ok: true,
+      ...(warning ? { warning } : {}),
       event: {
         name: result.eventName,
         slots: result.inserted + result.updated,

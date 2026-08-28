@@ -1,5 +1,3 @@
-import { env } from "../env";
-
 /**
  * A Luma calendar the hub integrates with. Each has its own API key (for outbound
  * calls) and, optionally, a webhook signing secret (for inbound verification).
@@ -19,9 +17,16 @@ export interface LumaCalendar {
  * Adding a calendar is env-only — no code change.
  */
 export function lumaCalendars(): LumaCalendar[] {
-  const cals: LumaCalendar[] = [
-    { id: "default", apiKey: env.luma.apiKey(), webhookSecret: env.luma.webhookSecret() ?? null },
-  ];
+  const cals: LumaCalendar[] = [];
+  // The `default` calendar is included only when LUMA_API_KEY is actually set, so
+  // retiring the original calendar (unsetting the var) doesn't crash the shared
+  // webhook — which loads this on every request via lumaWebhookSecrets(). A code
+  // path that genuinely needs the default key still gets a clear error from
+  // apiKeyForCalendar("default"). Read directly (not env.luma.apiKey()'s
+  // required()) so this never throws.
+  if (process.env.LUMA_API_KEY) {
+    cals.push({ id: "default", apiKey: process.env.LUMA_API_KEY, webhookSecret: process.env.LUMA_WEBHOOK_SECRET || null });
+  }
   for (const [name, value] of Object.entries(process.env)) {
     const m = /^LUMA_API_KEY_(.+)$/.exec(name);
     if (!m || !value) continue;

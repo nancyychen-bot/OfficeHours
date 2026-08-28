@@ -57,7 +57,7 @@ const STAGES: Array<{ title: string; blurb: string; keys: TemplateKey[] }> = [
   {
     title: "After the event",
     blurb: "Closing the loop and gathering feedback.",
-    keys: ["feedback_request__guest"],
+    keys: ["feedback_request__guest", "feedback_reminder__guest"],
   },
 ];
 

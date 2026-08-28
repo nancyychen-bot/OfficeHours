@@ -97,6 +97,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   arrived_after_no_show: ["helper", "guest"],
   double_booked: ["helper"],
   feedback_request: ["guest"],
+  feedback_reminder: ["guest"],
   prep_reminder: ["guest"],
   prep_reminder_day_before: ["guest"],
   prep_reminder_day_before_paid: ["guest"],

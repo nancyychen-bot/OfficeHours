@@ -17,6 +17,7 @@
     "setup:expert-feedback": "tsx --env-file=.env.local scripts/configure-expert-feedback-db.ts",
     "setup:filtered": "tsx --env-file=.env.local scripts/add-filtered-property.ts",
     "send:feedback": "tsx --env-file=.env.local scripts/send-feedback.ts",
+    "send:feedback-reminder": "tsx --env-file=.env.local scripts/send-feedback-reminder.ts",
     "send:prep": "tsx --env-file=.env.local scripts/send-prep.ts",
     "send:cowork": "tsx --env-file=.env.local scripts/send-cowork-notice.ts",
     "decline:pending": "tsx --env-file=.env.local scripts/decline-pending.ts",

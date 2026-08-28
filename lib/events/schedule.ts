@@ -53,9 +53,10 @@ export function isSendDue(
 }
 
 /** The UTC date window (inclusive) to fetch when scanning for due events: a safe
- * superset covering every rule's offset (prep is the earliest at −3) plus ±1 for
- * the local/UTC date skew. Callers filter the result with isSendDue. */
+ * superset covering every rule's offset — the prep lead reaches −3 (event 3 days
+ * ahead) and the feedback reminder reaches +2 (event 2 days past) — each plus ±1
+ * for the local/UTC date skew. Callers filter the result with isSendDue. */
 export function scanWindow(now: Date): { from: string; to: string } {
   const utcToday = now.toISOString().slice(0, 10);
-  return { from: shiftDate(utcToday, -1), to: shiftDate(utcToday, 4) };
+  return { from: shiftDate(utcToday, -3), to: shiftDate(utcToday, 4) };
 }

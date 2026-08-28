@@ -205,3 +205,23 @@ export async function upsertFeedbackMirror(input: {
   );
   if (error) throw error;
 }
+
+/**
+ * Lowercased emails that submitted feedback attributable to an event: any mirror
+ * row matched to it, plus any submitted on/after its date (feedback only comes
+ * after the event, so the date floor excludes a returning guest's older
+ * feedback). Used to skip responders when sending the 2-day reminder.
+ */
+export async function listFeedbackRespondentEmails(event: { id: string; eventDate: string }): Promise<Set<string>> {
+  const { data, error } = await table()
+    .select("guest_email")
+    .or(`matched_event_id.eq.${event.id},submitted_at.gte.${event.eventDate}`);
+  if (error) throw error;
+  const set = new Set<string>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const r of (data ?? []) as any[]) {
+    const e = (r.guest_email ?? "").trim().toLowerCase();
+    if (e) set.add(e);
+  }
+  return set;
+}

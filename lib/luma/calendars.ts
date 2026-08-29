@@ -54,6 +54,19 @@ export function apiKeyForCalendar(id: string | null | undefined): string {
   return cal.apiKey;
 }
 
+/**
+ * The public Luma calendar URL for a calendar id (for the "follow our calendar"
+ * link in guest emails), or null if none is configured. Env-driven, mirroring the
+ * key keyring: `LUMA_CALENDAR_URL` for `default`, `LUMA_CALENDAR_URL_<SUFFIX>` for
+ * each named calendar (e.g. `LUMA_CALENDAR_URL_SYDNEY`). Null → the caller falls
+ * back to the global community calendar, so this is safe to adopt incrementally.
+ */
+export function calendarUrlForCalendar(id: string | null | undefined): string | null {
+  const cid = id || "default";
+  const suffix = cid === "default" ? "" : `_${cid.toUpperCase()}`;
+  return process.env[`LUMA_CALENDAR_URL${suffix}`] || null;
+}
+
 /** Every configured webhook signing secret, for multi-calendar inbound verification. */
 export function lumaWebhookSecrets(): string[] {
   return lumaCalendars()

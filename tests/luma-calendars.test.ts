@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { createHmac } from "node:crypto";
-import { lumaCalendars, apiKeyForCalendar, lumaWebhookSecrets } from "@/lib/luma/calendars";
+import { lumaCalendars, apiKeyForCalendar, lumaWebhookSecrets, calendarUrlForCalendar } from "@/lib/luma/calendars";
 import { verifyAnyLumaSignature } from "@/lib/luma/verify";
 
 describe("lumaCalendars", () => {
@@ -55,6 +55,19 @@ describe("apiKeyForCalendar", () => {
   it("throws for an unknown (unconfigured) calendar", () => {
     vi.stubEnv("LUMA_API_KEY", "default-key");
     expect(() => apiKeyForCalendar("tokyo")).toThrow(/tokyo/i);
+  });
+});
+
+describe("calendarUrlForCalendar", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("resolves the default and per-suffix calendar URLs, null when unset", () => {
+    vi.stubEnv("LUMA_CALENDAR_URL", "https://luma.com/calendar/cal-default");
+    vi.stubEnv("LUMA_CALENDAR_URL_SYDNEY", "https://luma.com/calendar/cal-sydney");
+    expect(calendarUrlForCalendar(null)).toBe("https://luma.com/calendar/cal-default");
+    expect(calendarUrlForCalendar("default")).toBe("https://luma.com/calendar/cal-default");
+    expect(calendarUrlForCalendar("sydney")).toBe("https://luma.com/calendar/cal-sydney");
+    expect(calendarUrlForCalendar("tokyo")).toBeNull();
   });
 });
 

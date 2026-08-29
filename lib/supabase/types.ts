@@ -569,6 +569,7 @@ export type Database = {
           last_synced_at: string | null
           last_synced_hash: string | null
           location: string | null
+          luma_calendar: string | null
           luma_guest_id: string | null
           luma_status: Database["public"]["Enums"]["luma_status"] | null
           notion_ambassador_page_id: string | null

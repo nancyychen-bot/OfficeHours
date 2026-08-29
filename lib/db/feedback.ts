@@ -206,6 +206,36 @@ export async function upsertFeedbackMirror(input: {
   if (error) throw error;
 }
 
+export interface UnresolvedFeedbackRow {
+  ambassador_page_id: string;
+  dev_page_id: string | null;
+  matched_event_id: string | null;
+  needs_review: boolean;
+}
+
+/**
+ * Feedback mirror rows still awaiting attribution — needs_review, or no matched
+ * event — submitted on/after `sinceISO` and with a Dev page to re-read. The
+ * reconciler reads the agent-set city/date off that Dev page to attribute them.
+ */
+export async function listUnresolvedFeedbackMirror(sinceISO: string): Promise<UnresolvedFeedbackRow[]> {
+  const { data, error } = await table()
+    .select("ambassador_page_id, dev_page_id, matched_event_id, needs_review")
+    .or("needs_review.eq.true,matched_event_id.is.null")
+    .gte("submitted_at", sinceISO)
+    .not("dev_page_id", "is", null);
+  if (error) throw error;
+  return (data ?? []) as UnresolvedFeedbackRow[];
+}
+
+/** Attribute a mirror row to an event and clear its review flag (reconciler). */
+export async function setFeedbackMirrorAttribution(ambassadorPageId: string, eventId: string): Promise<void> {
+  const { error } = await table()
+    .update({ matched_event_id: eventId, needs_review: false, updated_at: new Date().toISOString() })
+    .eq("ambassador_page_id", ambassadorPageId);
+  if (error) throw error;
+}
+
 /**
  * Lowercased emails that submitted feedback attributable to an event: any mirror
  * row matched to it, plus any submitted on/after its date (feedback only comes

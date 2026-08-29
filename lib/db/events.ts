@@ -17,6 +17,23 @@ export async function getEventByLumaId(lumaEventId: string): Promise<EventRow | 
   return data;
 }
 
+/**
+ * An event matching a city (case-insensitive) on a specific local date. Used to
+ * reconcile feedback attribution from the agent-set city + Event Date back to a
+ * hub event id. Most-recently-created wins if somehow >1 match. Null if none.
+ */
+export async function findEventByCityAndDate(city: string, dateYmd: string): Promise<EventRow | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select("*")
+    .ilike("city", city) // no wildcards → case-insensitive equality
+    .eq("event_date", dateYmd)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? [])[0] ?? null;
+}
+
 export async function getEventById(id: string): Promise<EventRow | null> {
   const supabase = getAdminClient();
   const { data, error } = await supabase

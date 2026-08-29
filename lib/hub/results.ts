@@ -127,7 +127,7 @@ export function computeResults(
   bookings: HubBooking[],
   feedback: HubFeedback[],
   events: HubEvent[],
-): { overall: EventResult; perEvent: EventResult[] } {
+): { overall: EventResult; perEvent: EventResult[]; unattributed: number } {
   const labelFor = (e: HubEvent) => `${e.city ?? "—"} — ${monthLabel(e.event_date)}`.replace(/ — $/, "");
 
   const perEvent = events.map((e) => {
@@ -149,7 +149,12 @@ export function computeResults(
   const overallNoShow = bookings.filter((b) => b.status === "no_show").length;
   const overall = buildResult("__all__", "All events", overallAttendance, "mirror", overallNoShow, bookings, feedback);
 
-  return { overall, perEvent };
+  // Feedback that never resolved to an event (email mismatch, or an event we don't
+  // track). These count in the overall totals but can't be placed in any per-event
+  // bucket, so surface the tally rather than letting them vanish silently.
+  const unattributed = feedback.filter((f) => !f.luma_event_id).length;
+
+  return { overall, perEvent, unattributed };
 }
 
 // ---- Community insights (cross-event) --------------------------------------

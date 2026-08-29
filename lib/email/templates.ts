@@ -31,6 +31,9 @@ export interface CommsFields {
   slotId: string | null;
   /** The event's public Luma URL (for "cancel your registration"). */
   eventUrl?: string | null;
+  /** The event's city/calendar-specific public Luma calendar URL (for "follow our
+   * calendar"); falls back to the global CALENDAR_URL when unset. */
+  calendarUrl?: string | null;
   /** Other bookings the expert holds in this slot (populated for the double-booked email). */
   conflicts?: Array<{ name: string; challenge: string | null; role: string | null; company: string | null }>;
 }
@@ -617,7 +620,9 @@ export function buildVars(role: Recipient, f: CommsFields): Record<string, strin
     feedbackLink: FEEDBACK_FORM_URL,
     slotChangeLink: SLOT_CHANGE_URL,
     trialLink: NOTION_AI_TRIAL_URL,
-    calendarLink: CALENDAR_URL,
+    // Per-city calendar when the event's calendar has one configured; else the
+    // global community calendar (unchanged behavior).
+    calendarLink: f.calendarUrl || CALENDAR_URL,
     // The event's public page; falls back to the community calendar so the link is never broken.
     eventUrl: f.eventUrl || CALENDAR_URL,
     supportEmail: SUPPORT_EMAIL,

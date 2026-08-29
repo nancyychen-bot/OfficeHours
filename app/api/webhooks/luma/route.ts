@@ -74,7 +74,18 @@ export async function POST(req: Request) {
     // to both Notion workspaces. Shared with the event backfill via ingest.
     const outcome = await ingestRegistration(norm, { live: true });
     if (outcome.status === "ignored") {
-      await logSync({ direction: "luma_in", result: "applied", action: "ignored", note: outcome.reason });
+      // A registration for an event that isn't in our table has nowhere to route,
+      // so the guest is dropped. Log it as an ERROR with a distinct action (not
+      // result:"applied", which is indistinguishable from a successful upsert) so
+      // it's visible and queryable — the usual cause is a new city's event not
+      // being registered yet during a staged rollout. Include the guest so it's
+      // actionable. Still return 200 to avoid a Luma retry-storm.
+      await logSync({
+        direction: "luma_in",
+        result: "error",
+        action: "unknown_event",
+        note: `${outcome.reason} — guest ${norm.guestName} <${norm.guestEmail ?? "no email"}>`,
+      });
       return NextResponse.json({ received: true, ignored: true });
     }
 

@@ -33,7 +33,24 @@ export async function syncAllLumaStats(): Promise<{ synced: number; failed: numb
   let failed = 0;
   for (const e of events) {
     if (!e.luma_event_id) continue;
-    const ok = await syncLumaStatsForEvent(e.id, e.luma_event_id, apiKeyForCalendar(e.luma_calendar));
+    // Resolve the key defensively: an event tagged with a calendar whose
+    // LUMA_API_KEY_<SUFFIX> isn't set (typo, staged rollout, retired calendar)
+    // must degrade to one skipped event — not throw and abort the whole sweep
+    // (which would freeze stats for every city that tick).
+    let apiKey: string;
+    try {
+      apiKey = apiKeyForCalendar(e.luma_calendar);
+    } catch (err) {
+      await logSync({
+        direction: "luma_in",
+        result: "error",
+        action: "luma_stats_sync",
+        note: `${e.luma_event_id}: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      failed++;
+      continue;
+    }
+    const ok = await syncLumaStatsForEvent(e.id, e.luma_event_id, apiKey);
     if (ok) synced++;
     else failed++;
   }

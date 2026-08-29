@@ -119,6 +119,14 @@ export async function resolveChannelIdForSave(
   return lookupChannelIdByName(channelName);
 }
 
+/** Have the bot join a public channel (a prerequisite for posting). Best-effort:
+ * returns false on any error (e.g. the app lacks the channels:join scope, or the
+ * channel is private). */
+export async function joinChannel(channelId: string): Promise<boolean> {
+  const body = await callSlack("conversations.join", { channel: channelId });
+  return !!body.ok;
+}
+
 /** Post Block Kit blocks to a channel/DM id. Best-effort. */
 export async function postToChannel(channel: string, blocks: unknown[], text: string): Promise<SlackResult> {
   const body = await callSlack("chat.postMessage", { channel, blocks, text });

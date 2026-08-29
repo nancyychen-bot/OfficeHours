@@ -15,7 +15,6 @@ import {
 import { findNotion101Event, eventTypeLabel } from "@/lib/notion/notion101";
 import {
   findEventForFeedback,
-  findHelperForGuest,
   getFeedbackMirror,
   upsertFeedbackMirror,
 } from "@/lib/db/feedback";
@@ -83,7 +82,11 @@ export async function POST(req: Request) {
     const bbMatch = email ? await findEventForFeedback(email, submittedAt) : null;
     const n101 = email ? await findNotion101Event(email, submittedAt) : null;
     const needsReview = !bbMatch; // hub/dashboard attribution is Build Bar only
-    const helper = email ? await findHelperForGuest(email, submittedAt) : null;
+    // The 1:1 helper is taken from the SAME booking that won the Build Bar event
+    // match (findEventForFeedback carries booked_by_display_name as helperName),
+    // so event/date/location and the expert are always the same event — never a
+    // stale expert from an older 1:1 in a different city.
+    const helperName = bbMatch?.helperName ?? null;
 
     // Event Date + Location come from whichever event is most recent across the
     // two sources. Best-effort (never writes null → never clobbers the agent).
@@ -96,8 +99,11 @@ export async function POST(req: Request) {
     const enrichment = enrichmentProperties({
       guestName,
       eventDate: chosen?.eventDate ?? null,
-      city: chosen?.city ?? null,
-      helperName: helper?.helperName ?? null,
+      // Location is only trustworthy from a Build Bar booking (clean events.city
+      // from Luma). The Notion 101 city is parsed from a raw address and is
+      // unreliable for non-US venues — leave Location to the agent in that case.
+      city: chosen?.type === "Build Bar" ? chosen.city : null,
+      helperName,
       satisfactionScore: content.satisfactionScore,
     });
 
@@ -130,7 +136,7 @@ export async function POST(req: Request) {
       interests: content.interests,
       featureIntent: content.featureIntent,
       highlight: content.highlight,
-      notionExpert: helper?.helperName ?? null,
+      notionExpert: helperName,
       submittedAt,
     });
 
@@ -138,7 +144,7 @@ export async function POST(req: Request) {
       direction,
       result: "applied",
       action: chosen ? "feedback_enriched" : "feedback_unmatched",
-      note: `email=${email ?? "none"} score=${content.satisfactionScore ?? "—"} helper=${helper?.helperName ?? "—"}${chosen ? ` date=${chosen.eventDate} city=${chosen.city ?? "—"} src=${bbMatch ? "buildbar" : "notion101"}` : ""}`,
+      note: `email=${email ?? "none"} score=${content.satisfactionScore ?? "—"} helper=${helperName ?? "—"}${chosen ? ` date=${chosen.eventDate} city=${chosen.type === "Build Bar" ? (chosen.city ?? "—") : "agent"} src=${bbMatch ? "buildbar" : "notion101"}` : ""}`,
     });
     return NextResponse.json({ received: true, matched: !!chosen });
   } catch (err) {

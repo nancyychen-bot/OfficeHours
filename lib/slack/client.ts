@@ -4,7 +4,7 @@ import { getNotionClient, type NotionWorkspace } from "../notion/client";
 import { toCommsFields } from "../email/comms";
 import type { CommsFields } from "../email/templates";
 import { logSync } from "../sync/log";
-import { postToChannel } from "./api";
+import { postToChannel, joinChannel } from "./api";
 import { shortDate } from "./format";
 
 /**
@@ -110,9 +110,21 @@ async function postToCityChannel(
   fallbackText: string,
 ): Promise<void> {
   if (channel.channelId) {
-    const res = await postToChannel(channel.channelId, blocks, fallbackText);
+    let res = await postToChannel(channel.channelId, blocks, fallbackText);
+    // The bot must be a member to post. If it was never /invited, self-join the
+    // (public) channel once and retry, so a forgotten invite doesn't silently
+    // drop the post.
+    if (!res.ok && res.error === "not_in_channel" && (await joinChannel(channel.channelId))) {
+      res = await postToChannel(channel.channelId, blocks, fallbackText);
+    }
     if (res.ok) return;
-    // fall through to webhook if the bot post failed and a webhook exists
+    // Bot post failed and there's no webhook to fall back to → surface an
+    // actionable error (not the generic "no channel" one) so the missing invite
+    // is obvious in the logs.
+    if (!channel.webhookUrl) {
+      throw new Error(`Slack bot can't post to ${channel.channelName ?? channel.channelId} (${res.error ?? "unknown"}) — invite @build_bar_bot to the channel or set a webhook_url.`);
+    }
+    // else fall through to the webhook
   }
   if (channel.webhookUrl) {
     await postBlocks(channel.webhookUrl, blocks);
@@ -140,7 +152,11 @@ async function buildRecruitContext(
   const f: CommsFields = toCommsFields(details);
   const channel = await getSlackChannelForCity(f.location);
   if (!channel) {
-    await logSync({ direction: "luma_in", result: "applied", bookingId, action: "slack_recruit_skipped", note: `no channel for ${f.location ?? "?"}` });
+    // A booking with an open 1:1 whose city maps to no postable channel means the
+    // recruit never goes out. Log as an ERROR (not a routine skip) with the raw
+    // city so a missing slack_channels row/alias for a new city is visible, not
+    // silently swallowed.
+    await logSync({ direction: "luma_in", result: "error", bookingId, action: "slack_recruit_no_channel", note: `no Slack channel for city "${f.location ?? "?"}" — add the city (or an alias) in slack_channels` });
     return null;
   }
   const [devCardUrl, ambassadorCardUrl] = await Promise.all([

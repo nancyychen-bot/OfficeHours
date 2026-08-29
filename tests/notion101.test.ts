@@ -29,9 +29,18 @@ describe("cityFromAddress", () => {
     expect(cityFromAddress("1 Loop, Cupertino, CA 95014-2083, USA")).toBe("Cupertino");
   });
 
-  it("falls back to the whole string when it can't parse", () => {
+  it("passes through a bare single-token label (no comma)", () => {
     expect(cityFromAddress("New York")).toBe("New York");
     expect(cityFromAddress("Online")).toBe("Online");
+  });
+
+  it("returns null for a non-US multi-segment address rather than guessing a street", () => {
+    // Regression: these used to return a street/garbage segment, which then
+    // clobbered the agent's Location for non-US cities (Sydney is live).
+    expect(cityFromAddress("Level 3, 100 Harris St, Pyrmont NSW 2009, Australia")).toBeNull();
+    expect(cityFromAddress("100 Harris St, Pyrmont NSW 2009, Australia")).toBeNull();
+    expect(cityFromAddress("10 Downing St, London SW1A 2AA, UK")).toBeNull();
+    expect(cityFromAddress("123 Main St, Toronto, ON M5H 2N2, Canada")).toBeNull();
   });
 
   it("returns null for empty/nullish input", () => {

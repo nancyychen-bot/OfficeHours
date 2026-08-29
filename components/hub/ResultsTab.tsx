@@ -53,7 +53,7 @@ function CommunityCard({ community }: { community: Community }) {
   );
 }
 
-export function ResultsTab({ overall, perEvent, community, contributors }: { overall: EventResult; perEvent: EventResult[]; community: Community; contributors: Contributor[] }) {
+export function ResultsTab({ overall, perEvent, community, contributors, unattributed = 0 }: { overall: EventResult; perEvent: EventResult[]; community: Community; contributors: Contributor[]; unattributed?: number }) {
   const tabs = [overall, ...perEvent];
   const [key, setKey] = useState(overall.key);
   const active = tabs.find((t) => t.key === key) ?? overall;
@@ -81,6 +81,11 @@ export function ResultsTab({ overall, perEvent, community, contributors }: { ove
           <a href={`/embed/${active.key}`} target="_blank" rel="noreferrer" className="break-all text-blue-600 underline">
             {(typeof window !== "undefined" ? window.location.origin : "")}/embed/{active.key}
           </a>
+        </div>
+      ) : null}
+      {isOverall && unattributed > 0 ? (
+        <div className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          ⚠️ {unattributed} feedback response{unattributed === 1 ? "" : "s"} couldn&apos;t be matched to an event (usually the feedback email differs from the Luma booking email). They&apos;re counted here but not in any per-event tab — check the Feedback tab&apos;s “Review” rows to attribute them.
         </div>
       ) : null}
       <div className="space-y-4">

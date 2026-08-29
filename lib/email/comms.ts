@@ -5,6 +5,7 @@ import { sendEmail, type EmailAttachment } from "./resend";
 import { buildInvite, buildCancel, inviteAttachment, fromAddressEmail } from "./ics";
 import { renderComms, inviteDescription, type CommsFields, type CommsKind, type Recipient, type OverrideMap } from "./templates";
 import { getLiveOverrideMap } from "../db/email-overrides";
+import { calendarUrlForCalendar } from "../luma/calendars";
 import { env } from "../env";
 import { logSync } from "../sync/log";
 import type { BookingDetails } from "../sync/types";
@@ -57,6 +58,9 @@ export function toCommsFields(d: BookingDetails): CommsFields {
     helperEmail: (d.booked_by_email as string) ?? null,
     status: d.status as string,
     slotId: (d.slot_id as string) ?? null,
+    // Per-city calendar link (from the event's Luma calendar tag); null falls
+    // back to the global community calendar in buildVars.
+    calendarUrl: calendarUrlForCalendar((d.luma_calendar as string) ?? null),
   };
 }
 

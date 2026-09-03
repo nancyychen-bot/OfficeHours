@@ -54,7 +54,7 @@ export default async function ReadinessPage() {
             <div key={c.id} className={`rounded-md px-3 py-2 ${rowClass(c.issues)}`}>
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className="font-medium">{c.id}</span>
-                {c.city ? <span className="text-neutral-500">· {c.city}</span> : null}
+                {c.cities.length ? <span className="text-neutral-500">· {c.cities.join(", ")}</span> : null}
                 {c.calendarUrl ? (
                   <a href={c.calendarUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">
                     open in Luma ↗

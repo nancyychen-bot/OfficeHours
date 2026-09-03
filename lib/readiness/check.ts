@@ -8,7 +8,9 @@ import { evaluateEvent, evaluateCalendar, type Issue } from "./evaluate";
 
 export interface CalendarReport {
   id: string;
-  city: string | null;
+  /** Distinct cities of this calendar's events — a calendar can host many
+   * (North America = one calendar for NYC, SF, …). Empty until it has events. */
+  cities: string[];
   calendarId: string | null;
   calendarUrl: string | null;
   issues: Issue[];
@@ -40,16 +42,25 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
   const supabase = getAdminClient();
   const cals = await lumaCalendars();
   const knownIds = new Set(cals.map((c) => c.id));
-  // DB rows carry city + calendar_url + cal- id (env-only calendars won't be here;
-  // their URL still resolves via calendarUrlForCalendar → LUMA_CALENDAR_URL env).
+  // DB rows carry calendar_url + cal- id (env-only calendars won't be here; their
+  // URL still resolves via calendarUrlForCalendar → LUMA_CALENDAR_URL env).
   const dbById = new Map((await listLumaCalendarRows()).map((r) => [r.id, r]));
+
+  // Distinct cities each calendar actually hosts, across ALL its events (a master
+  // calendar spans many cities). null luma_calendar → the 'default' calendar.
+  const { data: cityRows } = await supabase.from("events").select("luma_calendar, city").not("city", "is", null);
+  const citiesByCal = new Map<string, Set<string>>();
+  for (const r of cityRows ?? []) {
+    const cid = (r.luma_calendar as string) || "default";
+    (citiesByCal.get(cid) ?? citiesByCal.set(cid, new Set()).get(cid)!).add(r.city as string);
+  }
 
   const calendars: CalendarReport[] = await Promise.all(
     cals.map(async (c) => {
       const row = dbById.get(c.id);
       return {
         id: c.id,
-        city: row?.city ?? null,
+        cities: [...(citiesByCal.get(c.id) ?? [])].sort(),
         calendarId: row?.calendarId ?? null,
         calendarUrl: row?.calendarUrl ?? (await calendarUrlForCalendar(c.id)),
         issues: evaluateCalendar({ keyValid: await validateLumaKey(c.apiKey), hasWebhookSecret: !!c.webhookSecret }),

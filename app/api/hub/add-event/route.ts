@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { verifyFormToken } from "@/lib/auth/form-token";
-import { registerEventFromLuma } from "@/lib/events/register";
+import { registerEventFromLuma, CalendarNotConnectedError } from "@/lib/events/register";
 import { lookupChannelIdByName } from "@/lib/slack/api";
 import { setCityChannelName } from "@/lib/db/slack";
+import { resolveNewCalendarEvent } from "@/lib/events/onboard";
+import { upsertLumaCalendar } from "@/lib/db/luma-calendars";
+import { __bustCalendarCache } from "@/lib/luma/calendars";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -28,11 +31,33 @@ export async function POST(req: Request) {
   const lengthRaw = String(form.get("length") ?? "").trim();
   const slotLengthMinutes = lengthRaw ? Number(lengthRaw) : undefined;
 
+  const calendarUrl = String(form.get("calendarUrl") ?? "").trim() || undefined;
+  const calendarApiKey = String(form.get("calendarApiKey") ?? "").trim() || undefined;
+  const calendarWebhookSecret = String(form.get("calendarWebhookSecret") ?? "").trim() || undefined;
+  const calendarSlug = String(form.get("calendarSlug") ?? "").trim() || undefined;
+
   try {
-    const result = await registerEventFromLuma({ lumaEvent, city, slotStart, slotLengthMinutes });
-    // Attach the channel to the event's city (best-effort; never fails the add).
-    // Surface a warning when the channel isn't actually postable yet, so a new
-    // city isn't silently saved unpostable (green success, no recruit posts).
+    let registerInput: { lumaEvent: string; city?: string; slotStart?: string; slotLengthMinutes?: number; publicUrl?: string } = { lumaEvent, city, slotStart, slotLengthMinutes };
+
+    // New calendar path: user supplied a key for an unconnected calendar.
+    if (calendarApiKey) {
+      const resolved = await resolveNewCalendarEvent({ lumaEvent, apiKey: calendarApiKey });
+      const id = (calendarSlug || resolved.city || resolved.calendarId || "calendar")
+        .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      await upsertLumaCalendar({
+        id,
+        apiKey: calendarApiKey,
+        webhookSecret: calendarWebhookSecret ?? null,
+        calendarId: resolved.calendarId,
+        city: resolved.city,
+        calendarUrl: calendarUrl ?? null,
+      });
+      __bustCalendarCache();
+      registerInput = { ...registerInput, lumaEvent: resolved.eventId, publicUrl: calendarUrl ?? undefined };
+    }
+
+    const result = await registerEventFromLuma(registerInput);
+
     let warning: string | undefined;
     if (result.city) {
       try {
@@ -46,23 +71,27 @@ export async function POST(req: Request) {
         warning = `Event added, but attaching the Slack channel failed — configure the channel for ${result.city} manually so recruit posts can send.`;
       }
     }
+
     return NextResponse.json({
       ok: true,
       ...(warning ? { warning } : {}),
-      event: {
-        name: result.eventName,
-        slots: result.inserted + result.updated,
-        importedGuests: result.importedGuests,
-      },
+      event: { name: result.eventName, slots: result.inserted + result.updated, importedGuests: result.importedGuests },
     });
   } catch (err) {
-    // This route is public + embeddable — don't echo raw internal/upstream
-    // error text (Luma API details, DB messages) to anonymous callers. Log the
-    // real error server-side; return a generic, actionable message.
+    if (err instanceof CalendarNotConnectedError && !calendarApiKey) {
+      // Not an error — prompt the operator to connect this calendar.
+      return NextResponse.json({
+        ok: false,
+        needsCalendar: true,
+        error:
+          "This event's Luma calendar isn't connected yet. Paste its Luma API key below to connect it (one-time), then add the event.",
+      });
+    }
     console.error("[add-event] register failed", err);
-    return NextResponse.json(
-      { ok: false, error: "Couldn't add that event. Check the Luma URL and try again." },
-      { status: 400 },
-    );
+    const msg =
+      err instanceof Error && /can't see this event/i.test(err.message)
+        ? err.message // surface the actionable key-validation message verbatim
+        : "Couldn't add that event. Check the Luma URL and try again.";
+    return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }

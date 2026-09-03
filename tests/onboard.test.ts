@@ -1,7 +1,21 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { resolveNewCalendarEvent } from "@/lib/events/onboard";
+import { resolveNewCalendarEvent, deriveCalendarId } from "@/lib/events/onboard";
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe("deriveCalendarId", () => {
+  it("normalizes the first usable part to a slug", () => {
+    expect(deriveCalendarId("London", null, null)).toBe("london");
+  });
+  it("skips a part that normalizes to empty and uses the next usable one", () => {
+    // "!!!" is truthy but normalizes to "" — must not win over a real city.
+    expect(deriveCalendarId("!!!", "San Francisco", "cal-x")).toBe("san-francisco");
+    expect(deriveCalendarId("東京", "Tokyo", null)).toBe("tokyo");
+  });
+  it("falls back to 'calendar' when nothing is usable (never an empty id)", () => {
+    expect(deriveCalendarId("  ", "", null)).toBe("calendar");
+  });
+});
 
 const page = {
   ok: true,

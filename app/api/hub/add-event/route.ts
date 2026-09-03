@@ -4,8 +4,8 @@ import { verifyFormToken } from "@/lib/auth/form-token";
 import { registerEventFromLuma, CalendarNotConnectedError } from "@/lib/events/register";
 import { lookupChannelIdByName } from "@/lib/slack/api";
 import { setCityChannelName } from "@/lib/db/slack";
-import { resolveNewCalendarEvent } from "@/lib/events/onboard";
-import { upsertLumaCalendar } from "@/lib/db/luma-calendars";
+import { resolveNewCalendarEvent, deriveCalendarId } from "@/lib/events/onboard";
+import { upsertLumaCalendar, getLumaCalendarByCalendarId } from "@/lib/db/luma-calendars";
 import { __bustCalendarCache } from "@/lib/luma/calendars";
 import { LumaUrlUnresolvedError } from "@/lib/luma/client";
 
@@ -43,8 +43,11 @@ export async function POST(req: Request) {
     // New calendar path: user supplied a key for an unconnected calendar.
     if (calendarApiKey) {
       const resolved = await resolveNewCalendarEvent({ lumaEvent, apiKey: calendarApiKey });
-      const id = (calendarSlug || resolved.city || resolved.calendarId || "calendar")
-        .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      // Reuse an existing row for the same Luma calendar (dedupe by cal- id) so a
+      // re-connect updates that calendar's credentials instead of creating a
+      // divergent slug; otherwise derive a stable, non-empty slug.
+      const existing = resolved.calendarId ? await getLumaCalendarByCalendarId(resolved.calendarId) : null;
+      const id = existing?.id ?? deriveCalendarId(calendarSlug, resolved.city, resolved.calendarId);
       await upsertLumaCalendar({
         id,
         apiKey: calendarApiKey,

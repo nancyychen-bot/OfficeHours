@@ -26,6 +26,10 @@ function envLumaCalendars(): LumaCalendar[] {
 }
 
 let cache: { at: number; cals: LumaCalendar[]; urls: Map<string, string | null> } | null = null;
+// 60s TTL: after connecting a new calendar, other warm serverless instances may
+// not see its webhook_secret for up to this long (an inbound webhook in that
+// window could 401). Self-healing — Luma retries and the TTL expires. The write
+// path calls __bustCalendarCache() so the connecting request itself is immediate.
 const TTL_MS = 60_000;
 
 /** Test-only: clear the cache so a re-read reflects new mocks/rows. */

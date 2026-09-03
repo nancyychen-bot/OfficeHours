@@ -19,6 +19,22 @@ export interface OnboardResolution {
 }
 
 /**
+ * Derive a stable, URL-safe calendar id (slug, = `events.luma_calendar`) from the
+ * preferred inputs in order. Normalizes each candidate BEFORE falling back, so a
+ * value that normalizes to empty (e.g. "!!!", non-ASCII) doesn't win over a usable
+ * later one and produce an unlookupable empty-string primary key. Always non-empty.
+ */
+export function deriveCalendarId(...parts: Array<string | null | undefined>): string {
+  const norm = (s: string | null | undefined) =>
+    (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  for (const p of parts) {
+    const n = norm(p);
+    if (n) return n;
+  }
+  return "calendar";
+}
+
+/**
  * Validate a pasted Luma API key against the event being added: list the key's
  * upcoming events and match by evt- id (if the input contains one) or vanity slug.
  * Returns the evt- id, the owning cal- id, and the event's city — all from the

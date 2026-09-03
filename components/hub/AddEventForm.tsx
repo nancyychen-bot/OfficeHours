@@ -36,18 +36,6 @@ export function AddEventForm({ token }: { token: string }) {
         <span className="text-neutral-600">Slack channel *</span>
         <input name="slackChannel" required placeholder="#build-bar-nyc" className={`mt-1 ${field}`} />
       </label>
-      <label className="block text-sm">
-        <span className="text-neutral-600">Luma calendar URL</span>
-        <input name="calendarUrl" placeholder="https://luma.com/notion-london" className={`mt-1 ${field}`} />
-      </label>
-      <details className="text-sm">
-        <summary className="cursor-pointer text-neutral-500">Optional overrides</summary>
-        <div className="mt-2 space-y-2">
-          <input name="city" placeholder="City (defaults to Luma address)" className={field} />
-          <input name="slotStart" placeholder="First slot start (ISO, e.g. 2026-08-26T21:00:00Z)" className={field} />
-          <input name="length" placeholder="Slot length minutes (default 30)" className={field} />
-        </div>
-      </details>
       {needsCalendar ? (
         <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
           <p className="font-medium text-amber-900">Connect this Luma calendar (one-time)</p>
@@ -56,9 +44,10 @@ export function AddEventForm({ token }: { token: string }) {
             <strong>Settings → Options → Luma API</strong>, copy the <code>secret-…</code> key, and paste it here.
             (Optional: a Webhook secret from the same page enables live guest sync.)
           </p>
-          <input name="calendarApiKey" placeholder="secret-… (Luma API key)" className={field} />
+          <input name="calendarApiKey" required placeholder="secret-… (Luma API key)" className={field} />
           <input name="calendarWebhookSecret" placeholder="Webhook secret (optional)" className={field} />
-          <input name="calendarSlug" placeholder="Short id for this calendar (e.g. london)" className={field} />
+          <input name="calendarUrl" required placeholder="Luma calendar URL (e.g. https://luma.com/notion-korea)" className={field} />
+          <input name="calendarSlug" required placeholder="Short id for this calendar (e.g. korea)" className={field} />
         </div>
       ) : null}
       <button

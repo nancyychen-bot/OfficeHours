@@ -6,7 +6,7 @@ type Result =
   | { ok: true; warning?: string; event: { name: string; slots: number; importedGuests: number } }
   | { ok: false; needsCalendar?: boolean; error: string };
 
-export function AddEventForm({ token }: { token: string }) {
+export function AddEventForm({ token, webhookUrl }: { token: string; webhookUrl: string }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [needsCalendar, setNeedsCalendar] = useState(false);
@@ -41,13 +41,18 @@ export function AddEventForm({ token }: { token: string }) {
           <p className="font-medium text-amber-900">Connect this Luma calendar (one-time)</p>
           <p className="text-amber-800">
             We don&apos;t have an API key for this event&apos;s calendar yet. In Luma, open the calendar →{" "}
-            <strong>Settings → Options → Luma API</strong>, copy the <code>secret-…</code> key, and paste it here.
-            (Optional: a Webhook secret from the same page enables live guest sync.)
+            <strong>Settings → Options → Luma API</strong>, copy the <code>secret-…</code> key, and paste it below.
           </p>
+          <p className="text-amber-800">
+            <strong>Optional — live guest sync:</strong> on that same Luma API page, add a webhook pointing to{" "}
+            <code className="break-all rounded bg-amber-100 px-1 py-0.5">{webhookUrl}</code>, then paste the signing
+            secret it gives you into the Webhook secret field. You can skip this and add it later.
+          </p>
+          <p className="font-semibold text-amber-900">Ask Nancy Chen to help you if you&apos;re stuck here.</p>
           <input name="calendarApiKey" required placeholder="secret-… (Luma API key)" className={field} />
           <input name="calendarWebhookSecret" placeholder="Webhook secret (optional)" className={field} />
           <input name="calendarUrl" required placeholder="Luma calendar URL (e.g. https://luma.com/notion-korea)" className={field} />
-          <input name="calendarSlug" required placeholder="Short id for this calendar (e.g. korea)" className={field} />
+          <input name="calendarSlug" required placeholder="Short id / location for this calendar (e.g. london or korea)" className={field} />
         </div>
       ) : null}
       <button

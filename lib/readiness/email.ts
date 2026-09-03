@@ -1,6 +1,12 @@
 import { sendEmail } from "../email/resend";
-import { listAdmins } from "../db/admins";
 import { problemsOnly, type CalendarReport, type EventReport, type ReadinessReport } from "./check";
+
+/** Who gets the setup-problem alert. Defaults to Nancy; override with a
+ * comma-separated READINESS_ALERT_EMAILS env var if the recipients change. */
+function alertRecipients(): string[] {
+  const configured = process.env.READINESS_ALERT_EMAILS?.split(",").map((s) => s.trim()).filter(Boolean);
+  return configured?.length ? configured : ["nchen@makenotion.com"];
+}
 
 const icon = (level: string) => (level === "error" ? "🔴" : "🟠");
 
@@ -60,14 +66,13 @@ function escapeHtml(s: string): string {
 export async function emailReadinessProblems(report: ReadinessReport, baseUrl: string): Promise<number> {
   const { calendars, events } = problemsOnly(report);
   if (!calendars.length && !events.length) return 0;
-  const admins = await listAdmins();
-  if (!admins.length) return 0;
+  const recipients = alertRecipients();
 
   const subject = `⚠️ Build Bar setup needs attention (${report.errorCount} error${report.errorCount === 1 ? "" : "s"}, ${report.warnCount} warning${report.warnCount === 1 ? "" : "s"})`;
   const html = renderHtml(calendars, events, baseUrl);
   const text = renderText(calendars, events, baseUrl);
   let sent = 0;
-  for (const to of admins) {
+  for (const to of recipients) {
     try {
       await sendEmail({ to, subject, html, text });
       sent++;

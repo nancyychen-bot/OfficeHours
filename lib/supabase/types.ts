@@ -430,6 +430,39 @@ export type Database = {
           },
         ]
       }
+      luma_calendars: {
+        Row: {
+          api_key: string
+          calendar_id: string | null
+          calendar_url: string | null
+          city: string | null
+          created_at: string
+          id: string
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          api_key: string
+          calendar_id?: string | null
+          calendar_url?: string | null
+          city?: string | null
+          created_at?: string
+          id: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          api_key?: string
+          calendar_id?: string | null
+          calendar_url?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: []
+      }
       slack_channels: {
         Row: {
           aliases: string[]

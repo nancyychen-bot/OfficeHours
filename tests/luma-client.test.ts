@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus, fetchEventStats } from "@/lib/luma/client";
+import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus, fetchEventStats, LumaUrlUnresolvedError } from "@/lib/luma/client";
 import type { LumaRegistrationQuestion } from "@/lib/luma/types";
 
 describe("parseLumaEventId", () => {
@@ -81,8 +81,9 @@ describe("resolveLumaEventId", () => {
     expect(await resolveLumaEventId("https://luma.com/g95pjn8u")).toBe("evt-VANITY9zzz");
   });
 
-  it("throws when the vanity page has no evt- id", async () => {
+  it("throws a typed LumaUrlUnresolvedError when a URL resolves to no connected calendar (so the route can prompt to connect it)", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => "<html>nope</html>" } as Response)));
+    await expect(resolveLumaEventId("https://luma.com/nope")).rejects.toBeInstanceOf(LumaUrlUnresolvedError);
     await expect(resolveLumaEventId("https://luma.com/nope")).rejects.toThrow(/No evt- id/);
   });
 

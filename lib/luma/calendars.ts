@@ -1,29 +1,15 @@
-/**
- * A Luma calendar the hub integrates with. Each has its own API key (for outbound
- * calls) and, optionally, a webhook signing secret (for inbound verification).
- */
+import { listLumaCalendarRows, type LumaCalendarRow } from "../db/luma-calendars";
+
 export interface LumaCalendar {
   id: string;
   apiKey: string;
   webhookSecret: string | null;
 }
 
-/**
- * Discover the configured Luma calendars from the environment:
- *  - `default` — the original `LUMA_API_KEY` / `LUMA_WEBHOOK_SECRET`.
- *  - one per `LUMA_API_KEY_<SUFFIX>` var (id = lowercased suffix), its secret from
- *    `LUMA_WEBHOOK_SECRET_<SUFFIX>` (e.g. `LUMA_API_KEY_SYDNEY` → id `sydney`).
- *
- * Adding a calendar is env-only — no code change.
- */
-export function lumaCalendars(): LumaCalendar[] {
+/** Env-defined calendars (the original keyring). Retained so unsetting DB rows
+ * or the DB being unreachable still leaves existing calendars working. */
+function envLumaCalendars(): LumaCalendar[] {
   const cals: LumaCalendar[] = [];
-  // The `default` calendar is included only when LUMA_API_KEY is actually set, so
-  // retiring the original calendar (unsetting the var) doesn't crash the shared
-  // webhook — which loads this on every request via lumaWebhookSecrets(). A code
-  // path that genuinely needs the default key still gets a clear error from
-  // apiKeyForCalendar("default"). Read directly (not env.luma.apiKey()'s
-  // required()) so this never throws.
   if (process.env.LUMA_API_KEY) {
     cals.push({ id: "default", apiKey: process.env.LUMA_API_KEY, webhookSecret: process.env.LUMA_WEBHOOK_SECRET || null });
   }
@@ -39,37 +25,63 @@ export function lumaCalendars(): LumaCalendar[] {
   return cals;
 }
 
-/**
- * The API key for a calendar id. `null`/`undefined`/empty → the `default`
- * calendar (existing events carry no tag). An unknown, non-default id throws —
- * that's a misconfiguration (the calendar's key isn't set), not a silent fallback.
- */
-export function apiKeyForCalendar(id: string | null | undefined): string {
+let cache: { at: number; cals: LumaCalendar[]; urls: Map<string, string | null> } | null = null;
+// 60s TTL: after connecting a new calendar, other warm serverless instances may
+// not see its webhook_secret for up to this long (an inbound webhook in that
+// window could 401). Self-healing — Luma retries and the TTL expires. The write
+// path calls __bustCalendarCache() so the connecting request itself is immediate.
+const TTL_MS = 60_000;
+
+/** Test-only: clear the cache so a re-read reflects new mocks/rows. */
+export function __bustCalendarCache(): void {
+  cache = null;
+}
+
+async function load(): Promise<{ cals: LumaCalendar[]; urls: Map<string, string | null> }> {
+  if (cache && Date.now() - cache.at < TTL_MS) return cache;
+  let rows: LumaCalendarRow[] = [];
+  try {
+    rows = await listLumaCalendarRows();
+  } catch {
+    rows = []; // fail-open to env — a DB blip must not break webhook verification
+  }
+  const byId = new Map<string, LumaCalendar>();
+  const urls = new Map<string, string | null>();
+  for (const c of envLumaCalendars()) byId.set(c.id, c);
+  for (const r of rows) {
+    byId.set(r.id, { id: r.id, apiKey: r.apiKey, webhookSecret: r.webhookSecret }); // DB wins
+    urls.set(r.id, r.calendarUrl);
+  }
+  cache = { at: Date.now(), cals: [...byId.values()], urls };
+  return cache;
+}
+
+/** Discover the configured Luma calendars (DB rows merged over env; DB wins). */
+export async function lumaCalendars(): Promise<LumaCalendar[]> {
+  return (await load()).cals;
+}
+
+/** The API key for a calendar id; empty/undefined → 'default'. Throws if unknown. */
+export async function apiKeyForCalendar(id: string | null | undefined): Promise<string> {
   const cid = id || "default";
-  const cal = lumaCalendars().find((c) => c.id === cid);
+  const cal = (await lumaCalendars()).find((c) => c.id === cid);
   if (!cal) {
     const varName = cid === "default" ? "LUMA_API_KEY" : `LUMA_API_KEY_${cid.toUpperCase()}`;
-    throw new Error(`Unknown Luma calendar "${cid}" — ${varName} is not configured.`);
+    throw new Error(`Unknown Luma calendar "${cid}" — not in luma_calendars and ${varName} is not set.`);
   }
   return cal.apiKey;
 }
 
-/**
- * The public Luma calendar URL for a calendar id (for the "follow our calendar"
- * link in guest emails), or null if none is configured. Env-driven, mirroring the
- * key keyring: `LUMA_CALENDAR_URL` for `default`, `LUMA_CALENDAR_URL_<SUFFIX>` for
- * each named calendar (e.g. `LUMA_CALENDAR_URL_SYDNEY`). Null → the caller falls
- * back to the global community calendar, so this is safe to adopt incrementally.
- */
-export function calendarUrlForCalendar(id: string | null | undefined): string | null {
+/** The public calendar URL for a calendar id (DB row, else env), or null. */
+export async function calendarUrlForCalendar(id: string | null | undefined): Promise<string | null> {
   const cid = id || "default";
+  const fromDb = (await load()).urls.get(cid);
+  if (fromDb) return fromDb;
   const suffix = cid === "default" ? "" : `_${cid.toUpperCase()}`;
   return process.env[`LUMA_CALENDAR_URL${suffix}`] || null;
 }
 
-/** Every configured webhook signing secret, for multi-calendar inbound verification. */
-export function lumaWebhookSecrets(): string[] {
-  return lumaCalendars()
-    .map((c) => c.webhookSecret)
-    .filter((s): s is string => !!s);
+/** Every configured webhook signing secret, for multi-calendar inbound verify. */
+export async function lumaWebhookSecrets(): Promise<string[]> {
+  return (await lumaCalendars()).map((c) => c.webhookSecret).filter((s): s is string => !!s);
 }

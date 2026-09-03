@@ -49,7 +49,7 @@ const DECLINE_CONCURRENCY = 5;
 export async function declinePendingForEvent(eventId: string): Promise<number> {
   const pendings = selectDeclinablePendings(await listBookingsForEvent(eventId));
   // Resolve the owning calendar's key once — every pending shares this event.
-  const apiKey = apiKeyForCalendar((await getEventById(eventId))?.luma_calendar);
+  const apiKey = await apiKeyForCalendar((await getEventById(eventId))?.luma_calendar);
   let declined = 0;
   let cursor = 0;
 

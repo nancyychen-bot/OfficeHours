@@ -22,22 +22,17 @@ function slugFromUrl(u: string): string | null {
   }
 }
 
-interface CalEventEntry {
-  id: string; // evt-…
-  url?: string; // public vanity URL
-}
-interface CalEventsPage {
-  entries?: CalEventEntry[];
-  has_more?: boolean;
-  next_cursor?: string;
+export interface UpcomingCalEvent {
+  id: string;        // evt-…
+  url: string | null;
+  calendarId: string | null;
+  city: string | null;
 }
 
-/** Find the `evt-` id of the calendar's upcoming event whose vanity slug matches,
- * or null. Scans only upcoming events (2-day back-buffer) — an event being added
- * is always upcoming, so even a busy calendar stays a page or two. Throws on a
- * non-2xx so the caller can fall through to the next calendar. */
-async function findEventIdInCalendar(apiKey: string, slug: string): Promise<string | null> {
+/** All upcoming events for a calendar key (2-day back-buffer), paginated. */
+export async function listUpcomingCalendarEvents(apiKey: string): Promise<UpcomingCalEvent[]> {
   const after = new Date(Date.now() - 2 * 86_400_000).toISOString();
+  const out: UpcomingCalEvent[] = [];
   let cursor: string | undefined;
   do {
     const url = new URL(`${BASE}/v1/calendars/events/list`);
@@ -46,12 +41,26 @@ async function findEventIdInCalendar(apiKey: string, slug: string): Promise<stri
     if (cursor) url.searchParams.set("pagination_cursor", cursor);
     const res = await fetch(url, { headers: { "x-luma-api-key": apiKey } });
     if (!res.ok) throw new Error(`Luma calendars/events/list failed: HTTP ${res.status}`);
-    const body = (await res.json()) as CalEventsPage;
+    const body = (await res.json()) as {
+      entries?: Array<{ id: string; url?: string; calendar_id?: string; geo_address_json?: { city?: string } }>;
+      has_more?: boolean; next_cursor?: string;
+    };
     for (const e of body.entries ?? []) {
-      if (e.url && slugFromUrl(e.url) === slug) return e.id;
+      out.push({ id: e.id, url: e.url ?? null, calendarId: e.calendar_id ?? null, city: e.geo_address_json?.city ?? null });
     }
     cursor = body.has_more && body.next_cursor ? body.next_cursor : undefined;
   } while (cursor);
+  return out;
+}
+
+/** Find the `evt-` id of the calendar's upcoming event whose vanity slug matches,
+ * or null. Scans only upcoming events (2-day back-buffer) — an event being added
+ * is always upcoming, so even a busy calendar stays a page or two. Throws on a
+ * non-2xx so the caller can fall through to the next calendar. */
+async function findEventIdInCalendar(apiKey: string, slug: string): Promise<string | null> {
+  for (const e of await listUpcomingCalendarEvents(apiKey)) {
+    if (e.url && slugFromUrl(e.url) === slug) return e.id;
+  }
   return null;
 }
 
@@ -63,7 +72,7 @@ async function findEventIdInCalendar(apiKey: string, slug: string): Promise<stri
 async function resolveEventIdViaCalendars(vanityUrl: string): Promise<string | null> {
   const slug = slugFromUrl(vanityUrl);
   if (!slug) return null;
-  for (const cal of lumaCalendars()) {
+  for (const cal of await lumaCalendars()) {
     try {
       const id = await findEventIdInCalendar(cal.apiKey, slug);
       if (id) return id;
@@ -72,6 +81,20 @@ async function resolveEventIdViaCalendars(vanityUrl: string): Promise<string | n
     }
   }
   return null;
+}
+
+/** A URL that couldn't be resolved to an `evt-` id via any connected calendar
+ * (nor the page scrape). For the add-event flow this signals "this event's
+ * calendar isn't connected" — the caller prompts to connect it — rather than a
+ * generic failure. */
+export class LumaUrlUnresolvedError extends Error {
+  constructor(
+    public url: string,
+    detail: string,
+  ) {
+    super(detail);
+    this.name = "LumaUrlUnresolvedError";
+  }
 }
 
 /** Extract an `evt-…` id from a raw id or a URL/string that contains one. */
@@ -117,12 +140,12 @@ export async function resolveLumaEventId(input: string): Promise<string> {
       signal: AbortSignal.timeout(15000),
     });
   } catch (err) {
-    throw new Error(`Could not load Luma page ${url}: ${err instanceof Error ? err.message : String(err)}`);
+    throw new LumaUrlUnresolvedError(url, `Could not load Luma page ${url}: ${err instanceof Error ? err.message : String(err)}`);
   }
-  if (!res.ok) throw new Error(`Could not load Luma page ${url}: HTTP ${res.status}`);
+  if (!res.ok) throw new LumaUrlUnresolvedError(url, `Could not load Luma page ${url}: HTTP ${res.status}`);
   const found = (await res.text()).match(/evt-[A-Za-z0-9]+/);
   if (found) return found[0];
-  throw new Error(`No evt- id found on Luma page ${url}`);
+  throw new LumaUrlUnresolvedError(url, `No evt- id found on Luma page ${url}`);
 }
 
 /**

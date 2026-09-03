@@ -4,11 +4,12 @@ import { useState } from "react";
 
 type Result =
   | { ok: true; warning?: string; event: { name: string; slots: number; importedGuests: number } }
-  | { ok: false; error: string };
+  | { ok: false; needsCalendar?: boolean; error: string };
 
 export function AddEventForm({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [needsCalendar, setNeedsCalendar] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -16,7 +17,9 @@ export function AddEventForm({ token }: { token: string }) {
     setResult(null);
     const body = new FormData(e.currentTarget);
     const res = await fetch("/api/hub/add-event", { method: "POST", body });
-    setResult((await res.json()) as Result);
+    const data = (await res.json()) as Result;
+    setResult(data);
+    if (!data.ok && data.needsCalendar) setNeedsCalendar(true);
     setBusy(false);
   }
 
@@ -33,6 +36,10 @@ export function AddEventForm({ token }: { token: string }) {
         <span className="text-neutral-600">Slack channel *</span>
         <input name="slackChannel" required placeholder="#build-bar-nyc" className={`mt-1 ${field}`} />
       </label>
+      <label className="block text-sm">
+        <span className="text-neutral-600">Luma calendar URL</span>
+        <input name="calendarUrl" placeholder="https://luma.com/notion-london" className={`mt-1 ${field}`} />
+      </label>
       <details className="text-sm">
         <summary className="cursor-pointer text-neutral-500">Optional overrides</summary>
         <div className="mt-2 space-y-2">
@@ -41,6 +48,19 @@ export function AddEventForm({ token }: { token: string }) {
           <input name="length" placeholder="Slot length minutes (default 30)" className={field} />
         </div>
       </details>
+      {needsCalendar ? (
+        <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+          <p className="font-medium text-amber-900">Connect this Luma calendar (one-time)</p>
+          <p className="text-amber-800">
+            We don&apos;t have an API key for this event&apos;s calendar yet. In Luma, open the calendar →{" "}
+            <strong>Settings → Options → Luma API</strong>, copy the <code>secret-…</code> key, and paste it here.
+            (Optional: a Webhook secret from the same page enables live guest sync.)
+          </p>
+          <input name="calendarApiKey" placeholder="secret-… (Luma API key)" className={field} />
+          <input name="calendarWebhookSecret" placeholder="Webhook secret (optional)" className={field} />
+          <input name="calendarSlug" placeholder="Short id for this calendar (e.g. london)" className={field} />
+        </div>
+      ) : null}
       <button
         type="submit"
         disabled={busy}

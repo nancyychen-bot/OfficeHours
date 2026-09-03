@@ -46,7 +46,7 @@ function approvalDeps(direction: SyncDirection, bookingId: string): ApplyDeps {
     pushToWorkspaces: (b) => pushBookingToWorkspaces(b),
     updateGuestOnLuma: async (eventLumaId, guestLumaId, next) => {
       const cal = (await getEventByLumaId(eventLumaId))?.luma_calendar;
-      await updateGuestStatus({ eventLumaId, guestLumaId, status: next, apiKey: apiKeyForCalendar(cal) });
+      await updateGuestStatus({ eventLumaId, guestLumaId, status: next, apiKey: await apiKeyForCalendar(cal) });
     },
     sendComms: (bid, kind) => sendBookingComms(bid, kind),
     getEventLumaId: async (eventId) => (await getEventById(eventId))?.luma_event_id ?? null,

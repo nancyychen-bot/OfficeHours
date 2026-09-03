@@ -1,5 +1,12 @@
 import { getLumaEvent, extractSlotOptions, resolveLumaEventId } from "../luma/client";
 import { lumaCalendars } from "../luma/calendars";
+
+export class CalendarNotConnectedError extends Error {
+  constructor(public eventId: string) {
+    super(`Luma event ${eventId} is not on any connected calendar.`);
+    this.name = "CalendarNotConnectedError";
+  }
+}
 import type { LumaEventDetail } from "../luma/types";
 import { generateSlotsFromOptions } from "./slots-gen";
 import { reconcileSlots } from "./reconcile";
@@ -62,7 +69,7 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
   let detail: LumaEventDetail | null = null;
   let calendarId = "default";
   let apiKey = "";
-  for (const cal of lumaCalendars()) {
+  for (const cal of await lumaCalendars()) {
     try {
       detail = await getLumaEvent(eventId, cal.apiKey);
       calendarId = cal.id;
@@ -73,9 +80,7 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     }
   }
   if (!detail) {
-    throw new Error(
-      `Luma event ${eventId} not found in any configured calendar — check the URL, or that the owning calendar's API key is set.`,
-    );
+    throw new CalendarNotConnectedError(eventId);
   }
 
   const timezone = requireTimezone(detail.timezone, detail.id);

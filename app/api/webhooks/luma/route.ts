@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   // Multi-calendar: accept a signature from ANY configured calendar's secret.
   // Routing to the right event is by luma_event_id (globally unique), not by which
   // secret matched — so a shared endpoint serves every calendar safely.
-  const secrets = lumaWebhookSecrets();
+  const secrets = await lumaWebhookSecrets();
   const signatureHeader = req.headers.get("Webhook-Signature");
 
   if (secrets.length > 0) {

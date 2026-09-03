@@ -13,16 +13,36 @@ Onboarding a new Luma calendar today means adding ~3 env vars
 `LUMA_CALENDAR_URL_<SUFFIX>`) in Vercel **and redeploying**. Scaling to ~10 cities
 means ~30 env vars and a deploy per city, and it's engineer-only.
 
-Worse, when a calendar isn't connected, `registerEventFromLuma` throws "not found
-in any configured calendar," which `POST /api/hub/add-event` rewrites to the
-generic, misleading **"Couldn't add that event. Check the Luma URL and try
-again."** — even though the URL is fine. (This is exactly how the SF event
-`evt-lv9PkzKdC2cvTms`, on calendar `cal-ZDQrtBgbNzSJZkh` = "Notion Build Bar SF",
-failed: only `default` (US/NYC) and `sydney` keys are configured.)
+Luma issues API keys **per calendar** — there is no org-wide key — so scaling to
+new regions means one key + one webhook secret **per calendar**. Note: a single
+Luma calendar hosts many cities. North America is **one** master calendar
+(`cal-ZDQrtBgbNzSJZkh`) covering NY, SF, … under the `default` key; the per-city
+value on `events.luma_calendar` is derived from the event's address, not the
+calendar. So the ~10 calendars this system onboards are **international/regional**
+(Sydney + future), not 10 US cities.
 
-Luma issues API keys **per calendar** — there is no org-wide key — so 10 cities
-genuinely means 10 keys + 10 webhook secrets. The system is about how we
-**store, route, and onboard** those, not avoiding them.
+### The SF incident was a DIFFERENT bug (not a missing calendar)
+
+The SF event `evt-lv9PkzKdC2cvTms` ("Notion Build Bar SF") is on the **same
+master NA calendar** as NY — the `default` key already owns it. Verified against
+the live API: the key returns 200, `timezone='America/Los_Angeles'`,
+`geo_address_json.city='San Francisco'`, 7 registration questions — every
+downstream step in `registerEventFromLuma` is healthy and identical to NY.
+
+The only failing step is **`resolveLumaEventId` scraping the vanity page from
+Vercel** (`lib/luma/client.ts:38`). Luma is Cloudflare-fronted; Vercel's plain
+`fetch()` with UA `NotionBuildBarHub/1.0` from a datacenter IP gets challenged
+(403 / interstitial with no `evt-`), which throws and `POST /api/hub/add-event`
+rewrites to the generic, misleading **"Couldn't add that event. Check the Luma
+URL and try again."** NY works because it was added by `evt-` id (no scrape).
+
+**Fix:** resolve vanity URLs via the authenticated API, not HTML scraping —
+`GET /v1/calendars/events/list` returns every event with its `api_id` and its
+vanity `url`. Match the pasted URL against the calendar's events → get the `evt-`
+id **and** confirm the owning calendar in one `public-api.luma.com` call (reliable
+from Vercel). Bound the busy-calendar pagination (date filter / cap), with a
+browser-UA scrape as a fast path and the API-match as the reliable fallback. Also
+fix the error message so a genuine scrape/resolution failure says so.
 
 ## Goals
 
@@ -97,9 +117,14 @@ Same four function names; read from the table instead of `process.env`.
 The single form does calendar onboarding just-in-time. No separate "add a city"
 form.
 
-1. Paste the Luma URL → server scrapes **both** `evt-…` and `cal-…` from the
-   public page HTML (both present without auth; verified on the live SF page).
-2. Look up `cal-…` in `luma_calendars`:
+1. Paste the Luma URL → server resolves it to an `evt-…` id. Preferred path:
+   match the vanity `url` via `GET /v1/calendars/events/list` across configured
+   calendar keys (reliable, authenticated, and identifies the owning calendar).
+   Fast path/fallback: a browser-UA fetch of the page's `evt-`/`cal-` meta tags.
+   (The old plain-`fetch` scrape is what broke SF — see the SF incident above.)
+2. For a URL that resolves via a **configured** calendar, that calendar is already
+   known — register immediately. For an id resolved with no configured owner, fall
+   back to the `cal-…` from the page and look it up in `luma_calendars`:
    - **Known** → register the event immediately (90% path once cities are set up).
    - **Unknown** → do **not** error. Respond `{ needsCalendar: true, calendarId,
      suggestedCity, suggestedName }` and the form **reveals** fields: API key

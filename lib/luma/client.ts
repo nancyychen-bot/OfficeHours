@@ -22,22 +22,17 @@ function slugFromUrl(u: string): string | null {
   }
 }
 
-interface CalEventEntry {
-  id: string; // evt-…
-  url?: string; // public vanity URL
-}
-interface CalEventsPage {
-  entries?: CalEventEntry[];
-  has_more?: boolean;
-  next_cursor?: string;
+export interface UpcomingCalEvent {
+  id: string;        // evt-…
+  url: string | null;
+  calendarId: string | null;
+  city: string | null;
 }
 
-/** Find the `evt-` id of the calendar's upcoming event whose vanity slug matches,
- * or null. Scans only upcoming events (2-day back-buffer) — an event being added
- * is always upcoming, so even a busy calendar stays a page or two. Throws on a
- * non-2xx so the caller can fall through to the next calendar. */
-async function findEventIdInCalendar(apiKey: string, slug: string): Promise<string | null> {
+/** All upcoming events for a calendar key (2-day back-buffer), paginated. */
+export async function listUpcomingCalendarEvents(apiKey: string): Promise<UpcomingCalEvent[]> {
   const after = new Date(Date.now() - 2 * 86_400_000).toISOString();
+  const out: UpcomingCalEvent[] = [];
   let cursor: string | undefined;
   do {
     const url = new URL(`${BASE}/v1/calendars/events/list`);
@@ -46,12 +41,26 @@ async function findEventIdInCalendar(apiKey: string, slug: string): Promise<stri
     if (cursor) url.searchParams.set("pagination_cursor", cursor);
     const res = await fetch(url, { headers: { "x-luma-api-key": apiKey } });
     if (!res.ok) throw new Error(`Luma calendars/events/list failed: HTTP ${res.status}`);
-    const body = (await res.json()) as CalEventsPage;
+    const body = (await res.json()) as {
+      entries?: Array<{ id: string; url?: string; calendar_id?: string; geo_address_json?: { city?: string } }>;
+      has_more?: boolean; next_cursor?: string;
+    };
     for (const e of body.entries ?? []) {
-      if (e.url && slugFromUrl(e.url) === slug) return e.id;
+      out.push({ id: e.id, url: e.url ?? null, calendarId: e.calendar_id ?? null, city: e.geo_address_json?.city ?? null });
     }
     cursor = body.has_more && body.next_cursor ? body.next_cursor : undefined;
   } while (cursor);
+  return out;
+}
+
+/** Find the `evt-` id of the calendar's upcoming event whose vanity slug matches,
+ * or null. Scans only upcoming events (2-day back-buffer) — an event being added
+ * is always upcoming, so even a busy calendar stays a page or two. Throws on a
+ * non-2xx so the caller can fall through to the next calendar. */
+async function findEventIdInCalendar(apiKey: string, slug: string): Promise<string | null> {
+  for (const e of await listUpcomingCalendarEvents(apiKey)) {
+    if (e.url && slugFromUrl(e.url) === slug) return e.id;
+  }
   return null;
 }
 

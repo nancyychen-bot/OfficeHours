@@ -1,5 +1,6 @@
 import { getAdminClient } from "../supabase/admin";
-import { lumaCalendars } from "../luma/calendars";
+import { lumaCalendars, calendarUrlForCalendar } from "../luma/calendars";
+import { listLumaCalendarRows } from "../db/luma-calendars";
 import { validateLumaKey } from "../luma/client";
 import { getSlackChannelForCity } from "../db/slack";
 import { isBotInChannel } from "../slack/api";
@@ -7,6 +8,9 @@ import { evaluateEvent, evaluateCalendar, type Issue } from "./evaluate";
 
 export interface CalendarReport {
   id: string;
+  city: string | null;
+  calendarId: string | null;
+  calendarUrl: string | null;
   issues: Issue[];
 }
 export interface EventReport {
@@ -36,12 +40,21 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
   const supabase = getAdminClient();
   const cals = await lumaCalendars();
   const knownIds = new Set(cals.map((c) => c.id));
+  // DB rows carry city + calendar_url + cal- id (env-only calendars won't be here;
+  // their URL still resolves via calendarUrlForCalendar → LUMA_CALENDAR_URL env).
+  const dbById = new Map((await listLumaCalendarRows()).map((r) => [r.id, r]));
 
   const calendars: CalendarReport[] = await Promise.all(
-    cals.map(async (c) => ({
-      id: c.id,
-      issues: evaluateCalendar({ keyValid: await validateLumaKey(c.apiKey), hasWebhookSecret: !!c.webhookSecret }),
-    })),
+    cals.map(async (c) => {
+      const row = dbById.get(c.id);
+      return {
+        id: c.id,
+        city: row?.city ?? null,
+        calendarId: row?.calendarId ?? null,
+        calendarUrl: row?.calendarUrl ?? (await calendarUrlForCalendar(c.id)),
+        issues: evaluateCalendar({ keyValid: await validateLumaKey(c.apiKey), hasWebhookSecret: !!c.webhookSecret }),
+      };
+    }),
   );
 
   const today = new Date().toISOString().slice(0, 10);

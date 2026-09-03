@@ -41,15 +41,30 @@ export default async function ReadinessPage() {
         )}
       </p>
 
-      <h2 className="mt-6 text-sm font-semibold text-neutral-700">Calendars</h2>
+      <h2 className="mt-6 text-sm font-semibold text-neutral-700">
+        Connected calendars ({report.calendars.length})
+      </h2>
       <div className="mt-2 space-y-2 text-sm">
         {report.calendars.length === 0 ? (
           <p className="text-neutral-500">No calendars connected yet.</p>
         ) : (
           report.calendars.map((c: CalendarReport) => (
             <div key={c.id} className={`rounded-md px-3 py-2 ${rowClass(c.issues)}`}>
-              <div className="font-medium">{c.id}</div>
-              <IssueList issues={c.issues} />
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className="font-medium">{c.id}</span>
+                {c.city ? <span className="text-neutral-500">· {c.city}</span> : null}
+                {c.calendarUrl ? (
+                  <a href={c.calendarUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">
+                    open in Luma ↗
+                  </a>
+                ) : (
+                  <span className="text-neutral-400">no calendar URL</span>
+                )}
+                {c.calendarId ? <span className="ml-auto font-mono text-xs text-neutral-400">{c.calendarId}</span> : null}
+              </div>
+              <div className="mt-0.5">
+                <IssueList issues={c.issues} />
+              </div>
             </div>
           ))
         )}

@@ -15,7 +15,11 @@ describe("parseLumaEventId", () => {
 });
 
 describe("resolveLumaEventId", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    delete process.env.LUMA_API_KEY;
+  });
 
   it("returns an evt- id (or one embedded in a URL) without fetching", async () => {
     const fetchMock = vi.fn();
@@ -25,7 +29,51 @@ describe("resolveLumaEventId", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("resolves a vanity URL by extracting the evt- id from the page HTML", async () => {
+  it("resolves a vanity URL via the calendars/events/list API (no page scrape)", async () => {
+    // A configured calendar means resolution goes through the authenticated API,
+    // which is reliable from datacenter IPs (unlike scraping the public page).
+    process.env.LUMA_API_KEY = "test-key";
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      expect(u).toContain("/v1/calendars/events/list");
+      return {
+        ok: true,
+        json: async () => ({
+          entries: [
+            { id: "evt-OTHER", url: "https://luma.com/something-else" },
+            { id: "evt-MATCH9", url: "https://luma.com/buildbar-sf-oct" },
+          ],
+          has_more: false,
+        }),
+      } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await resolveLumaEventId("https://luma.com/buildbar-sf-oct")).toBe("evt-MATCH9");
+  });
+
+  it("matches by slug regardless of lu.ma vs luma.com host", async () => {
+    process.env.LUMA_API_KEY = "test-key";
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ entries: [{ id: "evt-MATCH9", url: "https://luma.com/buildbar-sf-oct" }], has_more: false }),
+    } as Response)));
+    // User pasted the lu.ma host; Luma stores luma.com — still the same slug.
+    expect(await resolveLumaEventId("https://lu.ma/buildbar-sf-oct")).toBe("evt-MATCH9");
+  });
+
+  it("falls back to page scraping when no connected calendar lists the event", async () => {
+    process.env.LUMA_API_KEY = "test-key";
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes("/v1/calendars/events/list")) {
+        return { ok: true, json: async () => ({ entries: [], has_more: false }) } as Response;
+      }
+      return { ok: true, text: async () => '<html><script>{"id":"evt-SCRAPED1"}</script></html>' } as Response;
+    }));
+    expect(await resolveLumaEventId("https://luma.com/unlisted")).toBe("evt-SCRAPED1");
+  });
+
+  it("resolves a vanity URL by extracting the evt- id from the page HTML (no calendars configured)", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({
       ok: true,
       text: async () => '<html><script>{"id":"evt-VANITY9zzz"}</script></html>',

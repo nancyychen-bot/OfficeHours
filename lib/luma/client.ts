@@ -5,9 +5,74 @@ import type {
   LumaGuestListResponse,
 } from "./types";
 import type { LumaStatus } from "../sync/types";
+import { lumaCalendars } from "./calendars";
 
 const BASE = "https://public-api.luma.com";
 const SLOT_HINT = /slot|time|session/i;
+
+/** The vanity slug of a Luma URL = its last non-empty path segment, lowercased.
+ * Lets us match `lu.ma/foo` against Luma's stored `luma.com/foo` interchangeably. */
+function slugFromUrl(u: string): string | null {
+  try {
+    const url = new URL(/^https?:\/\//i.test(u) ? u : `https://${u}`);
+    const seg = url.pathname.split("/").filter(Boolean).pop();
+    return seg ? seg.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+interface CalEventEntry {
+  id: string; // evt-…
+  url?: string; // public vanity URL
+}
+interface CalEventsPage {
+  entries?: CalEventEntry[];
+  has_more?: boolean;
+  next_cursor?: string;
+}
+
+/** Find the `evt-` id of the calendar's upcoming event whose vanity slug matches,
+ * or null. Scans only upcoming events (2-day back-buffer) — an event being added
+ * is always upcoming, so even a busy calendar stays a page or two. Throws on a
+ * non-2xx so the caller can fall through to the next calendar. */
+async function findEventIdInCalendar(apiKey: string, slug: string): Promise<string | null> {
+  const after = new Date(Date.now() - 2 * 86_400_000).toISOString();
+  let cursor: string | undefined;
+  do {
+    const url = new URL(`${BASE}/v1/calendars/events/list`);
+    url.searchParams.set("after", after);
+    url.searchParams.set("pagination_limit", "50");
+    if (cursor) url.searchParams.set("pagination_cursor", cursor);
+    const res = await fetch(url, { headers: { "x-luma-api-key": apiKey } });
+    if (!res.ok) throw new Error(`Luma calendars/events/list failed: HTTP ${res.status}`);
+    const body = (await res.json()) as CalEventsPage;
+    for (const e of body.entries ?? []) {
+      if (e.url && slugFromUrl(e.url) === slug) return e.id;
+    }
+    cursor = body.has_more && body.next_cursor ? body.next_cursor : undefined;
+  } while (cursor);
+  return null;
+}
+
+/** Resolve a public vanity URL to an `evt-` id via Luma's authenticated API by
+ * matching the slug against each configured calendar's upcoming events. Returns
+ * null if no connected calendar lists it. The calendar whose key finds it is also
+ * the event's owner — reliable from serverless/datacenter IPs, where scraping the
+ * Cloudflare-fronted public page is not. */
+async function resolveEventIdViaCalendars(vanityUrl: string): Promise<string | null> {
+  const slug = slugFromUrl(vanityUrl);
+  if (!slug) return null;
+  for (const cal of lumaCalendars()) {
+    try {
+      const id = await findEventIdInCalendar(cal.apiKey, slug);
+      if (id) return id;
+    } catch {
+      // A single key failing (revoked, rate-limited) shouldn't abort resolution.
+    }
+  }
+  return null;
+}
 
 /** Extract an `evt-…` id from a raw id or a URL/string that contains one. */
 export function parseLumaEventId(input: string): string {
@@ -20,8 +85,13 @@ export function parseLumaEventId(input: string): string {
 /**
  * Resolve a Luma event id from user input. Accepts an `evt-…` id, any URL that
  * contains one (e.g. a manage link), OR a public vanity URL like
- * `https://luma.com/g95pjn8u` — the public API only takes `evt-` ids, so for a
- * vanity URL we fetch the page and pull the embedded `evt-` id out of the HTML.
+ * `https://luma.com/g95pjn8u`.
+ *
+ * The public API only takes `evt-` ids. For a vanity URL we first resolve it via
+ * the authenticated calendars/events/list API (matching the slug against each
+ * connected calendar's upcoming events) — reliable from serverless. Only if that
+ * finds nothing do we fall back to scraping the page's embedded `evt-` id, which
+ * Luma's bot protection often blocks from datacenter IPs (the SF add-event bug).
  */
 export async function resolveLumaEventId(input: string): Promise<string> {
   const trimmed = input.trim();
@@ -32,6 +102,12 @@ export async function resolveLumaEventId(input: string): Promise<string> {
   if (!looksLikeUrl) {
     throw new Error(`Could not find an evt- id in: ${input}`);
   }
+
+  // Preferred: authenticated API match (Cloudflare-proof; also identifies owner).
+  const viaApi = await resolveEventIdViaCalendars(trimmed);
+  if (viaApi) return viaApi;
+
+  // Fallback: scrape the public page (best-effort; often blocked from datacenter IPs).
   const url = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   let res: Response;
   try {

@@ -97,10 +97,17 @@ export async function POST(req: Request) {
       });
     }
     console.error("[add-event] register failed", err);
-    const msg =
-      err instanceof Error && /can't see this event/i.test(err.message)
-        ? err.message // surface the actionable key-validation message verbatim
-        : "Couldn't add that event. Check the Luma URL and try again.";
+    const raw = err instanceof Error ? err.message : "";
+    // Surface the actual, actionable reason (these guard messages are safe — no
+    // secrets/internals) instead of a blanket "check the URL" that hides the cause.
+    let msg = "Couldn't add that event — check the Luma event URL (the top field) and try again.";
+    if (/can't see this event/i.test(raw)) {
+      msg = raw; // wrong calendar key, or the event isn't upcoming
+    } else if (/no city|no address/i.test(raw)) {
+      msg = "This Luma event has no location set, so we can't tell which city it's in. Add a venue/address to the event in Luma, then try again.";
+    } else if (/no timezone/i.test(raw)) {
+      msg = "This Luma event has no timezone set in Luma. Set the event date/time (which sets its timezone), then try again.";
+    }
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }

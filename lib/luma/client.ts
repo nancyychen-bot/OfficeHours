@@ -83,6 +83,20 @@ async function resolveEventIdViaCalendars(vanityUrl: string): Promise<string | n
   return null;
 }
 
+/** A URL that couldn't be resolved to an `evt-` id via any connected calendar
+ * (nor the page scrape). For the add-event flow this signals "this event's
+ * calendar isn't connected" — the caller prompts to connect it — rather than a
+ * generic failure. */
+export class LumaUrlUnresolvedError extends Error {
+  constructor(
+    public url: string,
+    detail: string,
+  ) {
+    super(detail);
+    this.name = "LumaUrlUnresolvedError";
+  }
+}
+
 /** Extract an `evt-…` id from a raw id or a URL/string that contains one. */
 export function parseLumaEventId(input: string): string {
   const trimmed = input.trim();
@@ -126,12 +140,12 @@ export async function resolveLumaEventId(input: string): Promise<string> {
       signal: AbortSignal.timeout(15000),
     });
   } catch (err) {
-    throw new Error(`Could not load Luma page ${url}: ${err instanceof Error ? err.message : String(err)}`);
+    throw new LumaUrlUnresolvedError(url, `Could not load Luma page ${url}: ${err instanceof Error ? err.message : String(err)}`);
   }
-  if (!res.ok) throw new Error(`Could not load Luma page ${url}: HTTP ${res.status}`);
+  if (!res.ok) throw new LumaUrlUnresolvedError(url, `Could not load Luma page ${url}: HTTP ${res.status}`);
   const found = (await res.text()).match(/evt-[A-Za-z0-9]+/);
   if (found) return found[0];
-  throw new Error(`No evt- id found on Luma page ${url}`);
+  throw new LumaUrlUnresolvedError(url, `No evt- id found on Luma page ${url}`);
 }
 
 /**

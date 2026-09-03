@@ -7,6 +7,7 @@ import { setCityChannelName } from "@/lib/db/slack";
 import { resolveNewCalendarEvent } from "@/lib/events/onboard";
 import { upsertLumaCalendar } from "@/lib/db/luma-calendars";
 import { __bustCalendarCache } from "@/lib/luma/calendars";
+import { LumaUrlUnresolvedError } from "@/lib/luma/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
       event: { name: result.eventName, slots: result.inserted + result.updated, importedGuests: result.importedGuests },
     });
   } catch (err) {
-    if (err instanceof CalendarNotConnectedError && !calendarApiKey) {
+    if ((err instanceof CalendarNotConnectedError || err instanceof LumaUrlUnresolvedError) && !calendarApiKey) {
       // Not an error — prompt the operator to connect this calendar.
       return NextResponse.json({
         ok: false,

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { resolveNewCalendarEvent, deriveCalendarId, connectCalendar } from "@/lib/events/onboard";
+import { resolveNewCalendarEvent, deriveCalendarId, connectCalendar, resolveCalendarSlug, CalendarSlugTakenError } from "@/lib/events/onboard";
 import * as client from "@/lib/luma/client";
+import { LumaApiKeyInvalidError } from "@/lib/luma/client";
 import * as db from "@/lib/db/luma-calendars";
 import * as cal from "@/lib/luma/calendars";
 
@@ -9,10 +10,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const noExistingCalendars = () => {
+  vi.spyOn(db, "getLumaCalendarByCalendarId").mockResolvedValue(null);
+  vi.spyOn(db, "getLumaCalendarById").mockResolvedValue(null);
+};
+const row = (over: Partial<db.LumaCalendarRow>): db.LumaCalendarRow => ({
+  id: "x", apiKey: "k", webhookSecret: null, calendarId: null, city: null, calendarUrl: null, ...over,
+});
+
 describe("connectCalendar (standalone, no event)", () => {
   it("validates the key, derives the cal- id from the calendar URL, and upserts", async () => {
     vi.spyOn(client, "listUpcomingCalendarEvents").mockResolvedValue([]); // valid key, no upcoming events
-    vi.spyOn(db, "getLumaCalendarByCalendarId").mockResolvedValue(null);
+    noExistingCalendars();
     const upsert = vi.spyOn(db, "upsertLumaCalendar").mockResolvedValue();
     vi.spyOn(cal, "__bustCalendarCache").mockImplementation(() => {});
 
@@ -31,7 +40,7 @@ describe("connectCalendar (standalone, no event)", () => {
     vi.spyOn(client, "listUpcomingCalendarEvents").mockResolvedValue([
       { id: "evt-1", url: "https://luma.com/x", calendarId: "cal-FROMEVENT", city: "Seoul" },
     ]);
-    vi.spyOn(db, "getLumaCalendarByCalendarId").mockResolvedValue(null);
+    noExistingCalendars();
     vi.spyOn(db, "upsertLumaCalendar").mockResolvedValue();
     vi.spyOn(cal, "__bustCalendarCache").mockImplementation(() => {});
 
@@ -39,11 +48,38 @@ describe("connectCalendar (standalone, no event)", () => {
     expect(r).toEqual({ id: "korea", calendarId: "cal-FROMEVENT", city: "Seoul" });
   });
 
-  it("rejects an invalid key (Luma rejects the list call)", async () => {
-    vi.spyOn(client, "listUpcomingCalendarEvents").mockRejectedValue(new Error("Luma calendars/events/list failed: HTTP 401"));
+  it("rejects an invalid key (Luma 401/403) with a 'not valid' message", async () => {
+    vi.spyOn(client, "listUpcomingCalendarEvents").mockRejectedValue(new LumaApiKeyInvalidError("HTTP 401"));
     await expect(
       connectCalendar({ slug: "x", apiKey: "bad", webhookSecret: "w", calendarUrl: "https://luma.com/notion-x" }),
     ).rejects.toThrow(/isn't valid/i);
+  });
+
+  it("treats a transient error (429/5xx/network) as retryable, NOT an invalid key", async () => {
+    vi.spyOn(client, "listUpcomingCalendarEvents").mockRejectedValue(new Error("Luma calendars/events/list failed: HTTP 503"));
+    await expect(
+      connectCalendar({ slug: "x", apiKey: "good", webhookSecret: "w", calendarUrl: "https://luma.com/notion-x" }),
+    ).rejects.toThrow(/try again/i);
+  });
+});
+
+describe("resolveCalendarSlug (collision guard)", () => {
+  it("reuses the existing row when the same Luma calendar (cal- id) is already connected", async () => {
+    vi.spyOn(db, "getLumaCalendarByCalendarId").mockResolvedValue(row({ id: "korea", calendarId: "cal-AAA" }));
+    const byId = vi.spyOn(db, "getLumaCalendarById");
+    expect(await resolveCalendarSlug("something-else", "Seoul", "cal-AAA")).toBe("korea");
+    expect(byId).not.toHaveBeenCalled(); // short-circuits on the cal- id match
+  });
+
+  it("rejects when the derived slug is already taken by a DIFFERENT calendar (prevents silent clobber)", async () => {
+    vi.spyOn(db, "getLumaCalendarByCalendarId").mockResolvedValue(null);
+    vi.spyOn(db, "getLumaCalendarById").mockResolvedValue(row({ id: "london", calendarId: "cal-AAA" }));
+    await expect(resolveCalendarSlug("london", null, "cal-BBB")).rejects.toBeInstanceOf(CalendarSlugTakenError);
+  });
+
+  it("returns the derived slug when nothing clashes", async () => {
+    noExistingCalendars();
+    expect(await resolveCalendarSlug("Tokyo", null, "cal-NEW")).toBe("tokyo");
   });
 });
 

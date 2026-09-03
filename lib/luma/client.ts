@@ -55,6 +55,9 @@ export async function listUpcomingCalendarEvents(apiKey: string): Promise<Upcomi
     url.searchParams.set("pagination_limit", "50");
     if (cursor) url.searchParams.set("pagination_cursor", cursor);
     const res = await fetch(url, { headers: { "x-luma-api-key": apiKey } });
+    if (res.status === 401 || res.status === 403) {
+      throw new LumaApiKeyInvalidError(`Luma rejected the API key: HTTP ${res.status}`);
+    }
     if (!res.ok) throw new Error(`Luma calendars/events/list failed: HTTP ${res.status}`);
     const body = (await res.json()) as {
       entries?: Array<{ id: string; url?: string; calendar_id?: string; geo_address_json?: Record<string, unknown> }>;
@@ -96,6 +99,15 @@ async function resolveEventIdViaCalendars(vanityUrl: string): Promise<string | n
     }
   }
   return null;
+}
+
+/** Luma rejected the API key (401/403) — the key is wrong/revoked. Distinct from
+ * a transient 429/5xx so callers don't mislabel "Luma is down" as "bad key". */
+export class LumaApiKeyInvalidError extends Error {
+  constructor(detail: string) {
+    super(detail);
+    this.name = "LumaApiKeyInvalidError";
+  }
 }
 
 /** A URL that couldn't be resolved to an `evt-` id via any connected calendar

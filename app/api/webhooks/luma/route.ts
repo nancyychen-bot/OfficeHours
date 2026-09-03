@@ -32,6 +32,11 @@ export async function POST(req: Request) {
       await logSync({ direction: "luma_in", result: "error", action: "verify", note: "bad signature" });
       return NextResponse.json({ error: "invalid signature" }, { status: 401 });
     }
+  } else {
+    // No secrets configured (bootstrap, or a DB outage made calendars fail-open to
+    // an empty env keyring): the request is processed UNSIGNED. Log it as an error
+    // so this is observable/queryable rather than a silent accept-unsigned.
+    await logSync({ direction: "luma_in", result: "error", action: "verify", note: "no webhook secrets configured — processed unsigned" });
   }
 
   let envelope: LumaWebhookEnvelope;

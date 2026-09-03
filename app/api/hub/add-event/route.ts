@@ -1,16 +1,26 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { env } from "@/lib/env";
 import { verifyFormToken } from "@/lib/auth/form-token";
+import { isValidSession, SESSION_COOKIE } from "@/lib/auth/session";
 import { registerEventFromLuma, CalendarNotConnectedError } from "@/lib/events/register";
 import { lookupChannelIdByName } from "@/lib/slack/api";
 import { setCityChannelName } from "@/lib/db/slack";
-import { resolveNewCalendarEvent, deriveCalendarId } from "@/lib/events/onboard";
-import { upsertLumaCalendar, getLumaCalendarByCalendarId } from "@/lib/db/luma-calendars";
+import { resolveNewCalendarEvent, resolveCalendarSlug, CalendarSlugTakenError } from "@/lib/events/onboard";
+import { upsertLumaCalendar } from "@/lib/db/luma-calendars";
 import { __bustCalendarCache } from "@/lib/luma/calendars";
-import { LumaUrlUnresolvedError } from "@/lib/luma/client";
+import { LumaUrlUnresolvedError, LumaApiKeyInvalidError } from "@/lib/luma/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
+
+/** Adding an event is public (form-token). Connecting a NEW calendar writes
+ * credentials into the registry, so it additionally requires an operator login. */
+async function operatorAuthed(): Promise<boolean> {
+  const secret = process.env.HUB_SESSION_SECRET;
+  if (!secret) return false;
+  return isValidSession((await cookies()).get(SESSION_COOKIE)?.value, secret);
+}
 
 export async function POST(req: Request) {
   const form = await req.formData();
@@ -39,8 +49,16 @@ export async function POST(req: Request) {
   try {
     let registerInput: { lumaEvent: string; publicUrl?: string } = { lumaEvent, publicUrl: eventPublicUrl };
 
-    // New calendar path: user supplied a key for an unconnected calendar.
+    // New calendar path: user supplied a key for an unconnected calendar. This
+    // writes credentials into the registry, so it requires an operator login
+    // (adding events to already-connected calendars stays public).
     if (calendarApiKey) {
+      if (!(await operatorAuthed())) {
+        return NextResponse.json({
+          ok: false,
+          error: "Connecting a new calendar requires an operator login — ask Nancy Chen, or pre-register it at /add-calendar.",
+        }, { status: 401 });
+      }
       if (!calendarUrl) {
         return NextResponse.json({ ok: false, error: "A Luma calendar URL is required to connect a new calendar." }, { status: 400 });
       }
@@ -48,11 +66,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: "A webhook signing secret is required to connect a new calendar (enables live guest sync)." }, { status: 400 });
       }
       const resolved = await resolveNewCalendarEvent({ lumaEvent, apiKey: calendarApiKey });
-      // Reuse an existing row for the same Luma calendar (dedupe by cal- id) so a
-      // re-connect updates that calendar's credentials instead of creating a
-      // divergent slug; otherwise derive a stable, non-empty slug.
-      const existing = resolved.calendarId ? await getLumaCalendarByCalendarId(resolved.calendarId) : null;
-      const id = existing?.id ?? deriveCalendarId(calendarSlug, resolved.city, resolved.calendarId);
+      const id = await resolveCalendarSlug(calendarSlug ?? "", resolved.city, resolved.calendarId);
       await upsertLumaCalendar({
         id,
         apiKey: calendarApiKey,
@@ -95,6 +109,12 @@ export async function POST(req: Request) {
         error:
           "This event's Luma calendar isn't connected yet. Paste its Luma API key below to connect it (one-time), then add the event.",
       });
+    }
+    if (err instanceof CalendarSlugTakenError) {
+      return NextResponse.json({ ok: false, needsCalendar: true, error: err.message }, { status: 400 });
+    }
+    if (err instanceof LumaApiKeyInvalidError) {
+      return NextResponse.json({ ok: false, needsCalendar: true, error: "That Luma API key isn't valid — copy it from the calendar's Settings → Options → Luma API." }, { status: 400 });
     }
     console.error("[add-event] register failed", err);
     const raw = err instanceof Error ? err.message : "";

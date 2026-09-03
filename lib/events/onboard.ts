@@ -1,6 +1,34 @@
-import { listUpcomingCalendarEvents } from "../luma/client";
-import { upsertLumaCalendar, getLumaCalendarByCalendarId } from "../db/luma-calendars";
+import { listUpcomingCalendarEvents, LumaApiKeyInvalidError } from "../luma/client";
+import { upsertLumaCalendar, getLumaCalendarByCalendarId, getLumaCalendarById } from "../db/luma-calendars";
 import { __bustCalendarCache } from "../luma/calendars";
+
+/** A slug is already taken by a DIFFERENT Luma calendar — connecting would
+ * overwrite that calendar's credentials, so we reject instead. */
+export class CalendarSlugTakenError extends Error {
+  constructor(public slug: string) {
+    super(`The short id "${slug}" is already used by a different calendar — pick another.`);
+    this.name = "CalendarSlugTakenError";
+  }
+}
+
+/**
+ * Decide the registry id (slug) for a calendar being connected. Reuse the existing
+ * row if this exact Luma calendar (`cal-` id) is already connected; otherwise
+ * derive a slug and reject if it's already taken by a DIFFERENT calendar — so an
+ * upsert(onConflict:"id") can never silently overwrite another calendar's key.
+ */
+export async function resolveCalendarSlug(slug: string, city: string | null, calendarId: string | null): Promise<string> {
+  if (calendarId) {
+    const sameCalendar = await getLumaCalendarByCalendarId(calendarId);
+    if (sameCalendar) return sameCalendar.id; // re-connecting the same calendar → update in place
+  }
+  const id = deriveCalendarId(slug, city, calendarId);
+  const clash = await getLumaCalendarById(id);
+  if (clash && !(calendarId && clash.calendarId === calendarId)) {
+    throw new CalendarSlugTakenError(id);
+  }
+  return id;
+}
 
 /** The slug of a Luma URL = its last path segment, lowercased. */
 function slug(u: string): string | null {
@@ -78,14 +106,16 @@ export async function connectCalendar(
   let events: Awaited<ReturnType<typeof listUpcomingCalendarEvents>>;
   try {
     events = await listUpcomingCalendarEvents(input.apiKey);
-  } catch {
-    throw new Error("That Luma API key isn't valid — copy it from the calendar's Settings → Options → Luma API.");
+  } catch (err) {
+    if (err instanceof LumaApiKeyInvalidError) {
+      throw new Error("That Luma API key isn't valid — copy it from the calendar's Settings → Options → Luma API.");
+    }
+    throw new Error("Couldn't reach Luma to validate the key — please try again in a moment.");
   }
   const calFromUrl = input.calendarUrl.match(/cal-[A-Za-z0-9]+/)?.[0] ?? null;
   const calendarId = calFromUrl ?? events[0]?.calendarId ?? null;
   const city = input.city?.trim() || events[0]?.city || null;
-  const existing = calendarId ? await getLumaCalendarByCalendarId(calendarId) : null;
-  const id = existing?.id ?? deriveCalendarId(input.slug, city, calendarId);
+  const id = await resolveCalendarSlug(input.slug, city, calendarId);
   await upsertLumaCalendar({ id, apiKey: input.apiKey, webhookSecret: input.webhookSecret, calendarId, city, calendarUrl: input.calendarUrl });
   __bustCalendarCache();
   return { id, calendarId, city };

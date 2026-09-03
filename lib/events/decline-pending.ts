@@ -49,7 +49,15 @@ const DECLINE_CONCURRENCY = 5;
 export async function declinePendingForEvent(eventId: string): Promise<number> {
   const pendings = selectDeclinablePendings(await listBookingsForEvent(eventId));
   // Resolve the owning calendar's key once — every pending shares this event.
-  const apiKey = await apiKeyForCalendar((await getEventById(eventId))?.luma_calendar);
+  // Guard: an orphaned/renamed calendar tag must not throw and strand every
+  // pending guest for this event; skip the event instead (same as luma-stats).
+  let apiKey: string;
+  try {
+    apiKey = await apiKeyForCalendar((await getEventById(eventId))?.luma_calendar);
+  } catch (err) {
+    console.error(`[decline-pending] no calendar key for event ${eventId} — skipping`, err);
+    return 0;
+  }
   let declined = 0;
   let cursor = 0;
 

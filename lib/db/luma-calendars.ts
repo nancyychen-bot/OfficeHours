@@ -32,11 +32,19 @@ export function mapCalendarRow(r: RawRow): LumaCalendarRow {
 
 const COLS = "id, api_key, webhook_secret, calendar_id, city, calendar_url";
 
-/** All calendar rows. Throws on a DB error so callers can fail loud. */
+/** All calendar rows (ordered by id for deterministic iteration). Throws on a DB
+ * error so callers can fail loud. */
 export async function listLumaCalendarRows(): Promise<LumaCalendarRow[]> {
-  const { data, error } = await getAdminClient().from("luma_calendars").select(COLS);
+  const { data, error } = await getAdminClient().from("luma_calendars").select(COLS).order("id");
   if (error) throw error;
   return (data ?? []).map((r) => mapCalendarRow(r as RawRow));
+}
+
+/** A calendar by its slug id, or null. Used to detect slug collisions before an
+ * upsert would silently overwrite a different calendar's credentials. */
+export async function getLumaCalendarById(id: string): Promise<LumaCalendarRow | null> {
+  const { data } = await getAdminClient().from("luma_calendars").select(COLS).eq("id", id).maybeSingle();
+  return data ? mapCalendarRow(data as RawRow) : null;
 }
 
 /** Create or replace a calendar (keyed on id/slug). */

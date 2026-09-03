@@ -1,4 +1,6 @@
 import { listUpcomingCalendarEvents } from "../luma/client";
+import { upsertLumaCalendar, getLumaCalendarByCalendarId } from "../db/luma-calendars";
+import { __bustCalendarCache } from "../luma/calendars";
 
 /** The slug of a Luma URL = its last path segment, lowercased. */
 function slug(u: string): string | null {
@@ -53,4 +55,38 @@ export async function resolveNewCalendarEvent(input: { lumaEvent: string; apiKey
     );
   }
   return { eventId: match.id, calendarId: match.calendarId, city: match.city, apiKey: input.apiKey };
+}
+
+export interface ConnectCalendarInput {
+  slug: string;
+  apiKey: string;
+  webhookSecret: string;
+  calendarUrl: string;
+  city?: string;
+}
+
+/**
+ * Connect a Luma calendar WITHOUT an event (standalone /add-calendar). Validates
+ * the key by listing the calendar's events — an empty list from a valid key still
+ * confirms it — then derives the `cal-` id from the calendar URL (`.../cal-…`) or,
+ * failing that, the first upcoming event, and upserts the row. Deduped by `cal-`
+ * id so re-adding a calendar updates it. Throws if Luma rejects the key.
+ */
+export async function connectCalendar(
+  input: ConnectCalendarInput,
+): Promise<{ id: string; calendarId: string | null; city: string | null }> {
+  let events: Awaited<ReturnType<typeof listUpcomingCalendarEvents>>;
+  try {
+    events = await listUpcomingCalendarEvents(input.apiKey);
+  } catch {
+    throw new Error("That Luma API key isn't valid — copy it from the calendar's Settings → Options → Luma API.");
+  }
+  const calFromUrl = input.calendarUrl.match(/cal-[A-Za-z0-9]+/)?.[0] ?? null;
+  const calendarId = calFromUrl ?? events[0]?.calendarId ?? null;
+  const city = input.city?.trim() || events[0]?.city || null;
+  const existing = calendarId ? await getLumaCalendarByCalendarId(calendarId) : null;
+  const id = existing?.id ?? deriveCalendarId(input.slug, city, calendarId);
+  await upsertLumaCalendar({ id, apiKey: input.apiKey, webhookSecret: input.webhookSecret, calendarId, city, calendarUrl: input.calendarUrl });
+  __bustCalendarCache();
+  return { id, calendarId, city };
 }

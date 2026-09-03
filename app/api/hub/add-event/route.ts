@@ -27,21 +27,23 @@ export async function POST(req: Request) {
   if (!slackChannel) {
     return NextResponse.json({ ok: false, error: "A Slack channel is required." }, { status: 400 });
   }
-  const city = String(form.get("city") ?? "").trim() || undefined;
-  const slotStart = String(form.get("slotStart") ?? "").trim() || undefined;
-  const lengthRaw = String(form.get("length") ?? "").trim();
-  const slotLengthMinutes = lengthRaw ? Number(lengthRaw) : undefined;
-
   const calendarUrl = String(form.get("calendarUrl") ?? "").trim() || undefined;
   const calendarApiKey = String(form.get("calendarApiKey") ?? "").trim() || undefined;
   const calendarWebhookSecret = String(form.get("calendarWebhookSecret") ?? "").trim() || undefined;
   const calendarSlug = String(form.get("calendarSlug") ?? "").trim() || undefined;
 
+  // The event's own public page — preserve the vanity link the operator pasted.
+  // Distinct from calendarUrl (the calendar's "follow" page, stored on the calendar row).
+  const eventPublicUrl = /^https?:\/\//i.test(lumaEvent) ? lumaEvent : undefined;
+
   try {
-    let registerInput: { lumaEvent: string; city?: string; slotStart?: string; slotLengthMinutes?: number; publicUrl?: string } = { lumaEvent, city, slotStart, slotLengthMinutes };
+    let registerInput: { lumaEvent: string; publicUrl?: string } = { lumaEvent, publicUrl: eventPublicUrl };
 
     // New calendar path: user supplied a key for an unconnected calendar.
     if (calendarApiKey) {
+      if (!calendarUrl) {
+        return NextResponse.json({ ok: false, error: "A Luma calendar URL is required to connect a new calendar." }, { status: 400 });
+      }
       const resolved = await resolveNewCalendarEvent({ lumaEvent, apiKey: calendarApiKey });
       // Reuse an existing row for the same Luma calendar (dedupe by cal- id) so a
       // re-connect updates that calendar's credentials instead of creating a
@@ -54,10 +56,10 @@ export async function POST(req: Request) {
         webhookSecret: calendarWebhookSecret ?? null,
         calendarId: resolved.calendarId,
         city: resolved.city,
-        calendarUrl: calendarUrl ?? null,
+        calendarUrl,
       });
       __bustCalendarCache();
-      registerInput = { ...registerInput, lumaEvent: resolved.eventId, publicUrl: calendarUrl ?? undefined };
+      registerInput = { ...registerInput, lumaEvent: resolved.eventId, publicUrl: eventPublicUrl };
     }
 
     const result = await registerEventFromLuma(registerInput);

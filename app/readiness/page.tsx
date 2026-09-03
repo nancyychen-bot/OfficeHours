@@ -1,6 +1,7 @@
 import { checkReadiness, type CalendarReport, type EventReport } from "@/lib/readiness/check";
 import type { Issue } from "@/lib/readiness/evaluate";
 import { HubNav } from "@/components/hub/HubNav";
+import { ReadinessAckButton } from "@/components/hub/ReadinessAckButton";
 
 export const metadata = { title: "Build Bar readiness" };
 export const dynamic = "force-dynamic"; // always run live checks
@@ -72,17 +73,31 @@ export default async function ReadinessPage() {
         )}
       </div>
 
-      <h2 className="mt-6 text-sm font-semibold text-neutral-700">Upcoming events</h2>
+      <h2 className="mt-6 text-sm font-semibold text-neutral-700">
+        Upcoming events{" "}
+        <span className="font-normal text-neutral-500">
+          ({report.events.filter((e) => e.acked).length} of {report.events.length} marked complete)
+        </span>
+      </h2>
       <div className="mt-2 space-y-2 text-sm">
         {report.events.length === 0 ? (
           <p className="text-neutral-500">No upcoming events in the window.</p>
         ) : (
           report.events.map((e: EventReport, n: number) => (
-            <div key={n} className={`rounded-md px-3 py-2 ${rowClass(e.issues)}`}>
-              <div className="font-medium">
-                {e.name} <span className="font-normal text-neutral-500">— {e.city ?? "no city"} · {e.eventDate}</span>
+            <div key={n} className={`rounded-md px-3 py-2 ${e.acked ? "bg-green-50/60 opacity-75" : rowClass(e.issues)}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-medium">
+                  {e.acked ? "✓ " : ""}
+                  {e.name} <span className="font-normal text-neutral-500">— {e.city ?? "no city"} · {e.eventDate}</span>
+                </div>
+                <ReadinessAckButton lumaEventId={e.lumaEventId} acked={e.acked} />
               </div>
-              <IssueList issues={e.issues} />
+              {e.acked && e.issues.some((i) => i.level === "error") ? (
+                <p className="mt-0.5 text-xs text-red-700">Marked complete, but still has errors below — not sent in the alert email.</p>
+              ) : null}
+              <div className="mt-0.5">
+                <IssueList issues={e.issues} />
+              </div>
             </div>
           ))
         )}

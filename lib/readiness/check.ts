@@ -16,10 +16,13 @@ export interface CalendarReport {
   issues: Issue[];
 }
 export interface EventReport {
+  lumaEventId: string | null;
   name: string;
   city: string | null;
   eventDate: string;
   lumaCalendar: string | null;
+  /** Operator marked this event's setup complete (drops it from the alert email). */
+  acked: boolean;
   issues: Issue[];
 }
 export interface ReadinessReport {
@@ -72,7 +75,7 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
   const until = new Date(Date.now() + withinDays * 86_400_000).toISOString().slice(0, 10);
   const { data: eventRows } = await supabase
     .from("events")
-    .select("id, name, city, timezone, address, event_date, luma_calendar, status")
+    .select("id, name, city, timezone, address, event_date, luma_calendar, luma_event_id, readiness_acked_at, status")
     .gte("event_date", today)
     .lte("event_date", until)
     .neq("status", "cancelled")
@@ -109,10 +112,12 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
         slack,
       });
       return {
+        lumaEventId: (e.luma_event_id as string) ?? null,
         name: e.name as string,
         city,
         eventDate: e.event_date as string,
         lumaCalendar: (e.luma_calendar as string) ?? null,
+        acked: !!e.readiness_acked_at,
         issues,
       };
     }),
@@ -128,10 +133,12 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
   };
 }
 
-/** Just the calendars/events that have issues — for the email digest. */
+/** Calendars/events that have issues — for the email digest. Events the operator
+ * marked complete are excluded (they've taken ownership); the page still shows
+ * their live status. */
 export function problemsOnly(r: ReadinessReport): { calendars: CalendarReport[]; events: EventReport[] } {
   return {
     calendars: r.calendars.filter((c) => c.issues.length),
-    events: r.events.filter((e) => e.issues.length),
+    events: r.events.filter((e) => e.issues.length && !e.acked),
   };
 }

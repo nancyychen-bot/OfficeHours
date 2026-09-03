@@ -233,6 +233,7 @@ export type Database = {
           luma_synced_at: string | null
           name: string
           public_url: string | null
+          readiness_acked_at: string | null
           status: Database["public"]["Enums"]["event_status"]
           timezone: string
           updated_at: string
@@ -251,6 +252,7 @@ export type Database = {
           luma_synced_at?: string | null
           name: string
           public_url?: string | null
+          readiness_acked_at?: string | null
           status?: Database["public"]["Enums"]["event_status"]
           timezone?: string
           updated_at?: string
@@ -269,6 +271,7 @@ export type Database = {
           luma_synced_at?: string | null
           name?: string
           public_url?: string | null
+          readiness_acked_at?: string | null
           status?: Database["public"]["Enums"]["event_status"]
           timezone?: string
           updated_at?: string

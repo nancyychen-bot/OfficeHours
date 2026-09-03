@@ -1,5 +1,6 @@
 import { checkReadiness, type CalendarReport, type EventReport } from "@/lib/readiness/check";
 import type { Issue } from "@/lib/readiness/evaluate";
+import { HubNav } from "@/components/hub/HubNav";
 
 export const metadata = { title: "Build Bar readiness" };
 export const dynamic = "force-dynamic"; // always run live checks
@@ -27,7 +28,8 @@ export default async function ReadinessPage() {
         : "bg-green-50";
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-10">
+    <main className="mx-auto w-full max-w-7xl px-6 py-8">
+      <HubNav />
       <h1 className="text-lg font-semibold">Build Bar readiness</h1>
       <p className="mt-1 text-sm text-neutral-500">
         Live setup check for connected calendars and the next {report.generatedForDays} days of events.{" "}

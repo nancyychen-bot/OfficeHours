@@ -8,6 +8,7 @@ const TABS = [
   { href: "/bookings", label: "Bookings" },
   { href: "/feedback", label: "Feedback" },
   { href: "/expert-feedback", label: "Expert Feedback" },
+  { href: "/readiness", label: "Readiness" },
   { href: "/settings", label: "Settings" },
 ];
 
@@ -32,6 +33,13 @@ export function HubNav() {
         })}
       </div>
       <div className="flex items-center gap-2">
+        <Link
+          href="/add-calendar"
+          target="_blank"
+          className="rounded-md border border-line bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        >
+          + Add calendar
+        </Link>
         <Link
           href="/add-event"
           target="_blank"

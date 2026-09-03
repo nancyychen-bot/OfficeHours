@@ -1,7 +1,51 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { resolveNewCalendarEvent, deriveCalendarId } from "@/lib/events/onboard";
+import { resolveNewCalendarEvent, deriveCalendarId, connectCalendar } from "@/lib/events/onboard";
+import * as client from "@/lib/luma/client";
+import * as db from "@/lib/db/luma-calendars";
+import * as cal from "@/lib/luma/calendars";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+describe("connectCalendar (standalone, no event)", () => {
+  it("validates the key, derives the cal- id from the calendar URL, and upserts", async () => {
+    vi.spyOn(client, "listUpcomingCalendarEvents").mockResolvedValue([]); // valid key, no upcoming events
+    vi.spyOn(db, "getLumaCalendarByCalendarId").mockResolvedValue(null);
+    const upsert = vi.spyOn(db, "upsertLumaCalendar").mockResolvedValue();
+    vi.spyOn(cal, "__bustCalendarCache").mockImplementation(() => {});
+
+    const r = await connectCalendar({
+      slug: "Korea", apiKey: "secret-x", webhookSecret: "whsec-y",
+      calendarUrl: "https://luma.com/calendar/cal-Md9x0T9gv5euc9v",
+    });
+
+    expect(r).toEqual({ id: "korea", calendarId: "cal-Md9x0T9gv5euc9v", city: null });
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "korea", apiKey: "secret-x", webhookSecret: "whsec-y", calendarId: "cal-Md9x0T9gv5euc9v", calendarUrl: "https://luma.com/calendar/cal-Md9x0T9gv5euc9v" }),
+    );
+  });
+
+  it("falls back to the first upcoming event's cal- id and city when the URL has none", async () => {
+    vi.spyOn(client, "listUpcomingCalendarEvents").mockResolvedValue([
+      { id: "evt-1", url: "https://luma.com/x", calendarId: "cal-FROMEVENT", city: "Seoul" },
+    ]);
+    vi.spyOn(db, "getLumaCalendarByCalendarId").mockResolvedValue(null);
+    vi.spyOn(db, "upsertLumaCalendar").mockResolvedValue();
+    vi.spyOn(cal, "__bustCalendarCache").mockImplementation(() => {});
+
+    const r = await connectCalendar({ slug: "korea", apiKey: "secret-x", webhookSecret: "w", calendarUrl: "https://luma.com/notion-korea" });
+    expect(r).toEqual({ id: "korea", calendarId: "cal-FROMEVENT", city: "Seoul" });
+  });
+
+  it("rejects an invalid key (Luma rejects the list call)", async () => {
+    vi.spyOn(client, "listUpcomingCalendarEvents").mockRejectedValue(new Error("Luma calendars/events/list failed: HTTP 401"));
+    await expect(
+      connectCalendar({ slug: "x", apiKey: "bad", webhookSecret: "w", calendarUrl: "https://luma.com/notion-x" }),
+    ).rejects.toThrow(/isn't valid/i);
+  });
+});
 
 describe("deriveCalendarId", () => {
   it("normalizes the first usable part to a slug", () => {

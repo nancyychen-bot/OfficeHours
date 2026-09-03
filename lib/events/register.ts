@@ -1,4 +1,4 @@
-import { getLumaEvent, extractSlotOptions, resolveLumaEventId } from "../luma/client";
+import { getLumaEvent, extractSlotOptions, resolveLumaEventId, cityFromGeo } from "../luma/client";
 import { lumaCalendars } from "../luma/calendars";
 
 export class CalendarNotConnectedError extends Error {
@@ -88,10 +88,12 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
 
   // Prefer the city from the Luma event's address (source of truth, no typos);
   // allow an explicit override for edge cases where Luma's address is off.
-  const city = input.city ?? detail.geo_address_json?.city;
+  // cityFromGeo handles non-US addresses where Luma leaves `city` null but fills
+  // `city_state` (e.g. Seoul).
+  const city = input.city ?? cityFromGeo(detail.geo_address_json as Record<string, unknown> | null | undefined) ?? undefined;
   if (!city) {
     throw new Error(
-      `No city for ${detail.id}: Luma event has no address city — pass --city explicitly.`,
+      `No city for ${detail.id}: Luma event has no address city — set a venue/address in Luma or pass --city.`,
     );
   }
 

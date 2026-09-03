@@ -58,9 +58,8 @@ export function toCommsFields(d: BookingDetails): CommsFields {
     helperEmail: (d.booked_by_email as string) ?? null,
     status: d.status as string,
     slotId: (d.slot_id as string) ?? null,
-    // Per-city calendar link (from the event's Luma calendar tag); null falls
-    // back to the global community calendar in buildVars.
-    calendarUrl: calendarUrlForCalendar((d.luma_calendar as string) ?? null),
+    // Per-city calendar link resolved asynchronously in defaultDeps.getFields below.
+    calendarUrl: null,
   };
 }
 
@@ -75,6 +74,9 @@ const defaultDeps: CommsDeps = {
     } catch {
       /* best-effort — falls back to the calendar link in buildVars */
     }
+    // Per-city calendar link (from the event's Luma calendar tag); null falls
+    // back to the global community calendar in buildVars.
+    f.calendarUrl = await calendarUrlForCalendar((d.luma_calendar as string) ?? null);
     return f;
   },
   reserve: reserveCommsSlot,

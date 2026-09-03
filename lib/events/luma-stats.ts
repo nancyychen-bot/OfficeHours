@@ -39,7 +39,7 @@ export async function syncAllLumaStats(): Promise<{ synced: number; failed: numb
     // (which would freeze stats for every city that tick).
     let apiKey: string;
     try {
-      apiKey = apiKeyForCalendar(e.luma_calendar);
+      apiKey = await apiKeyForCalendar(e.luma_calendar);
     } catch (err) {
       await logSync({
         direction: "luma_in",

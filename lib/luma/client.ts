@@ -63,7 +63,7 @@ async function findEventIdInCalendar(apiKey: string, slug: string): Promise<stri
 async function resolveEventIdViaCalendars(vanityUrl: string): Promise<string | null> {
   const slug = slugFromUrl(vanityUrl);
   if (!slug) return null;
-  for (const cal of lumaCalendars()) {
+  for (const cal of await lumaCalendars()) {
     try {
       const id = await findEventIdInCalendar(cal.apiKey, slug);
       if (id) return id;

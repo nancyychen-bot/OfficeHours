@@ -62,7 +62,7 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
   let detail: LumaEventDetail | null = null;
   let calendarId = "default";
   let apiKey = "";
-  for (const cal of lumaCalendars()) {
+  for (const cal of await lumaCalendars()) {
     try {
       detail = await getLumaEvent(eventId, cal.apiKey);
       calendarId = cal.id;

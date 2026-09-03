@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus, fetchEventStats, LumaUrlUnresolvedError } from "@/lib/luma/client";
+import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus, fetchEventStats, LumaUrlUnresolvedError, cityFromGeo } from "@/lib/luma/client";
 import type { LumaRegistrationQuestion } from "@/lib/luma/types";
 
 describe("parseLumaEventId", () => {
@@ -11,6 +11,19 @@ describe("parseLumaEventId", () => {
   });
   it("throws when no evt- id is present", () => {
     expect(() => parseLumaEventId("https://lu.ma/some-slug")).toThrow();
+  });
+});
+
+describe("cityFromGeo", () => {
+  it("uses the structured city when present (US)", () => {
+    expect(cityFromGeo({ city: "New York", city_state: "New York, NY" })).toBe("New York");
+  });
+  it("falls back to city_state's first segment when city is null (non-US, e.g. Seoul)", () => {
+    expect(cityFromGeo({ city: null, city_state: "Seoul, South Korea", region: "Seoul" })).toBe("Seoul");
+  });
+  it("returns null when neither city nor city_state is present", () => {
+    expect(cityFromGeo({ full_address: "somewhere" })).toBeNull();
+    expect(cityFromGeo(null)).toBeNull();
   });
 });
 

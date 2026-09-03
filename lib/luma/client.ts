@@ -10,6 +10,21 @@ import { lumaCalendars } from "./calendars";
 const BASE = "https://public-api.luma.com";
 const SLOT_HINT = /slot|time|session/i;
 
+/**
+ * The event's city for hub routing, from Luma's `geo_address_json`. Luma leaves
+ * the structured `city` field **null for many non-US addresses** (e.g. Seoul:
+ * `city` is null but `city_state` = "Seoul, South Korea"), so fall back to the
+ * first segment of `city_state`. Returns null if neither is present.
+ */
+export function cityFromGeo(geo: Record<string, unknown> | null | undefined): string | null {
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const city = str(geo?.["city"]);
+  if (city) return city;
+  const cityState = str(geo?.["city_state"]);
+  if (cityState) return cityState.split(",")[0].trim() || null;
+  return null;
+}
+
 /** The vanity slug of a Luma URL = its last non-empty path segment, lowercased.
  * Lets us match `lu.ma/foo` against Luma's stored `luma.com/foo` interchangeably. */
 function slugFromUrl(u: string): string | null {
@@ -42,11 +57,11 @@ export async function listUpcomingCalendarEvents(apiKey: string): Promise<Upcomi
     const res = await fetch(url, { headers: { "x-luma-api-key": apiKey } });
     if (!res.ok) throw new Error(`Luma calendars/events/list failed: HTTP ${res.status}`);
     const body = (await res.json()) as {
-      entries?: Array<{ id: string; url?: string; calendar_id?: string; geo_address_json?: { city?: string } }>;
+      entries?: Array<{ id: string; url?: string; calendar_id?: string; geo_address_json?: Record<string, unknown> }>;
       has_more?: boolean; next_cursor?: string;
     };
     for (const e of body.entries ?? []) {
-      out.push({ id: e.id, url: e.url ?? null, calendarId: e.calendar_id ?? null, city: e.geo_address_json?.city ?? null });
+      out.push({ id: e.id, url: e.url ?? null, calendarId: e.calendar_id ?? null, city: cityFromGeo(e.geo_address_json) });
     }
     cursor = body.has_more && body.next_cursor ? body.next_cursor : undefined;
   } while (cursor);

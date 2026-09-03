@@ -44,13 +44,13 @@ export function AddEventForm({ token, webhookUrl }: { token: string; webhookUrl:
             <strong>Settings → Options → Luma API</strong>, copy the <code>secret-…</code> key, and paste it below.
           </p>
           <p className="text-amber-800">
-            <strong>Optional — live guest sync:</strong> on that same Luma API page, add a webhook pointing to{" "}
+            <strong>Live guest sync:</strong> on that same Luma API page, add a webhook pointing to{" "}
             <code className="break-all rounded bg-amber-100 px-1 py-0.5">{webhookUrl}</code>, then paste the signing
-            secret it gives you into the Webhook secret field. You can skip this and add it later.
+            secret it gives you into the Webhook signing secret field below.
           </p>
           <p className="font-semibold text-amber-900">Ask Nancy Chen to help you if you&apos;re stuck here.</p>
           <input name="calendarApiKey" required placeholder="secret-… (Luma API key)" className={field} />
-          <input name="calendarWebhookSecret" placeholder="Webhook secret (optional)" className={field} />
+          <input name="calendarWebhookSecret" required placeholder="Webhook signing secret" className={field} />
           <input name="calendarUrl" required placeholder="Luma calendar URL (e.g. https://luma.com/notion-korea)" className={field} />
           <input name="calendarSlug" required placeholder="Short id / location for this calendar (e.g. london or korea)" className={field} />
         </div>

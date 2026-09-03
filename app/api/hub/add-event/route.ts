@@ -44,6 +44,9 @@ export async function POST(req: Request) {
       if (!calendarUrl) {
         return NextResponse.json({ ok: false, error: "A Luma calendar URL is required to connect a new calendar." }, { status: 400 });
       }
+      if (!calendarWebhookSecret) {
+        return NextResponse.json({ ok: false, error: "A webhook signing secret is required to connect a new calendar (enables live guest sync)." }, { status: 400 });
+      }
       const resolved = await resolveNewCalendarEvent({ lumaEvent, apiKey: calendarApiKey });
       // Reuse an existing row for the same Luma calendar (dedupe by cal- id) so a
       // re-connect updates that calendar's credentials instead of creating a

@@ -119,6 +119,16 @@ export async function resolveChannelIdForSave(
   return lookupChannelIdByName(channelName);
 }
 
+/** Whether the bot is a member of the channel (a prerequisite for posting), or
+ * null if it couldn't be checked (Slack error / no token). Used by the readiness
+ * check to flag a channel the bot hasn't been invited to. */
+export async function isBotInChannel(channelId: string): Promise<boolean | null> {
+  const body = await callSlack("conversations.info", { channel: channelId });
+  if (!body.ok) return null;
+  const ch = body.channel as { is_member?: boolean } | undefined;
+  return typeof ch?.is_member === "boolean" ? ch.is_member : null;
+}
+
 /** Have the bot join a public channel (a prerequisite for posting). Best-effort:
  * returns false on any error (e.g. the app lacks the channels:join scope, or the
  * channel is private). */

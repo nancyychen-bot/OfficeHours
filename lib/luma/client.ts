@@ -44,6 +44,21 @@ export interface UpcomingCalEvent {
   city: string | null;
 }
 
+/** Cheaply check whether a calendar API key is accepted by Luma: true = valid,
+ * false = rejected (401/403), null = couldn't tell (transient/network). Fetches a
+ * single event so it doesn't paginate a busy calendar just to validate. */
+export async function validateLumaKey(apiKey: string): Promise<boolean | null> {
+  try {
+    const url = new URL(`${BASE}/v1/calendars/events/list`);
+    url.searchParams.set("pagination_limit", "1");
+    const res = await fetch(url, { headers: { "x-luma-api-key": apiKey }, signal: AbortSignal.timeout(10000) });
+    if (res.status === 401 || res.status === 403) return false;
+    return res.ok ? true : null;
+  } catch {
+    return null;
+  }
+}
+
 /** All upcoming events for a calendar key (2-day back-buffer), paginated. */
 export async function listUpcomingCalendarEvents(apiKey: string): Promise<UpcomingCalEvent[]> {
   const after = new Date(Date.now() - 2 * 86_400_000).toISOString();

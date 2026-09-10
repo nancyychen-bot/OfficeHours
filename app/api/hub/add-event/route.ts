@@ -37,6 +37,9 @@ export async function POST(req: Request) {
   if (!slackChannel) {
     return NextResponse.json({ ok: false, error: "A Slack channel is required." }, { status: 400 });
   }
+  // City override — Luma's address is often the suburb (e.g. Chippendale, not
+  // Sydney); an explicit value wins over the auto-derived one.
+  const city = String(form.get("city") ?? "").trim() || undefined;
   const calendarUrl = String(form.get("calendarUrl") ?? "").trim() || undefined;
   const calendarApiKey = String(form.get("calendarApiKey") ?? "").trim() || undefined;
   const calendarWebhookSecret = String(form.get("calendarWebhookSecret") ?? "").trim() || undefined;
@@ -47,7 +50,7 @@ export async function POST(req: Request) {
   const eventPublicUrl = /^https?:\/\//i.test(lumaEvent) ? lumaEvent : undefined;
 
   try {
-    let registerInput: { lumaEvent: string; publicUrl?: string } = { lumaEvent, publicUrl: eventPublicUrl };
+    let registerInput: { lumaEvent: string; publicUrl?: string; city?: string } = { lumaEvent, publicUrl: eventPublicUrl, city };
 
     // New calendar path: user supplied a key for an unconnected calendar. This
     // writes credentials into the registry, so it requires an operator login

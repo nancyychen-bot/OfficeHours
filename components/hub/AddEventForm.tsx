@@ -36,6 +36,10 @@ export function AddEventForm({ token, webhookUrl }: { token: string; webhookUrl:
         <span className="text-neutral-600">Slack channel *</span>
         <input name="slackChannel" required placeholder="#build-bar-nyc" className={`mt-1 ${field}`} />
       </label>
+      <label className="block text-sm">
+        <span className="text-neutral-600">City (optional — overrides the Luma address)</span>
+        <input name="city" placeholder="e.g. Sydney (Luma often gives the suburb, e.g. Chippendale)" className={`mt-1 ${field}`} />
+      </label>
       {needsCalendar ? (
         <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
           <p className="font-medium text-amber-900">Connect this Luma calendar (one-time)</p>

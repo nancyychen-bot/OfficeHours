@@ -2,6 +2,7 @@ import { checkReadiness, type CalendarReport, type EventReport } from "@/lib/rea
 import type { Issue } from "@/lib/readiness/evaluate";
 import { HubNav } from "@/components/hub/HubNav";
 import { ReadinessAckButton } from "@/components/hub/ReadinessAckButton";
+import { RegisterUntrackedButton } from "@/components/hub/RegisterUntrackedButton";
 
 export const metadata = { title: "Build Bar readiness" };
 export const dynamic = "force-dynamic"; // always run live checks
@@ -43,6 +44,33 @@ export default async function ReadinessPage() {
           </span>
         )}
       </p>
+
+      {report.untracked.length > 0 ? (
+        <div className="mt-5 rounded-md border border-red-200 bg-red-50 px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-red-800">
+              🔴 Untracked events receiving registrations ({report.untracked.length})
+            </h2>
+            <RegisterUntrackedButton label="Register & backfill all" />
+          </div>
+          <p className="mt-1 text-xs text-red-700">
+            People are registering for these on Luma, but the event isn&apos;t in the hub — so registrations are being
+            dropped. Register each to pull in everyone who already signed up (or paste its manage URL into /add-event).
+          </p>
+          <div className="mt-2 space-y-1.5 text-sm">
+            {report.untracked.map((u) => (
+              <div key={u.eventId} className="flex flex-wrap items-center justify-between gap-2 rounded bg-white px-3 py-1.5">
+                <span>
+                  <span className="font-mono text-xs">{u.eventId}</span>{" "}
+                  <strong>{u.guestCount}</strong> guest{u.guestCount === 1 ? "" : "s"} dropped
+                  {u.sampleGuest ? <span className="text-neutral-500"> · e.g. {u.sampleGuest}</span> : null}
+                </span>
+                <RegisterUntrackedButton eventId={u.eventId} label="Register & backfill" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <h2 className="mt-6 text-sm font-semibold text-neutral-700">
         Connected calendars ({report.calendars.length})

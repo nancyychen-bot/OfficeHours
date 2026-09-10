@@ -1,5 +1,6 @@
 import { sendEmail } from "../email/resend";
 import { problemsOnly, type CalendarReport, type EventReport, type ReadinessReport } from "./check";
+import type { UntrackedEvent } from "./untracked";
 
 /** Who gets the setup-problem alert. Defaults to Nancy; override with a
  * comma-separated READINESS_ALERT_EMAILS env var if the recipients change. */
@@ -10,8 +11,15 @@ function alertRecipients(): string[] {
 
 const icon = (level: string) => (level === "error" ? "🔴" : "🟠");
 
-function renderText(calendars: CalendarReport[], events: EventReport[], baseUrl: string): string {
+function renderText(calendars: CalendarReport[], events: EventReport[], untracked: UntrackedEvent[], baseUrl: string): string {
   const lines: string[] = ["Build Bar setup needs attention.\n"];
+  if (untracked.length) {
+    lines.push("UNTRACKED EVENTS (registrations being dropped — register them in the hub):");
+    for (const u of untracked) {
+      lines.push(`  🔴 ${u.eventId} — ${u.guestCount} guest(s) dropped${u.sampleGuest ? ` (e.g. ${u.sampleGuest})` : ""}`);
+    }
+    lines.push("");
+  }
   if (calendars.length) {
     lines.push("CALENDARS:");
     for (const c of calendars) {
@@ -32,13 +40,16 @@ function renderText(calendars: CalendarReport[], events: EventReport[], baseUrl:
   return lines.join("\n");
 }
 
-function renderHtml(calendars: CalendarReport[], events: EventReport[], baseUrl: string): string {
+function renderHtml(calendars: CalendarReport[], events: EventReport[], untracked: UntrackedEvent[], baseUrl: string): string {
   const section = (title: string, rows: string) =>
     rows ? `<h3 style="margin:16px 0 6px">${title}</h3>${rows}` : "";
   const issueList = (issues: { level: string; message: string }[]) =>
     `<ul style="margin:4px 0 10px 18px;padding:0">${issues
       .map((i) => `<li style="margin:2px 0">${icon(i.level)} ${escapeHtml(i.message)}</li>`)
       .join("")}</ul>`;
+  const untrackedRows = untracked
+    .map((u) => `<div>🔴 <code>${escapeHtml(u.eventId)}</code> — <strong>${u.guestCount}</strong> guest(s) dropped${u.sampleGuest ? ` (e.g. ${escapeHtml(u.sampleGuest)})` : ""}</div>`)
+    .join("");
   const calRows = calendars
     .map((c) => `<div><strong>${escapeHtml(c.id)}</strong>${issueList(c.issues)}</div>`)
     .join("");
@@ -47,7 +58,8 @@ function renderHtml(calendars: CalendarReport[], events: EventReport[], baseUrl:
     .join("");
   return [
     `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#111;max-width:620px">`,
-    `<p>Some Build Bar setup needs attention before these events run:</p>`,
+    `<p>Some Build Bar setup needs attention:</p>`,
+    untrackedRows ? `<h3 style="margin:16px 0 6px">Untracked events (registrations being dropped)</h3>${untrackedRows}<p style="margin:6px 0"><a href="${baseUrl}/readiness">Register &amp; backfill them →</a></p>` : "",
     section("Calendars", calRows),
     section("Events", evRows),
     `<p style="margin-top:16px"><a href="${baseUrl}/readiness">Open the full readiness page →</a></p>`,
@@ -65,12 +77,14 @@ function escapeHtml(s: string): string {
  */
 export async function emailReadinessProblems(report: ReadinessReport, baseUrl: string): Promise<number> {
   const { calendars, events } = problemsOnly(report);
-  if (!calendars.length && !events.length) return 0;
+  const untracked = report.untracked;
+  if (!calendars.length && !events.length && !untracked.length) return 0;
   const recipients = alertRecipients();
 
-  const subject = `⚠️ Build Bar setup needs attention (${report.errorCount} error${report.errorCount === 1 ? "" : "s"}, ${report.warnCount} warning${report.warnCount === 1 ? "" : "s"})`;
-  const html = renderHtml(calendars, events, baseUrl);
-  const text = renderText(calendars, events, baseUrl);
+  const untrackedNote = untracked.length ? `${untracked.length} untracked event${untracked.length === 1 ? "" : "s"}, ` : "";
+  const subject = `⚠️ Build Bar setup needs attention (${untrackedNote}${report.errorCount} error${report.errorCount === 1 ? "" : "s"}, ${report.warnCount} warning${report.warnCount === 1 ? "" : "s"})`;
+  const html = renderHtml(calendars, events, untracked, baseUrl);
+  const text = renderText(calendars, events, untracked, baseUrl);
   let sent = 0;
   for (const to of recipients) {
     try {

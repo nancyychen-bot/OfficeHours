@@ -1,5 +1,24 @@
 import { describe, it, expect } from "vitest";
 import { evaluateEvent, evaluateCalendar, type EventCheckInput } from "@/lib/readiness/evaluate";
+import { parseUnknownEventNote } from "@/lib/readiness/untracked";
+
+describe("parseUnknownEventNote", () => {
+  it("extracts the event id, guest name, and email from a real note", () => {
+    const note = "not a registered Notion Build Bar event (evt-FQYbHPek0zXoYgC) — guest Keisuke Okui <keisuke@makenotion.com>";
+    expect(parseUnknownEventNote(note)).toEqual({
+      eventId: "evt-FQYbHPek0zXoYgC",
+      guestName: "Keisuke Okui",
+      guestEmail: "keisuke@makenotion.com",
+    });
+  });
+  it("handles a missing guest gracefully", () => {
+    expect(parseUnknownEventNote("something with evt-ABC123 but no guest")).toEqual({
+      eventId: "evt-ABC123",
+      guestName: null,
+      guestEmail: null,
+    });
+  });
+});
 
 const okEvent: EventCheckInput = {
   city: "Seoul",

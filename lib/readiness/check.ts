@@ -5,6 +5,7 @@ import { validateLumaKey } from "../luma/client";
 import { getSlackChannelForCity } from "../db/slack";
 import { isBotInChannel } from "../slack/api";
 import { evaluateEvent, evaluateCalendar, type Issue } from "./evaluate";
+import { listUntrackedEvents, type UntrackedEvent } from "./untracked";
 
 export interface CalendarReport {
   id: string;
@@ -29,6 +30,8 @@ export interface ReadinessReport {
   generatedForDays: number;
   calendars: CalendarReport[];
   events: EventReport[];
+  /** Events receiving Luma registrations that aren't tracked in the hub yet. */
+  untracked: UntrackedEvent[];
   errorCount: number;
   warnCount: number;
 }
@@ -123,11 +126,13 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
     }),
   );
 
+  const untracked = await listUntrackedEvents();
   const all = [...calendars.flatMap((c) => c.issues), ...eventReports.flatMap((e) => e.issues)];
   return {
     generatedForDays: withinDays,
     calendars,
     events: eventReports,
+    untracked,
     errorCount: all.filter((i) => i.level === "error").length,
     warnCount: all.filter((i) => i.level === "warn").length,
   };

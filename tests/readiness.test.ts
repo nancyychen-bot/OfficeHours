@@ -1,6 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { evaluateEvent, evaluateCalendar, type EventCheckInput } from "@/lib/readiness/evaluate";
-import { parseUnknownEventNote } from "@/lib/readiness/untracked";
+import { parseUnknownEventNote, isOurEventName } from "@/lib/readiness/untracked";
+
+describe("isOurEventName", () => {
+  it("matches Build Bar / Office Hours events (our events)", () => {
+    expect(isOurEventName("Notion Build Bar Sydney")).toBe(true);
+    expect(isOurEventName("Notion Office Hours — Tokyo")).toBe(true);
+    expect(isOurEventName("BuildBar SF")).toBe(true);
+  });
+  it("ignores other events on the shared calendars", () => {
+    expect(isOurEventName("NYC Tech Week: How Notion Builds Notion")).toBe(false);
+    expect(isOurEventName("AI Labs 2.0")).toBe(false);
+    expect(isOurEventName(null)).toBe(false);
+  });
+});
 
 describe("parseUnknownEventNote", () => {
   it("extracts the event id, guest name, and email from a real note", () => {

@@ -16,7 +16,7 @@ function renderText(calendars: CalendarReport[], events: EventReport[], untracke
   if (untracked.length) {
     lines.push("UNTRACKED EVENTS (registrations being dropped — register them in the hub):");
     for (const u of untracked) {
-      lines.push(`  🔴 ${u.eventId} — ${u.guestCount} guest(s) dropped${u.sampleGuest ? ` (e.g. ${u.sampleGuest})` : ""}`);
+      lines.push(`  🔴 ${u.name ?? u.eventId} — ${u.guestCount} guest(s) dropped${u.sampleGuest ? ` (e.g. ${u.sampleGuest})` : ""}`);
     }
     lines.push("");
   }
@@ -48,7 +48,7 @@ function renderHtml(calendars: CalendarReport[], events: EventReport[], untracke
       .map((i) => `<li style="margin:2px 0">${icon(i.level)} ${escapeHtml(i.message)}</li>`)
       .join("")}</ul>`;
   const untrackedRows = untracked
-    .map((u) => `<div>🔴 <code>${escapeHtml(u.eventId)}</code> — <strong>${u.guestCount}</strong> guest(s) dropped${u.sampleGuest ? ` (e.g. ${escapeHtml(u.sampleGuest)})` : ""}</div>`)
+    .map((u) => `<div>🔴 <strong>${escapeHtml(u.name ?? u.eventId)}</strong> — ${u.guestCount} guest(s) dropped${u.sampleGuest ? ` (e.g. ${escapeHtml(u.sampleGuest)})` : ""}</div>`)
     .join("");
   const calRows = calendars
     .map((c) => `<div><strong>${escapeHtml(c.id)}</strong>${issueList(c.issues)}</div>`)

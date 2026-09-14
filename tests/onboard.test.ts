@@ -38,7 +38,7 @@ describe("connectCalendar (standalone, no event)", () => {
 
   it("falls back to the first upcoming event's cal- id and city when the URL has none", async () => {
     vi.spyOn(client, "listUpcomingCalendarEvents").mockResolvedValue([
-      { id: "evt-1", url: "https://luma.com/x", calendarId: "cal-FROMEVENT", city: "Seoul" },
+      { id: "evt-1", name: "Notion Build Bar Seoul", url: "https://luma.com/x", calendarId: "cal-FROMEVENT", city: "Seoul" },
     ]);
     noExistingCalendars();
     vi.spyOn(db, "upsertLumaCalendar").mockResolvedValue();

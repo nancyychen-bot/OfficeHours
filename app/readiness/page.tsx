@@ -61,9 +61,9 @@ export default async function ReadinessPage() {
             {report.untracked.map((u) => (
               <div key={u.eventId} className="flex flex-wrap items-center justify-between gap-2 rounded bg-white px-3 py-1.5">
                 <span>
-                  <span className="font-mono text-xs">{u.eventId}</span>{" "}
-                  <strong>{u.guestCount}</strong> guest{u.guestCount === 1 ? "" : "s"} dropped
+                  <strong>{u.name ?? u.eventId}</strong> — {u.guestCount} guest{u.guestCount === 1 ? "" : "s"} dropped
                   {u.sampleGuest ? <span className="text-neutral-500"> · e.g. {u.sampleGuest}</span> : null}
+                  <span className="ml-1 font-mono text-xs text-neutral-400">{u.eventId}</span>
                 </span>
                 <RegisterUntrackedButton eventId={u.eventId} label="Register & backfill" />
               </div>

@@ -39,6 +39,7 @@ function slugFromUrl(u: string): string | null {
 
 export interface UpcomingCalEvent {
   id: string;        // evt-…
+  name: string | null;
   url: string | null;
   calendarId: string | null;
   city: string | null;
@@ -75,11 +76,11 @@ export async function listUpcomingCalendarEvents(apiKey: string): Promise<Upcomi
     }
     if (!res.ok) throw new Error(`Luma calendars/events/list failed: HTTP ${res.status}`);
     const body = (await res.json()) as {
-      entries?: Array<{ id: string; url?: string; calendar_id?: string; geo_address_json?: Record<string, unknown> }>;
+      entries?: Array<{ id: string; name?: string; url?: string; calendar_id?: string; geo_address_json?: Record<string, unknown> }>;
       has_more?: boolean; next_cursor?: string;
     };
     for (const e of body.entries ?? []) {
-      out.push({ id: e.id, url: e.url ?? null, calendarId: e.calendar_id ?? null, city: cityFromGeo(e.geo_address_json) });
+      out.push({ id: e.id, name: e.name ?? null, url: e.url ?? null, calendarId: e.calendar_id ?? null, city: cityFromGeo(e.geo_address_json) });
     }
     cursor = body.has_more && body.next_cursor ? body.next_cursor : undefined;
   } while (cursor);

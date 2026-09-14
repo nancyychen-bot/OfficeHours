@@ -1,10 +1,20 @@
 import { getAdminClient } from "../supabase/admin";
+import { lumaCalendars } from "../luma/calendars";
+import { listUpcomingCalendarEvents } from "../luma/client";
 
 export interface UntrackedEvent {
   eventId: string; // evt-…
+  name: string | null;
   guestCount: number;
   sampleGuest: string | null;
   lastSeen: string; // ISO
+}
+
+/** Our events on the shared calendars are named "… Build Bar …" / "Office Hours".
+ * Everything else (Tech Week, AI Labs, Notion 101…) is expected to be untracked,
+ * so we don't alert on it. */
+export function isOurEventName(name: string | null | undefined): boolean {
+  return !!name && /build\s*bar|office\s*hours/i.test(name);
 }
 
 /** Parse a `unknown_event` sync-log note:
@@ -49,8 +59,24 @@ export async function listUntrackedEvents(withinDays = 30): Promise<UntrackedEve
     if (!entry.sample && guestName) entry.sample = guestName;
     byEvent.set(eventId, entry);
   }
+  if (byEvent.size === 0) return [];
+
+  // Resolve event names from the connected calendars so we can keep only OUR
+  // events (Build Bar / Office Hours) and ignore the many other events people
+  // register for on the shared calendars.
+  const nameById = new Map<string, string>();
+  for (const cal of await lumaCalendars()) {
+    try {
+      for (const e of await listUpcomingCalendarEvents(cal.apiKey)) {
+        if (e.name) nameById.set(e.id, e.name);
+      }
+    } catch {
+      // A calendar whose key is failing is flagged separately; skip it here.
+    }
+  }
 
   return [...byEvent.entries()]
-    .map(([eventId, e]) => ({ eventId, guestCount: e.guests.size, sampleGuest: e.sample, lastSeen: e.lastSeen }))
+    .map(([eventId, e]) => ({ eventId, name: nameById.get(eventId) ?? null, guestCount: e.guests.size, sampleGuest: e.sample, lastSeen: e.lastSeen }))
+    .filter((u) => isOurEventName(u.name))
     .sort((a, b) => b.guestCount - a.guestCount);
 }

@@ -123,7 +123,9 @@ export async function resolveChannelIdForSave(
  * null if it couldn't be checked (Slack error / no token). Used by the readiness
  * check to flag a channel the bot hasn't been invited to. */
 export async function isBotInChannel(channelId: string): Promise<boolean | null> {
-  const body = await callSlack("conversations.info", { channel: channelId });
+  // conversations.info reads form-encoded params and ignores a JSON body (like
+  // users.lookupByEmail) — must pass form:true or `channel` is dropped and it errors.
+  const body = await callSlack("conversations.info", { channel: channelId }, true);
   if (!body.ok) return null;
   const ch = body.channel as { is_member?: boolean } | undefined;
   return typeof ch?.is_member === "boolean" ? ch.is_member : null;

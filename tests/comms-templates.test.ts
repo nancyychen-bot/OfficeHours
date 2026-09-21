@@ -188,8 +188,8 @@ describe("prep_reminder_day_before__guest", () => {
 describe("prep_reminder_day_before_paid", () => {
   it("prep_reminder_day_before_paid → guest: what to bring, no Notion AI, no slot change", () => {
     const r = renderComms("prep_reminder_day_before_paid", "guest", fields())!;
-    expect(r.text).toContain("What to bring");
-    expect(r.text).toContain("Your laptop");
+    expect(r.text).toContain("3 steps");
+    expect(r.text).toContain("fully charged laptop");
     expect(r.text).not.toContain("Notion AI");
     expect(r.text).not.toContain("Change your slot");
   });

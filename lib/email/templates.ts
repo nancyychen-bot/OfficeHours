@@ -3,8 +3,8 @@ export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
 export const FEEDBACK_FORM_URL = "https://notionambassadors.notion.site/ef74dccc30f7477fac1136b4ff7faeb7?pvs=105";
-/** Notion AI free-trial claim link (pre-event prep email). */
-export const NOTION_AI_TRIAL_URL = "http://ntn.so/community-biz";
+/** Pre-event prep page — desktop app, free Business trial, AI Credits (pre-event prep email). */
+export const NOTION_AI_TRIAL_URL = "https://ntn.so/community-events";
 export const CALENDAR_URL = "https://luma.com/calendar/cal-ZDQrtBgbNzSJZkh";
 export const SUPPORT_EMAIL = "communityevents@makenotion.com";
 export const SLOT_CHANGE_URL = "https://office-hours-three.vercel.app/change-slot";
@@ -198,11 +198,11 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "You're **confirmed for Notion Build Bar** — we can't wait to build with you!", "",
-      `Before you arrive, if you don't already have Notion AI on, **[start your free Notion AI trial]({{trialLink}})** — it takes about a minute. Your host will use Notion AI to help you draft, summarize, and structure faster, so you'll get much more out of your session with it on.`, "",
-      "**Quick checklist:**",
-      "✅ Your 1:1 slot — check for the calendar invite (if you have one)",
-      "✅ Notion AI activated",
-      "✅ Laptop + the question or workspace you want help with", "",
+      "**Before you arrive, head to [ntn.so/community-events]({{trialLink}}) to complete these 3 steps:**",
+      "1. Download the Notion desktop app",
+      "2. Claim your free Notion Business trial (if you are currently not on a Business plan)",
+      "3. Sign up for AI Credits", "",
+      "Also bring a **fully charged laptop** + the workspace or question you want help with.", "",
       "Please **[cancel your registration]({{eventUrl}})** if you can't make it, so we can free up your spot.", "",
       "Need a different time? **[Change your slot]({{slotChangeLink}})** and we'll help reassign you.", "",
       "See you soon,", SIGNOFF, "", `*${SUPPORT}*`,
@@ -214,11 +214,12 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Quick reminder — your **Notion Build Bar** session is **tomorrow**. We can't wait to build with you!", "",
-      "**Quick checklist:**",
-      "✅ Your 1:1 slot — check for the calendar invite (if you have one)",
-      "✅ Arrive 10 minutes early for your 1:1 (if you have one)",
-      "✅ Notion AI activated — if you haven't yet, **[start your free Notion AI trial]({{trialLink}})** (about a minute)",
-      "✅ Laptop + the question or workspace you want help with", "",
+      "**Before you arrive, head to [ntn.so/community-events]({{trialLink}}) to complete these 3 steps:**",
+      "1. Download the Notion desktop app",
+      "2. Claim your free Notion Business trial (if you are currently not on a Business plan)",
+      "3. Sign up for AI Credits", "",
+      "Also bring a **fully charged laptop** + the workspace or question you want help with.", "",
+      "✅ Arrive 10 minutes early for your 1:1 (if you have one)", "",
       "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
       "See you tomorrow,", SIGNOFF, "", `*${SUPPORT}*`,
     ),
@@ -229,10 +230,12 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
     body: b(
       "Hi {{firstName}},", "",
       "Quick reminder — your **Notion Build Bar** session is **tomorrow**. We can't wait to build with you!", "",
-      "**What to bring:**",
-      "✅ Your 1:1 slot — check for the calendar invite (if you have one)",
-      "✅ Arrive 10 minutes early for your 1:1 (if you have one)",
-      "✅ Your laptop", "",
+      "**Before you arrive, head to [ntn.so/community-events]({{trialLink}}) to complete these 3 steps:**",
+      "1. Download the Notion desktop app",
+      "2. Claim your free Notion Business trial (if you are currently not on a Business plan)",
+      "3. Sign up for AI Credits", "",
+      "Also bring a **fully charged laptop** + the workspace or question you want help with.", "",
+      "✅ Arrive 10 minutes early for your 1:1 (if you have one)", "",
       "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
       "See you tomorrow,", SIGNOFF, "", `*${SUPPORT}*`,
     ),
@@ -585,7 +588,7 @@ export const PLACEHOLDERS: Array<{ token: string; desc: string }> = [
   { token: "{{guestDetails}}", desc: "Full guest details block (for expert emails)" },
   { token: "{{conflictSummary}}", desc: "Overlapping bookings for the double-booked email (name — role, company — challenge)" },
   { token: "{{feedbackLink}}", desc: "Feedback form URL" },
-  { token: "{{trialLink}}", desc: "Notion AI trial URL" },
+  { token: "{{trialLink}}", desc: "Pre-event prep page URL (desktop app, Business trial, AI Credits)" },
   { token: "{{calendarLink}}", desc: "Notion community calendar URL" },
   { token: "{{eventUrl}}", desc: "This event's public Luma page (for cancel/registration links)" },
   { token: "{{supportEmail}}", desc: "Community support email" },

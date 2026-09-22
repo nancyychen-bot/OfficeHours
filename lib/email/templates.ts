@@ -34,6 +34,10 @@ export interface CommsFields {
   /** The event's city/calendar-specific public Luma calendar URL (for "follow our
    * calendar"); falls back to the global CALENDAR_URL when unset. */
   calendarUrl?: string | null;
+  /** Per-event free-form logistics (check-in / where to go), edited from the
+   * readiness page and injected into the prep-reminder emails via
+   * {{eventInstructions}}. Null/empty ⇒ no block (today's exact email). */
+  eventInstructions?: string | null;
   /** Other bookings the expert holds in this slot (populated for the double-booked email). */
   conflicts?: Array<{ name: string; challenge: string | null; role: string | null; company: string | null }>;
 }
@@ -186,6 +190,9 @@ export interface TemplateDef {
   body: string;
 }
 
+/** Lead-in shown above an event's custom prep instructions (only when present),
+ * so the block reads consistently no matter what the organizer types. */
+const PREP_INSTRUCTIONS_LABEL = "📍 **Getting there & checking in**";
 const SIGNOFF = "The Notion Community Team";
 const SUPPORT = `If you have any questions please email ${SUPPORT_EMAIL}`;
 const SUPPORT_HELPER = "If you have any questions, please talk to Nancy Chen";
@@ -203,6 +210,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "2. Claim your free Notion Business trial (if you are currently not on a Business plan)",
       "3. Sign up for AI Credits", "",
       "Also bring a **fully charged laptop** + the workspace or question you want help with.", "",
+      "{{eventInstructions}}", "",
       "Please **[cancel your registration]({{eventUrl}})** if you can't make it, so we can free up your spot.", "",
       "Need a different time? **[Change your slot]({{slotChangeLink}})** and we'll help reassign you.", "",
       "See you soon,", SIGNOFF, "", `*${SUPPORT}*`,
@@ -220,6 +228,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "3. Sign up for AI Credits", "",
       "Also bring a **fully charged laptop** + the workspace or question you want help with.", "",
       "✅ Arrive 10 minutes early for your 1:1 (if you have one)", "",
+      "{{eventInstructions}}", "",
       "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
       "See you tomorrow,", SIGNOFF, "", `*${SUPPORT}*`,
     ),
@@ -236,6 +245,7 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "3. Sign up for AI Credits", "",
       "Also bring a **fully charged laptop** + the workspace or question you want help with.", "",
       "✅ Arrive 10 minutes early for your 1:1 (if you have one)", "",
+      "{{eventInstructions}}", "",
       "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
       "See you tomorrow,", SIGNOFF, "", `*${SUPPORT}*`,
     ),
@@ -589,6 +599,7 @@ export const PLACEHOLDERS: Array<{ token: string; desc: string }> = [
   { token: "{{conflictSummary}}", desc: "Overlapping bookings for the double-booked email (name — role, company — challenge)" },
   { token: "{{feedbackLink}}", desc: "Feedback form URL" },
   { token: "{{trialLink}}", desc: "Pre-event prep page URL (desktop app, Business trial, AI Credits)" },
+  { token: "{{eventInstructions}}", desc: "Per-event check-in / where-to-go block (set per event on the readiness page; blank when none) — prep emails only" },
   { token: "{{calendarLink}}", desc: "Notion community calendar URL" },
   { token: "{{eventUrl}}", desc: "This event's public Luma page (for cancel/registration links)" },
   { token: "{{supportEmail}}", desc: "Community support email" },
@@ -629,6 +640,11 @@ export function buildVars(role: Recipient, f: CommsFields): Record<string, strin
     // The event's public page; falls back to the community calendar so the link is never broken.
     eventUrl: f.eventUrl || CALENDAR_URL,
     supportEmail: SUPPORT_EMAIL,
+    // Per-event custom logistics: label + text when present, else "" so the
+    // placeholder line collapses to nothing (toParagraphs drops empty lines).
+    eventInstructions: f.eventInstructions?.trim()
+      ? `${PREP_INSTRUCTIONS_LABEL}\n${f.eventInstructions.trim()}`
+      : "",
   };
 }
 

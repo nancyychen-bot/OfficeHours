@@ -24,6 +24,8 @@ export interface EventReport {
   lumaCalendar: string | null;
   /** Operator marked this event's setup complete (drops it from the alert email). */
   acked: boolean;
+  /** Per-event prep-email logistics (check-in / where to go); null when unset. */
+  prepInstructions: string | null;
   issues: Issue[];
 }
 export interface ReadinessReport {
@@ -78,7 +80,7 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
   const until = new Date(Date.now() + withinDays * 86_400_000).toISOString().slice(0, 10);
   const { data: eventRows } = await supabase
     .from("events")
-    .select("id, name, city, timezone, address, event_date, luma_calendar, luma_event_id, readiness_acked_at, status")
+    .select("id, name, city, timezone, address, event_date, luma_calendar, luma_event_id, readiness_acked_at, prep_instructions, status")
     .gte("event_date", today)
     .lte("event_date", until)
     .neq("status", "cancelled")
@@ -121,6 +123,7 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
         eventDate: e.event_date as string,
         lumaCalendar: (e.luma_calendar as string) ?? null,
         acked: !!e.readiness_acked_at,
+        prepInstructions: (e.prep_instructions as string) ?? null,
         issues,
       };
     }),

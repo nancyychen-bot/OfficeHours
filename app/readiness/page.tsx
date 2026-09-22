@@ -3,6 +3,7 @@ import type { Issue } from "@/lib/readiness/evaluate";
 import { HubNav } from "@/components/hub/HubNav";
 import { ReadinessAckButton } from "@/components/hub/ReadinessAckButton";
 import { RegisterUntrackedButton } from "@/components/hub/RegisterUntrackedButton";
+import { EventInstructionsEditor } from "@/components/hub/EventInstructionsEditor";
 
 export const metadata = { title: "Build Bar readiness" };
 export const dynamic = "force-dynamic"; // always run live checks
@@ -126,6 +127,7 @@ export default async function ReadinessPage() {
               <div className="mt-0.5">
                 <IssueList issues={e.issues} />
               </div>
+              <EventInstructionsEditor lumaEventId={e.lumaEventId} initial={e.prepInstructions} />
             </div>
           ))
         )}

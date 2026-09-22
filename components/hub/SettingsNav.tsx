@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const SUB = [
   { href: "/settings/emails", label: "Emails" },
+  { href: "/settings/emails/instructions", label: "Event instructions" },
   { href: "/settings/emails/log", label: "Sent log" },
   { href: "/settings/slack", label: "Slack" },
   { href: "/settings/backups", label: "Backups" },

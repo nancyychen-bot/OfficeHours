@@ -71,6 +71,9 @@ const defaultDeps: CommsDeps = {
     try {
       const ev = d.event_id ? await getEventById(d.event_id as string) : null;
       f.eventUrl = ev?.public_url ?? null;
+      // Per-event prep instructions (check-in / where to go) — injected into the
+      // prep-reminder emails; blank/absent ⇒ no block.
+      f.eventInstructions = ev?.prep_instructions ?? null;
     } catch {
       /* best-effort — falls back to the calendar link in buildVars */
     }

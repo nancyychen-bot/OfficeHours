@@ -232,6 +232,7 @@ export type Database = {
           luma_stats: Json | null
           luma_synced_at: string | null
           name: string
+          prep_instructions: string | null
           public_url: string | null
           readiness_acked_at: string | null
           status: Database["public"]["Enums"]["event_status"]
@@ -251,6 +252,7 @@ export type Database = {
           luma_stats?: Json | null
           luma_synced_at?: string | null
           name: string
+          prep_instructions?: string | null
           public_url?: string | null
           readiness_acked_at?: string | null
           status?: Database["public"]["Enums"]["event_status"]
@@ -270,6 +272,7 @@ export type Database = {
           luma_stats?: Json | null
           luma_synced_at?: string | null
           name?: string
+          prep_instructions?: string | null
           public_url?: string | null
           readiness_acked_at?: string | null
           status?: Database["public"]["Enums"]["event_status"]

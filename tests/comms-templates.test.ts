@@ -200,3 +200,53 @@ describe("prep_reminder_day_before_paid", () => {
     expect(renderComms("prep_reminder", "guest", fields())!.text).toContain("Change your slot");
   });
 });
+
+describe("per-event prep instructions ({{eventInstructions}})", () => {
+  const PREP_KINDS = ["prep_reminder", "prep_reminder_day_before", "prep_reminder_day_before_paid"] as const;
+
+  it("absent/empty ⇒ byte-for-byte the same email as today, across all 3 prep kinds", () => {
+    for (const kind of PREP_KINDS) {
+      const base = renderComms(kind, "guest", fields())!;
+      const nullish = renderComms(kind, "guest", fields({ eventInstructions: null }))!;
+      const blank = renderComms(kind, "guest", fields({ eventInstructions: "   " }))!;
+      expect(nullish.html).toBe(base.html);
+      expect(nullish.text).toBe(base.text);
+      expect(blank.html).toBe(base.html); // whitespace-only collapses to no block
+      expect(base.html).not.toContain("Getting there");
+    }
+  });
+
+  it("present ⇒ renders under the lead-in label with markdown, for all 3 prep kinds", () => {
+    for (const kind of PREP_KINDS) {
+      const r = renderComms(kind, "guest", fields({
+        eventInstructions: "Check in at the **front desk** and ask for [the Build Bar](https://ex.co/map).",
+      }))!;
+      expect(r.text).toContain("Getting there & checking in");
+      expect(r.html).toContain("<strong>front desk</strong>");
+      expect(r.html).toContain('href="https://ex.co/map"');
+      // Sits in the logistics slot: after "fully charged laptop", before the cancel line.
+      const bringAt = r.text.indexOf("fully charged laptop");
+      const blockAt = r.text.indexOf("Getting there");
+      const cancelAt = r.text.toLowerCase().indexOf("cancel");
+      expect(bringAt).toBeLessThan(blockAt);
+      expect(blockAt).toBeLessThan(cancelAt);
+    }
+  });
+
+  it("isolation: two events render only their own instructions", () => {
+    const sf = renderComms("prep_reminder", "guest", fields({ eventInstructions: "SF: enter on Harrison St" }))!;
+    const nyc = renderComms("prep_reminder", "guest", fields({ eventInstructions: "NYC: 5th floor, ring the bell" }))!;
+    expect(sf.text).toContain("Harrison St");
+    expect(sf.text).not.toContain("5th floor");
+    expect(nyc.text).toContain("5th floor");
+    expect(nyc.text).not.toContain("Harrison St");
+  });
+
+  it("injection-safe: raw HTML in the field is escaped, not rendered", () => {
+    const r = renderComms("prep_reminder", "guest", fields({
+      eventInstructions: "<script>alert(1)</script> come to the desk",
+    }))!;
+    expect(r.html).not.toContain("<script>");
+    expect(r.html).toContain("&lt;script&gt;");
+  });
+});

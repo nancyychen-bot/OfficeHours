@@ -134,4 +134,12 @@ describe("selectDeclinablePendings", () => {
     ];
     expect(selectDeclinablePendings(rows).map((b) => b.id)).toEqual(["u1", "n1"]);
   });
+
+  it("never declines a cowork_only registrant, even if still pending", () => {
+    const rows = [
+      bk({ id: "p1", luma_status: "pending", status: "unassigned" }),
+      bk({ id: "c1", luma_status: "pending", status: "cowork_only" }),
+    ];
+    expect(selectDeclinablePendings(rows).map((b) => b.id)).toEqual(["p1"]);
+  });
 });

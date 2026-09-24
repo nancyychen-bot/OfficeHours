@@ -269,6 +269,51 @@ export async function claimBooking(params: {
   return { ok: false, reason: "already_claimed", current };
 }
 
+export type CoworkAcceptResult =
+  | { status: "accepted"; booking: Booking }
+  | { status: "noop"; booking: Booking } // already cowork_only
+  | { status: "rejected"; reason: "not_found" }
+  | { status: "rejected"; reason: "filtered" | "assigned" | "ineligible"; current: Booking };
+
+/**
+ * Pure: classify the outcome when the atomic accept-UPDATE matched no row.
+ * `current` is the booking as it exists now. Order matters: an already-accepted
+ * booking is an idempotent no-op; a filtered/assigned booking is a deliberate
+ * refusal (the organizer must unfilter / unclaim first); anything else
+ * (cancelled, declined, checked_in, no_show, no_help_needed) is ineligible.
+ */
+export function classifyCoworkAcceptMiss(current: Booking | null): CoworkAcceptResult {
+  if (!current) return { status: "rejected", reason: "not_found" };
+  if (current.status === "cowork_only") return { status: "noop", booking: current };
+  if (current.filtered) return { status: "rejected", reason: "filtered", current };
+  if (current.status === "assigned") return { status: "rejected", reason: "assigned", current };
+  return { status: "rejected", reason: "ineligible", current };
+}
+
+/**
+ * Accept an unclaimed 1:1 registrant for COWORKING ONLY (organizer action).
+ * Atomic, first-wins conditional UPDATE guarded by `status = 'unassigned'` +
+ * `filtered = false` — the same arbiter pattern as claimBooking, so a
+ * simultaneous 1:1 claim and cowork-accept can never both win. On success the
+ * booking becomes `cowork_only` (not claimable — claim requires 'unassigned')
+ * and `luma_status = 'approved'` (excluded from the pending-only cutoff cron).
+ * Idempotent: a second click matches no row and returns `noop`.
+ */
+export async function acceptCoworkOnly(bookingId: string): Promise<CoworkAcceptResult> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({ status: "cowork_only", luma_status: "approved" })
+    .eq("id", bookingId)
+    .eq("status", "unassigned") // <-- first-wins guard vs a racing 1:1 claim
+    .eq("filtered", false) // filtered candidates are hidden + not acceptable
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  if (data) return { status: "accepted", booking: data };
+  return classifyCoworkAcceptMiss(await getBookingById(bookingId));
+}
+
 /** Reassign an already-assigned booking to a different expert (stays 'assigned'). */
 export async function reassignBooking(
   bookingId: string,

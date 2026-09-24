@@ -9,6 +9,7 @@ import { PROP } from "@/lib/notion/schema";
 import {
   getBookingByNotionPageId,
   getBookingById,
+  acceptCoworkOnly,
   claimBooking,
   reassignBooking,
   releaseBooking,
@@ -163,6 +164,46 @@ async function processNotionWebhook(
     if (!booking) {
       await logSync({ direction, result: "error", action: "resolve", note: `no booking for ${workspace} page ${pageId}` });
       return NextResponse.json({ received: true, warning: "unknown page" });
+    }
+
+    // COWORK ONLY — an organizer accepts an unclaimed 1:1 registrant for
+    // coworking (Dev workspace button). No page read needed: we act on the
+    // resolved booking. acceptCoworkOnly is the atomic arbiter (first-wins vs a
+    // racing claim) and is idempotent (a second click → noop).
+    if (action === "cowork_only") {
+      const result = await acceptCoworkOnly(booking.id);
+      if (result.status === "rejected") {
+        await logSync({ direction, result: "applied", bookingId: booking.id, action: "cowork_accept_rejected", note: result.reason });
+        return NextResponse.json({ received: true, rejected: result.reason });
+      }
+      if (result.status === "noop") {
+        await logSync({ direction, result: "applied", bookingId: booking.id, action: "cowork_accept_noop" });
+        return NextResponse.json({ received: true, noop: true });
+      }
+      const accepted = result.booking;
+      // Exactly one acceptance email (idempotent via email_log).
+      await sendBookingComms(accepted.id, "cowork_only_accept");
+      // Approve in Luma too so they keep a ticket + leave the pending pool
+      // (best-effort; a failure must not undo the hub state change).
+      try {
+        const ev = await getEventById(accepted.event_id);
+        if (ev?.luma_event_id && accepted.luma_guest_id) {
+          await updateGuestStatus({
+            eventLumaId: ev.luma_event_id,
+            guestLumaId: accepted.luma_guest_id,
+            status: "approved",
+            apiKey: await apiKeyForCalendar(ev.luma_calendar),
+          });
+        } else {
+          await logSync({ direction, result: "applied", bookingId: accepted.id, action: "cowork_accept_luma_skip", note: "missing event/guest luma id" });
+        }
+      } catch (err) {
+        await logSync({ direction, result: "error", bookingId: accepted.id, action: "cowork_accept_luma_error", note: err instanceof Error ? err.message : String(err) });
+      }
+      // Mirror the new state (Status = Cowork only, Luma = Approved) to both cards.
+      await pushBookingToWorkspaces(accepted);
+      await logSync({ direction, result: "applied", bookingId: accepted.id, action: "cowork_accepted" });
+      return NextResponse.json({ received: true });
     }
 
     // UNCLAIM — explicit intent, but AUTHORISED: only the current claimer may

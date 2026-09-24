@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "guest_cancelled" | "prep_reminder_day_before_paid";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "cowork_only_accept" | "guest_cancelled" | "prep_reminder_day_before_paid";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -180,7 +180,8 @@ export type TemplateKey =
   | "event_cancelled__guest" | "event_cancelled__helper"
   | "feedback_request__guest"
   | "feedback_reminder__guest"
-  | "cowork_only__guest";
+  | "cowork_only__guest"
+  | "cowork_only_accept__guest";
 
 export interface TemplateDef {
   label: string;
@@ -257,6 +258,21 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "Hi {{firstName}},", "",
       "You've been **approved to join us at the Notion Build Bar** in {{location}} on {{eventDate}} to **cowork** alongside Notion experts. We're excited to have you!", "",
       "One heads-up so you know what to expect: because a **1:1 time slot wasn't selected** during registration, you **won't be paired with a Notion expert for dedicated one-on-one help**. You're very welcome to come cowork, ask questions, and meet the team.", "",
+      "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
+      "See you there,", SIGNOFF, "", `*${SUPPORT}*`,
+    ),
+  },
+  cowork_only_accept__guest: {
+    label: "Cowork-only acceptance",
+    description: "organizer accepts an unclaimed 1:1 registrant for coworking (no 1:1 match)",
+    role: "guest",
+    subject: "You're in — cowork with us at the Notion Build Bar ✨",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Thanks for signing up for a 1:1 at the **Notion Build Bar** in {{location}} on {{eventDate}}.", "",
+      "We're **at capacity for 1:1 sessions, but we'd love to have you cowork with us** — come build alongside Notion experts, ask questions, and meet the community.", "",
+      "One heads-up so you know what to expect: coworking **does not include a guaranteed 1:1 session** with a Notion expert. If a slot opens up we'll do our best, but please plan to cowork.", "",
+      "{{eventInstructions}}", "",
       "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
       "See you there,", SIGNOFF, "", `*${SUPPORT}*`,
     ),

@@ -111,6 +111,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   prep_reminder_day_before: ["guest"],
   prep_reminder_day_before_paid: ["guest"],
   cowork_only: ["guest"],
+  cowork_only_accept: ["guest"],
   reassigned_off: ["helper"],
   already_claimed: [], // sent directly to the would-be claimer via sendCommsToEmail
   day_of_agenda: [], // aggregate per-expert email — sent via lib/events/agenda, not here

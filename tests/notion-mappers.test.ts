@@ -185,3 +185,10 @@ describe("filtered checkbox mapping", () => {
     expect(props[PROP.filtered].checkbox).toBe(true);
   });
 });
+
+describe("cowork_only status mapping", () => {
+  it("maps cowork_only <-> \"Cowork only\" both directions", () => {
+    expect(statusToLabel("cowork_only")).toBe("Cowork only");
+    expect(labelToStatus("Cowork only")).toBe("cowork_only");
+  });
+});

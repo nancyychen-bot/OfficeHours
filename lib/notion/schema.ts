@@ -47,6 +47,7 @@ export const STATUS_LABEL = {
   checked_in: "Checked In",
   no_show: "No-show",
   cancelled: "Cancelled",
+  cowork_only: "Cowork only",
 } as const;
 
 export const LUMA_STATUS_LABEL = {
@@ -88,6 +89,7 @@ export function buildBookingsProperties(cities: string[] = ["SF", "NYC"]) {
           { name: STATUS_LABEL.checked_in, color: "green" },
           { name: STATUS_LABEL.no_show, color: "red" },
           { name: STATUS_LABEL.cancelled, color: "orange" },
+          { name: STATUS_LABEL.cowork_only, color: "purple" },
         ],
       },
     },

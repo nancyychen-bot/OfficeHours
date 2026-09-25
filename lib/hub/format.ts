@@ -2,6 +2,8 @@ import type { HubBooking, HubEvent } from "./queries";
 
 const STATUS_PILLS: Record<string, { label: string; className: string }> = {
   unassigned: { label: "Unassigned", className: "bg-neutral-100 text-neutral-600" },
+  cowork_only: { label: "Cowork only", className: "bg-purple-100 text-purple-800" },
+  no_help_needed: { label: "No help needed", className: "bg-neutral-100 text-neutral-600" },
   assigned: { label: "Assigned", className: "bg-blue-100 text-blue-800" },
   checked_in: { label: "Checked In", className: "bg-green-100 text-green-800" },
   no_show: { label: "No-show", className: "bg-amber-100 text-amber-800" },
@@ -40,6 +42,7 @@ export function scoreBadgeClass(score: number | null): string {
 /** The booking statuses available as filter chips, in display order. */
 export const STATUS_FILTERS: { value: string; label: string }[] = [
   "unassigned",
+  "cowork_only",
   "assigned",
   "checked_in",
   "no_show",

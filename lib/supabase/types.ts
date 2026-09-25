@@ -655,6 +655,7 @@ export type Database = {
         | "no_show"
         | "cancelled"
         | "no_help_needed"
+        | "cowork_only"
       event_status: "planned" | "live" | "completed" | "cancelled"
       luma_status: "pending" | "approved" | "waitlist" | "declined"
       sync_direction:
@@ -798,6 +799,7 @@ export const Constants = {
         "no_show",
         "cancelled",
         "no_help_needed",
+        "cowork_only",
       ],
       event_status: ["planned", "live", "completed", "cancelled"],
       luma_status: ["pending", "approved", "waitlist", "declined"],

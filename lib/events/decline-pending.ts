@@ -12,10 +12,12 @@ import type { Booking } from "../sync/types";
 /**
  * All still-`pending` bookings are declinable the day before the event —
  * regardless of whether they requested a 1:1 (unassigned) or not (no_help_needed).
- * Approved / waitlist / already-declined are left untouched.
+ * Approved / waitlist / already-declined are left untouched. `cowork_only`
+ * registrants are never declined: an organizer deliberately accepted them for
+ * coworking (belt-and-suspenders — accepting also sets luma_status='approved').
  */
 export function selectDeclinablePendings(bookings: Booking[]): Booking[] {
-  return bookings.filter((b) => b.luma_status === "pending");
+  return bookings.filter((b) => b.luma_status === "pending" && b.status !== "cowork_only");
 }
 
 /** applyLumaStatus deps for a cron-origin decline (same shape as the Notion route).

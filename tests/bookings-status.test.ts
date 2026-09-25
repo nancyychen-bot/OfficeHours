@@ -62,4 +62,20 @@ describe("decideBookingStatusPatch", () => {
     expect(decideBookingStatusPatch("assigned", "approved", "2:00-2:30 PM")).toEqual({});
     expect(decideBookingStatusPatch("checked_in", "pending", null)).toEqual({});
   });
+
+  it("keeps cowork_only sticky against inbound approved/pending webhooks", () => {
+    expect(decideBookingStatusPatch("cowork_only", "approved", "2:00-2:30 PM")).toEqual({});
+    expect(decideBookingStatusPatch("cowork_only", "pending", "2:00-2:30 PM")).toEqual({});
+    expect(decideBookingStatusPatch("cowork_only", "waitlist", "2:00-2:30 PM")).toEqual({});
+  });
+
+  it("still cancels a cowork_only registrant who declines in Luma", () => {
+    expect(decideBookingStatusPatch("cowork_only", "declined", "2:00-2:30 PM")).toEqual({
+      status: "cancelled",
+      slot_id: null,
+      booked_by_display_name: null,
+      booked_by_type: null,
+      booked_by_email: null,
+    });
+  });
 });

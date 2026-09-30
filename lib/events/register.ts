@@ -12,6 +12,7 @@ import { generateSlotsFromOptions } from "./slots-gen";
 import { reconcileSlots } from "./reconcile";
 import { backfillEventGuests } from "./backfill";
 import { upsertEvent } from "../db/events";
+import { ensureLocationOption } from "../notion/location-options";
 import { getAdminClient } from "../supabase/admin";
 import { localCalendarDate } from "./event-date";
 
@@ -117,6 +118,15 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     // Status intentionally omitted: a new event gets the DB default ('planned'),
     // and re-registering an existing event must not reset its status.
   });
+
+  // Ensure the city is a filterable Location option in Notion now, rather than
+  // waiting for the first registrant's page write. Best-effort: never fail the
+  // registration over a Notion schema hiccup.
+  try {
+    await ensureLocationOption(city);
+  } catch (err) {
+    console.error("[register] ensureLocationOption failed", err);
+  }
 
   const labels = extractSlotOptions(detail.registration_questions ?? []);
   const startAt = input.slotStart ?? detail.start_at;

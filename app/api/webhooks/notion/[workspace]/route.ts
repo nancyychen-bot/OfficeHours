@@ -20,6 +20,7 @@ import {
   resetAssignment,
 } from "@/lib/db/bookings";
 import { matchSlotForEvent } from "@/lib/db/slots";
+import { slotMoveCommsPlan } from "@/lib/events/slot-change";
 import { getEventById, getEventByLumaId } from "@/lib/db/events";
 import { updateGuestStatus } from "@/lib/luma/client";
 import { apiKeyForCalendar } from "@/lib/luma/calendars";
@@ -266,11 +267,19 @@ async function processNotionWebhook(
     if (matchedSlot && matchedSlot.id !== booking.slot_id) {
       const updated = (await setBookingSlot(booking.id, matchedSlot.id)) ?? booking;
       const ev = await getEventById(booking.event_id);
-      if (updated.status === "assigned") {
+      const plan = slotMoveCommsPlan(updated.status);
+      if (plan.reinvite) {
         // Fresh time → re-send the invite (monotonic ICS SEQUENCE updates the hold).
         await clearCommsForKinds(updated.id, ["assigned"]);
         await sendBookingComms(updated.id, "assigned");
         await postClaimConfirmDM(updated.id);
+      } else if (plan.notifyGuest) {
+        // Unassigned guest moved by an organizer: no expert/invite yet, but tell
+        // the guest their new time. Clear any prior slot_changed first so a repeat
+        // move re-notifies — the (booking, kind, role) dedup key would otherwise
+        // silently skip the second email. Helper recipient auto-skips (no expert).
+        await clearCommsForKinds(updated.id, ["slot_changed"]);
+        await sendBookingComms(updated.id, "slot_changed");
       }
       const pushOpts = { slotLabel: matchedSlot.name, location: ev?.city, eventName: ev?.name, eventDate: ev?.event_date };
       await pushBookingToWorkspaces(updated, { fullUpdate: true, dev: pushOpts, ambassador: pushOpts });

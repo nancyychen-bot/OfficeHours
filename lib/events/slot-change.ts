@@ -5,6 +5,26 @@ import { clearCommsForKinds } from "../db/email-log";
 import { sendBookingComms } from "../email/comms";
 import { pushBookingToWorkspaces } from "../notion/push";
 import { postSlackRecruit } from "../slack/client";
+import type { BookingStatus } from "../sync/types";
+
+/**
+ * When an organizer moves a booking to a different slot by editing the "Slot"
+ * field in Notion, decide what comms should fire (used by the Notion webhook).
+ * - `assigned`: an expert already holds this 1:1 — keep them and re-issue the
+ *   invite with the new time (the webhook re-sends "assigned").
+ * - `unassigned`: the guest registered but has no expert yet — email the guest
+ *   their new time ("slot_changed"; the helper recipient auto-skips with no expert).
+ * - anything else (cancelled/no_show/cowork_only/no_help_needed/checked_in): do
+ *   nothing, matching prior behavior — those guests shouldn't get a 1:1
+ *   time-change email.
+ */
+export function slotMoveCommsPlan(
+  status: BookingStatus,
+): { reinvite: boolean; notifyGuest: boolean } {
+  if (status === "assigned") return { reinvite: true, notifyGuest: false };
+  if (status === "unassigned") return { reinvite: false, notifyGuest: true };
+  return { reinvite: false, notifyGuest: false };
+}
 
 export interface ChangeableSlot { id: string; name: string }
 export interface ChangeableBooking {

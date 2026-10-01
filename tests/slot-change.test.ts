@@ -1,5 +1,20 @@
 import { describe, it, expect } from "vitest";
 import { renderComms, templateKeyFor, SAMPLE_FIELDS } from "../lib/email/templates";
+import { slotMoveCommsPlan } from "../lib/events/slot-change";
+
+describe("slotMoveCommsPlan (organizer moves a booking's slot in Notion)", () => {
+  it("re-invites (keeps the expert) when the booking is already assigned", () => {
+    expect(slotMoveCommsPlan("assigned")).toEqual({ reinvite: true, notifyGuest: false });
+  });
+  it("notifies the guest when they registered but have no expert yet", () => {
+    expect(slotMoveCommsPlan("unassigned")).toEqual({ reinvite: false, notifyGuest: true });
+  });
+  it("does nothing for statuses that shouldn't get a 1:1 time-change email", () => {
+    for (const s of ["cancelled", "no_show", "cowork_only", "no_help_needed", "checked_in"] as const) {
+      expect(slotMoveCommsPlan(s)).toEqual({ reinvite: false, notifyGuest: false });
+    }
+  });
+});
 
 describe("slot_changed emails", () => {
   it("routes guest + helper variants", () => {

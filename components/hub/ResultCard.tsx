@@ -111,6 +111,27 @@ export function ResultCard({ r, highlight, showComments = true, anonymous = fals
         <Stat label="Completed" value={String(r.oneOnOneCompleted)} tone="green" />
         <Stat label="Unmet" value={String(r.oneOnOneUnmet)} tone="amber" sub="requested, unclaimed" />
       </div>
+      {!anonymous && r.completedSessions.length ? (
+        <details className="mt-2 rounded-lg border border-line bg-neutral-50/60 px-3 py-2">
+          <summary className="cursor-pointer select-none text-xs font-medium text-neutral-600">
+            Completed 1:1s ({r.completedSessions.length})
+          </summary>
+          <ul className="mt-2 space-y-1">
+            {r.completedSessions.map((s, i) => (
+              <li key={i} className="flex items-center gap-1.5 text-sm text-neutral-700">
+                <span className="truncate">{s.guestName}</span>
+                <span className="text-neutral-400">→</span>
+                <span className="truncate font-medium">{s.expertName}</span>
+                {s.expertType ? (
+                  <span className="rounded bg-neutral-200 px-1 text-[10px] uppercase tracking-wide text-neutral-500">
+                    {s.expertType === "ambassador" ? "amb" : s.expertType === "employee" ? "emp" : s.expertType}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
 
       <SectionLabel dot="bg-violet-600">Satisfaction</SectionLabel>
       <div className="grid gap-3 sm:grid-cols-2">

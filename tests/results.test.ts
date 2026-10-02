@@ -147,3 +147,18 @@ describe("computeContributors", () => {
     expect(top[0].sessions).toBe(2);
   });
 });
+
+describe("computeResults completed 1:1 sessions", () => {
+  it("lists each completed 1:1 as attendee → expert (+ type), matching the count", () => {
+    const bookings = [
+      bk("A", { guest_name: "Francesco", status: "checked_in", booked_by_display_name: "Yina", booked_by_type: "ambassador" }),
+      bk("A", { guest_name: "NoHelper", status: "checked_in" }), // checked in but no expert → not a completed 1:1
+      bk("A", { guest_name: "Assigned", status: "assigned", booked_by_display_name: "Emily", booked_by_type: "employee" }), // claimed, not attended
+    ];
+    const r = computeResults(bookings, [], [ev("A", "SF")]).perEvent[0];
+    expect(r.oneOnOneCompleted).toBe(1);
+    expect(r.completedSessions).toEqual([
+      { guestName: "Francesco", expertName: "Yina", expertType: "ambassador" },
+    ]);
+  });
+});

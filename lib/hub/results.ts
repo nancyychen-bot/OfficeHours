@@ -17,6 +17,8 @@ export interface EventResult {
   oneOnOneClaimed: number;
   oneOnOneCompleted: number;
   oneOnOneUnmet: number; // requested but never claimed
+  // The actual completed pairs (guest attended + an expert on the booking).
+  completedSessions: Array<{ guestName: string; expertName: string; expertType: string | null }>;
   // Satisfaction
   responses: number;
   responseRate: number; // responses / checkedIn
@@ -47,8 +49,11 @@ function attendanceFromBookings(bookings: HubBooking[]) {
 function oneOnOne(bookings: HubBooking[]) {
   const requested = bookings.filter((b) => !!b.requested_slot).length;
   const claimed = bookings.filter((b) => hasHelper(b) && (b.status === "assigned" || b.status === "checked_in")).length;
-  const completed = bookings.filter((b) => b.status === "checked_in" && hasHelper(b)).length;
-  return { requested, claimed, completed, unmet: Math.max(0, requested - claimed) };
+  const completedBookings = bookings.filter((b) => b.status === "checked_in" && hasHelper(b));
+  const completedSessions = completedBookings
+    .map((b) => ({ guestName: b.guest_name, expertName: b.booked_by_display_name as string, expertType: b.booked_by_type }))
+    .sort((a, b) => a.expertName.localeCompare(b.expertName) || a.guestName.localeCompare(b.guestName));
+  return { requested, claimed, completed: completedBookings.length, completedSessions, unmet: Math.max(0, requested - claimed) };
 }
 
 function feedbackRollup(feedback: HubFeedback[]) {
@@ -108,6 +113,7 @@ function buildResult(
     oneOnOneClaimed: o.claimed,
     oneOnOneCompleted: o.completed,
     oneOnOneUnmet: o.unmet,
+    completedSessions: o.completedSessions,
     responses: f.responses,
     responseRate: attendance.checkedIn > 0 ? f.responses / attendance.checkedIn : 0,
     avgSatisfaction: f.avg,

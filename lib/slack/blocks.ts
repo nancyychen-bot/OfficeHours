@@ -25,10 +25,13 @@ export function buildClaimConfirmBlocks(i: ClaimConfirmInput): unknown[] {
 /** DM blocks: one message per expert, one "Give feedback" button per 1:1. Pure.
  * Each button (action_id fb_open, value `${bookingId}`) opens a modal form with a
  * Submit button — the actual attendance/rating/note are captured there in one go. */
-export function buildFeedbackBlocks(p: ExpertFeedbackPrompt): unknown[] {
+export function buildFeedbackBlocks(p: ExpertFeedbackPrompt, opts?: { reminder?: boolean }): unknown[] {
   const when = shortDate(p.eventDate);
+  const header = opts?.reminder
+    ? `⏰ *Don't forget to give feedback!* — ${p.eventName ?? "Build Bar"}${when ? ` (${when})` : ""}`
+    : `🙌 *How did your Build Bar go?* — ${p.eventName ?? "Build Bar"}${when ? ` (${when})` : ""}`;
   const blocks: unknown[] = [
-    { type: "section", text: { type: "mrkdwn", text: `🙌 *How did your Build Bar go?* — ${p.eventName ?? "Build Bar"}${when ? ` (${when})` : ""}` } },
+    { type: "section", text: { type: "mrkdwn", text: header } },
   ];
   // Overall event feedback (guest-less) at the top — opens a written-box modal.
   if (p.eventId) {

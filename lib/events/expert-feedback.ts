@@ -1,7 +1,7 @@
 import { getAdminClient } from "../supabase/admin";
 import { dmByEmail } from "../slack/api";
 import { buildFeedbackBlocks } from "../slack/blocks";
-import { createFeedbackRows, hasFeedbackRows, deleteFeedbackRows, type FeedbackRowInput } from "../db/expert-feedback";
+import { createFeedbackRows, hasFeedbackRows, deleteFeedbackRows, loadReminderCandidates, markReminderSent, type FeedbackRowInput, type ReminderCandidateRow } from "../db/expert-feedback";
 import { logSync } from "../sync/log";
 
 export interface FeedbackDetailRow {
@@ -172,4 +172,94 @@ export async function sendFeedbackForEndedEvents(now: Date = new Date()): Promis
     if (n > 0) { eventsPrompted++; experts += n; }
   }
   return { events: eventsPrompted, experts };
+}
+
+export type { ReminderCandidateRow };
+
+/** Hours after the feedback prompt to send a single "don't forget" nudge. */
+export const REMINDER_DELAY_HOURS = 18;
+
+/**
+ * Pure: from un-reminded feedback rows, pick the experts to nudge — those who gave
+ * ZERO feedback (every row still unanswered) and whose most-recent prompt is at
+ * least `thresholdHours` old — and build one prompt each (buttons reference the
+ * same booking ids, so the nudge is actionable in place).
+ */
+export function dueReminderPrompts(
+  rows: ReminderCandidateRow[],
+  now: Date,
+  thresholdHours: number,
+): ExpertFeedbackPrompt[] {
+  const groups = new Map<string, ReminderCandidateRow[]>();
+  for (const r of rows) {
+    const key = `${r.event_id ?? ""}|${r.expert_email.trim().toLowerCase()}`;
+    const g = groups.get(key) ?? [];
+    g.push(r);
+    groups.set(key, g);
+  }
+  const cutoff = now.getTime() - thresholdHours * 3_600_000;
+  const out: ExpertFeedbackPrompt[] = [];
+  for (const grp of groups.values()) {
+    if (grp.some((r) => r.responded_at)) continue; // gave some feedback → leave them alone
+    const times = grp.map((r) => Date.parse(r.created_at)).filter((n) => Number.isFinite(n));
+    if (!times.length || Math.max(...times) > cutoff) continue; // prompt younger than threshold
+    const first = grp[0];
+    out.push({
+      email: first.expert_email,
+      name: first.expert_name ?? "there",
+      eventId: first.event_id,
+      eventName: null,
+      eventDate: null,
+      items: grp.map((r) => ({
+        bookingId: r.booking_id,
+        guestName: r.guest_name ?? "Guest",
+        guestEmail: r.guest_email,
+        slotName: null,
+        challenge: null,
+      })),
+    });
+  }
+  return out;
+}
+
+/** Seams for sendFeedbackReminders — testable without live Supabase/Slack. */
+export interface ReminderDeps {
+  loadCandidates: () => Promise<ReminderCandidateRow[]>;
+  now: () => Date;
+  dm: (email: string, blocks: unknown[], text: string) => Promise<{ ok: boolean; error?: string }>;
+  markReminded: (eventId: string | null, expertEmail: string) => Promise<void>;
+  onFailure: (eventId: string | null, email: string, error: string) => Promise<void>;
+}
+
+const defaultReminderDeps: ReminderDeps = {
+  loadCandidates: loadReminderCandidates,
+  now: () => new Date(),
+  dm: dmByEmail,
+  markReminded: markReminderSent,
+  onFailure: (_eventId, email, error) =>
+    logSync({ direction: "luma_in", result: "error", action: "expert_feedback_reminder_dm", note: `${email}: ${error}` }),
+};
+
+/**
+ * Nudge experts who were prompted >= 18h ago and still gave no feedback. One nudge
+ * each (reminder_sent_at guards re-sends). A failed DM is NOT marked reminded, so
+ * the hourly cron retries. Returns the count nudged.
+ */
+export async function sendFeedbackReminders(deps: ReminderDeps = defaultReminderDeps): Promise<number> {
+  const due = dueReminderPrompts(await deps.loadCandidates(), deps.now(), REMINDER_DELAY_HOURS);
+  let reminded = 0;
+  for (const p of due) {
+    const res = await deps.dm(
+      p.email,
+      buildFeedbackBlocks(p, { reminder: true }),
+      `Don't forget to give feedback on your ${p.eventName ?? "Build Bar"} 1:1s`,
+    );
+    if (!res.ok) {
+      await deps.onFailure(p.eventId, p.email, res.error ?? "unknown");
+      continue;
+    }
+    await deps.markReminded(p.eventId, p.email);
+    reminded++;
+  }
+  return reminded;
 }

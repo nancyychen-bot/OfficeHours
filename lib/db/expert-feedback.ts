@@ -54,6 +54,16 @@ export async function createFeedbackRows(rows: FeedbackRowInput[]): Promise<void
     );
 }
 
+/** Remove this (event, expert)'s feedback rows — used when the DM send fails, so
+ * the hourly cron retries next tick instead of treating a failed send as done. */
+export async function deleteFeedbackRows(eventId: string, expertEmail: string): Promise<void> {
+  await getAdminClient()
+    .from("expert_feedback")
+    .delete()
+    .eq("event_id", eventId)
+    .ilike("expert_email", expertEmail);
+}
+
 /** True if we've already created feedback rows for this (event, expert). Dedup guard. */
 export async function hasFeedbackRows(eventId: string, expertEmail: string): Promise<boolean> {
   const { data } = await getAdminClient()

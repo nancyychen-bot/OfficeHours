@@ -1,7 +1,7 @@
 import { getAdminClient } from "../supabase/admin";
 import { dmByEmail } from "../slack/api";
 import { buildFeedbackBlocks } from "../slack/blocks";
-import { createFeedbackRows, hasFeedbackRows } from "../db/expert-feedback";
+import { createFeedbackRows, hasFeedbackRows, deleteFeedbackRows, type FeedbackRowInput } from "../db/expert-feedback";
 import { logSync } from "../sync/log";
 
 export interface FeedbackDetailRow {
@@ -78,20 +78,49 @@ export function lastSlotEndedHoursAgo(slotEndsAt: string[], thresholdHours: numb
   return now.getTime() - latestEnd >= thresholdHours * 3_600_000;
 }
 
+/** Seams for sendFeedbackForEvent, so the send/persist/retry behavior is testable
+ * without a live Supabase or Slack. Defaults wire the real implementations. */
+export interface FeedbackSendDeps {
+  loadRows: (eventId: string) => Promise<FeedbackDetailRow[]>;
+  alreadyPrompted: (eventId: string, expertEmail: string) => Promise<boolean>;
+  createRows: (rows: FeedbackRowInput[]) => Promise<void>;
+  deleteRows: (eventId: string, expertEmail: string) => Promise<void>;
+  dm: (email: string, blocks: unknown[], text: string) => Promise<{ ok: boolean; error?: string }>;
+  onFailure: (eventId: string, email: string, error: string) => Promise<void>;
+}
+
+const defaultDeps: FeedbackSendDeps = {
+  loadRows: async (eventId) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = getAdminClient() as any;
+    const { data } = await supabase
+      .from("booking_details")
+      .select("id, guest_name, guest_email, challenge, slot_name, slot_starts_at, booked_by_email, booked_by_display_name, status, event_id, event_name, event_date")
+      .eq("event_id", eventId);
+    return (data ?? []) as FeedbackDetailRow[];
+  },
+  alreadyPrompted: hasFeedbackRows,
+  createRows: createFeedbackRows,
+  deleteRows: deleteFeedbackRows,
+  dm: dmByEmail,
+  onFailure: (_eventId, email, error) =>
+    logSync({ direction: "luma_in", result: "error", action: "expert_feedback_dm", note: `${email}: ${error}` }),
+};
+
 /** Send the feedback DM for one event: build prompts, create rows, DM each expert.
- * Idempotent per (event, expert) via hasFeedbackRows. Returns experts prompted. */
-export async function sendFeedbackForEvent(eventId: string): Promise<number> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = getAdminClient() as any;
-  const { data } = await supabase
-    .from("booking_details")
-    .select("id, guest_name, guest_email, challenge, slot_name, slot_starts_at, booked_by_email, booked_by_display_name, status, event_id, event_name, event_date")
-    .eq("event_id", eventId);
-  const prompts = buildFeedbackPrompts((data ?? []) as FeedbackDetailRow[]);
+ * Idempotent per (event, expert) via alreadyPrompted. If the DM fails, the rows
+ * are removed again so the hourly cron retries next tick (rather than treating a
+ * failed send as done). Returns the count of experts actually DM'd. */
+export async function sendFeedbackForEvent(
+  eventId: string,
+  deps: FeedbackSendDeps = defaultDeps,
+): Promise<number> {
+  const prompts = buildFeedbackPrompts(await deps.loadRows(eventId));
   let prompted = 0;
   for (const p of prompts) {
-    if (await hasFeedbackRows(eventId, p.email)) continue; // already prompted
-    await createFeedbackRows(
+    if (await deps.alreadyPrompted(eventId, p.email)) continue; // already prompted
+    // Rows must exist before the DM: the buttons' responses UPDATE these rows.
+    await deps.createRows(
       p.items.map((it) => ({
         bookingId: it.bookingId,
         eventId: p.eventId,
@@ -101,12 +130,15 @@ export async function sendFeedbackForEvent(eventId: string): Promise<number> {
         guestEmail: it.guestEmail,
       })),
     );
-    try {
-      await dmByEmail(p.email, buildFeedbackBlocks(p), `How did your ${p.eventName ?? "Build Bar"} 1:1s go?`);
-      prompted++;
-    } catch (err) {
-      await logSync({ direction: "luma_in", result: "error", action: "expert_feedback_dm", note: err instanceof Error ? err.message : String(err) });
+    // dmByEmail is best-effort (returns ok:false, doesn't throw). A failed send
+    // must NOT count as prompted, and its rows must be removed so the cron retries.
+    const res = await deps.dm(p.email, buildFeedbackBlocks(p), `How did your ${p.eventName ?? "Build Bar"} 1:1s go?`);
+    if (!res.ok) {
+      await deps.deleteRows(eventId, p.email);
+      await deps.onFailure(eventId, p.email, res.error ?? "unknown");
+      continue;
     }
+    prompted++;
   }
   return prompted;
 }

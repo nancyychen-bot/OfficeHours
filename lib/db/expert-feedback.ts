@@ -101,6 +101,40 @@ export interface ExpertFeedbackRow {
   notion_dev_page_id: string | null;
 }
 
+/** Shape consumed by the 18h reminder nudge (subset of expert_feedback). */
+export interface ReminderCandidateRow {
+  event_id: string | null;
+  expert_email: string;
+  expert_name: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  booking_id: string;
+  created_at: string;
+  responded_at: string | null;
+}
+
+/** Feedback rows not yet reminded (reminder_sent_at IS NULL). The 18h/zero-feedback
+ * gate is applied in pure code (dueReminderPrompts); this just bounds the scan. */
+export async function loadReminderCandidates(): Promise<ReminderCandidateRow[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (getAdminClient() as any)
+    .from("expert_feedback")
+    .select("event_id, expert_email, expert_name, guest_name, guest_email, booking_id, created_at, responded_at")
+    .is("reminder_sent_at", null);
+  return (data ?? []) as ReminderCandidateRow[];
+}
+
+/** Stamp reminder_sent_at for one (event, expert) so the hourly cron nudges once. */
+export async function markReminderSent(eventId: string | null, expertEmail: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = (getAdminClient() as any)
+    .from("expert_feedback")
+    .update({ reminder_sent_at: new Date().toISOString() })
+    .ilike("expert_email", expertEmail);
+  q = eventId ? q.eq("event_id", eventId) : q.is("event_id", null);
+  await q;
+}
+
 /** Read a single feedback row (for the Notion push). */
 export async function getFeedbackRow(bookingId: string): Promise<ExpertFeedbackRow | null> {
   const { data } = await getAdminClient().from("expert_feedback").select("*").eq("booking_id", bookingId).maybeSingle();

@@ -337,6 +337,32 @@ export async function reassignBooking(
   return data;
 }
 
+/**
+ * Assign an expert (name + type + email) to a booking from the hub, regardless of
+ * current status — fills an unassigned 1:1, converts a cowork/no-help attendee who
+ * now wants one, or reassigns. Sets the email up front so the invite can go out.
+ */
+export async function setBookingAssignment(
+  bookingId: string,
+  expert: { displayName: string; type: BookedByType; email: string },
+): Promise<Booking | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({
+      status: "assigned",
+      booked_by_display_name: expert.displayName,
+      booked_by_type: expert.type,
+      booked_by_email: expert.email,
+      previously_matched: true,
+    })
+    .eq("id", bookingId)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /** Revert a claim back to open (used for the losing side of a race, or admin). */
 export async function releaseBooking(bookingId: string): Promise<Booking | null> {
   const supabase = getAdminClient();

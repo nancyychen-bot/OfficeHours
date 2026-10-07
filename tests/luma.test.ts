@@ -103,6 +103,19 @@ describe("normalizeGuest", () => {
     expect(n.challenge).toBeNull();
   });
 
+  it("maps the Sydney-renamed challenge label (require help) explicitly, not via the long-text fallback", () => {
+    for (const label of ["What Notion help do you require?", "What do you require help with?"]) {
+      const n = normalizeGuest(
+        guest({
+          registration_answers: [
+            { label, question_id: "q2", question_type: "short-text", value: "Automating my roadmap" },
+          ],
+        }),
+      );
+      expect(n.challenge).toBe("Automating my roadmap");
+    }
+  });
+
   it("maps by type: dropdown→slot, long-text→challenge, company→company/role", () => {
     const n = normalizeGuest(
       guest({

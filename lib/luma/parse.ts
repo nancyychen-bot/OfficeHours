@@ -48,7 +48,7 @@ const LABEL = {
   notionPlan: /type of notion plan|notion plan/i,
   experience: /experience level/i,
   reasons: /why.*(come|build bar)/i,
-  challenge: /help.*building|need help with/i,
+  challenge: /help.*building|need help with|help.*require|require.*help/i,
   slot: /requested time slot|time slot/i,
 };
 

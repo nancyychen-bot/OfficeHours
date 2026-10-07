@@ -153,6 +153,13 @@ export function decideBookingStatusPatch(
   if (existingStatus === "cancelled") {
     return { status: openStatus, booked_by_display_name: null, booked_by_type: null, booked_by_email: null };
   }
+  // A guest recorded as "no help needed" (no slot at the time) who now has a
+  // requested slot does want a 1:1 after all — open them for claiming. This also
+  // self-heals bookings misparsed as no_help_needed because a non-English slot
+  // label failed to map (see lib/luma/parse.ts); a re-ingest promotes them.
+  if (existingStatus === "no_help_needed" && requestedSlot) {
+    return { status: "unassigned" };
+  }
   return {};
 }
 

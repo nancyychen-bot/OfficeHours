@@ -8,7 +8,11 @@ import type { LumaStatus } from "../sync/types";
 import { lumaCalendars } from "./calendars";
 
 const BASE = "https://public-api.luma.com";
-const SLOT_HINT = /slot|time|session/i;
+const SLOT_HINT = /slot|time|session|시간/i;
+// A slot option is a clock time (e.g. "2:30-3:00PM", "9:00 AM"). Language-
+// independent, so it identifies the time-slot question even on a translated form
+// where neither the label nor the other options (plan tiers, Korean text) match.
+const SLOT_OPTION_TIME = /\d{1,2}:\d{2}/;
 
 /**
  * The event's city for hub routing, from Luma's `geo_address_json`. Luma leaves
@@ -255,17 +259,26 @@ function optionLabel(o: unknown): string {
 /**
  * Given a Luma event's registration questions, return the ordered option labels
  * of the slot dropdown. Picks the sole question with options, else the one whose
- * label hints slot/time, else the first with options. [] if none.
+ * options look like clock times (language-independent), else the one whose label
+ * hints slot/time, else the first with options. [] if none.
+ *
+ * Option-value matching takes priority over the label hint so a translated form
+ * (e.g. Seoul's Korean labels) still finds the time-slot question instead of
+ * falling back to the first options question — which is the plan dropdown, whose
+ * tiers would then masquerade as time slots.
  */
 export function extractSlotOptions(questions: LumaRegistrationQuestion[]): string[] {
   const withOptions = (questions ?? []).filter(
     (q) => Array.isArray(q.options) && q.options.length > 0,
   );
   if (withOptions.length === 0) return [];
+  const byOptionTime = withOptions.find((q) =>
+    (q.options ?? []).some((o) => SLOT_OPTION_TIME.test(optionLabel(o))),
+  );
   const chosen =
     withOptions.length === 1
       ? withOptions[0]
-      : withOptions.find((q) => SLOT_HINT.test(q.label ?? "")) ?? withOptions[0];
+      : byOptionTime ?? withOptions.find((q) => SLOT_HINT.test(q.label ?? "")) ?? withOptions[0];
   return (chosen.options ?? []).map(optionLabel);
 }
 

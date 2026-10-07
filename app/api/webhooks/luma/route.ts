@@ -4,6 +4,7 @@ import { lumaWebhookSecrets } from "@/lib/luma/calendars";
 import { normalizeGuest } from "@/lib/luma/parse";
 import type { LumaWebhookEnvelope } from "@/lib/luma/types";
 import { ingestRegistration } from "@/lib/events/ingest";
+import { registerEventFromLuma } from "@/lib/events/register";
 import { cancelEventByLumaId } from "@/lib/events/cancel-event";
 import { logSync } from "@/lib/sync/log";
 
@@ -79,19 +80,36 @@ export async function POST(req: Request) {
     // to both Notion workspaces. Shared with the event backfill via ingest.
     const outcome = await ingestRegistration(norm, { live: true });
     if (outcome.status === "ignored") {
-      // A registration for an event that isn't in our table has nowhere to route,
-      // so the guest is dropped. Log it as an ERROR with a distinct action (not
-      // result:"applied", which is indistinguishable from a successful upsert) so
-      // it's visible and queryable — the usual cause is a new city's event not
-      // being registered yet during a staged rollout. Include the guest so it's
-      // actionable. Still return 200 to avoid a Luma retry-storm.
-      await logSync({
-        direction: "luma_in",
-        result: "error",
-        action: "unknown_event",
-        note: `${outcome.reason} — guest ${norm.guestName} <${norm.guestEmail ?? "no email"}>`,
-      });
-      return NextResponse.json({ received: true, ignored: true });
+      // The event isn't in our table yet — typically a new city's event that went
+      // live on Luma and collected RSVPs before it was registered in the hub. Luma
+      // never resends webhooks, so dropping here silently loses every RSVP in that
+      // window. The signature already proved this came from a CONNECTED calendar
+      // (i.e. a Build Bar calendar), so auto-register the event now; that path also
+      // backfills the event's full Luma guest list, which ingests THIS guest too.
+      // Fall back to the prior drop-and-log if auto-registration can't complete
+      // (e.g. Luma has no venue city/timezone on the event yet).
+      try {
+        const reg = await registerEventFromLuma({ lumaEvent: norm.lumaEventId });
+        await logSync({
+          direction: "luma_in",
+          result: "applied",
+          action: "auto_register",
+          note: `${norm.lumaEventId} (${reg.city}) auto-registered on first RSVP — imported ${reg.importedGuests} guest(s)`,
+        });
+        return NextResponse.json({ received: true, autoRegistered: true });
+      } catch (regErr) {
+        // Log as an ERROR with a distinct action (not result:"applied", which is
+        // indistinguishable from a successful upsert) so it's visible and queryable.
+        // Include the guest so a manual registration can recover it. Still 200 to
+        // avoid a Luma retry-storm.
+        await logSync({
+          direction: "luma_in",
+          result: "error",
+          action: "unknown_event",
+          note: `${outcome.reason} — guest ${norm.guestName} <${norm.guestEmail ?? "no email"}> — auto-register failed: ${regErr instanceof Error ? regErr.message : String(regErr)}`,
+        });
+        return NextResponse.json({ received: true, ignored: true });
+      }
     }
 
     await logSync({

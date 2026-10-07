@@ -130,6 +130,18 @@ describe("extractSlotOptions", () => {
   it("returns [] when no question has options", () => {
     expect(extractSlotOptions([textQ])).toEqual([]);
   });
+
+  it("picks the time-slot question on a non-English form even when the plan question comes first", () => {
+    // Korean Build Bar form: several single-selects have options. The English
+    // label hint matches none of them, so the slot question must be found by its
+    // clock-time option VALUES — not by falling back to the first (plan) question.
+    const planQ: LumaRegistrationQuestion = { id: "p", label: "어떤 Notion 요금제를 사용 중이신가요?", options: ["Enterprise", "Business", "Plus", "Free"] };
+    const expQ: LumaRegistrationQuestion = { id: "e", label: "Notion 사용 경험 수준은 어느 정도라고 생각하시나요?", options: ["능숙함", "초보"] };
+    const koreanSlotQ: LumaRegistrationQuestion = { id: "s", label: "희망 시간대 (1:1 도움을 선택하셨다면 필수)", options: ["2:00-2:30PM", "2:30-3:00PM", "3:00-3:30PM"] };
+    expect(extractSlotOptions([planQ, expQ, koreanSlotQ])).toEqual([
+      "2:00-2:30PM", "2:30-3:00PM", "3:00-3:30PM",
+    ]);
+  });
 });
 
 describe("updateGuestStatus", () => {

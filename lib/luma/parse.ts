@@ -42,15 +42,30 @@ function jobTitleFromAnswer(answer: LumaRegistrationAnswer): string | null {
   return null;
 }
 
-// Label pins for the finalized Build Bar form (case-insensitive `.test`).
-const LABEL = {
-  notionEmail: /email.*notion/i,
-  notionPlan: /type of notion plan|notion plan/i,
-  experience: /experience level/i,
-  reasons: /why.*(come|build bar)/i,
-  challenge: /help.*building|need help with|help.*require|require.*help/i,
-  slot: /requested time slot|time slot/i,
+// Label pins for the Build Bar form. The form is translated per region (Seoul
+// renamed every label into Korean), so each field carries patterns for every
+// language we've seen — add the next locale's phrasing here. Matching is still
+// backstopped by `question_type` (company/long-text) and, below, by
+// language-independent answer VALUES, so a brand-new locale degrades gracefully
+// instead of silently dropping fields.
+const LABEL: Record<"notionEmail" | "notionPlan" | "experience" | "reasons" | "challenge" | "slot", RegExp[]> = {
+  notionEmail: [/email.*notion/i, /notion.*email/i, /이메일/],
+  notionPlan: [/type of notion plan/i, /notion plan/i, /요금제/],
+  experience: [/experience level/i, /경험/],
+  reasons: [/why.*(come|build bar)/i, /이유/],
+  challenge: [/help.*building/i, /need help with/i, /help.*require/i, /require.*help/i, /도움.*필요|필요.*도움/],
+  slot: [/requested time slot/i, /time slot/i, /시간대/],
 };
+
+const matchesAny = (label: string, patterns: RegExp[]): boolean => patterns.some((p) => p.test(label));
+
+// Language-independent value signatures. The option VALUES for these questions
+// are the same regardless of the form's language (the plan tiers, the clock
+// times, an email address), so they recover a field even when its label is in a
+// locale we haven't added to LABEL yet.
+const PLAN_VALUE = /^(enterprise|business|plus|free)$/i;
+const TIME_SLOT_VALUE = /\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?\s*[-–—~]\s*\d{1,2}:\d{2}/i;
+const EMAIL_VALUE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function mapAnswers(answers: LumaRegistrationAnswer[]): {
   role: string | null;
@@ -83,12 +98,26 @@ function mapAnswers(answers: LumaRegistrationAnswer[]): {
       out.role ??= jobTitleFromAnswer(a);
       continue;
     }
-    if (LABEL.notionEmail.test(label)) { out.notionEmail ??= val; continue; }
-    if (LABEL.notionPlan.test(label)) { out.notionPlan ??= val; continue; }
-    if (LABEL.experience.test(label)) { out.experienceLevel ??= val; continue; }
-    if (LABEL.reasons.test(label)) { out.attendReasons ??= val; continue; }
-    if (LABEL.slot.test(label)) { out.requestedSlot ??= val; continue; }
-    if (LABEL.challenge.test(label) || type === "long-text") { out.challenge ??= val; continue; }
+    if (matchesAny(label, LABEL.notionEmail)) { out.notionEmail ??= val; continue; }
+    if (matchesAny(label, LABEL.notionPlan)) { out.notionPlan ??= val; continue; }
+    if (matchesAny(label, LABEL.experience)) { out.experienceLevel ??= val; continue; }
+    if (matchesAny(label, LABEL.reasons)) { out.attendReasons ??= val; continue; }
+    if (matchesAny(label, LABEL.slot)) { out.requestedSlot ??= val; continue; }
+    if (matchesAny(label, LABEL.challenge) || type === "long-text") { out.challenge ??= val; continue; }
+  }
+
+  // Second pass: value-based backstops for any field a localized label didn't
+  // catch. Only fills fields still null and never overrides a label/type match,
+  // so it can't fight the pass above. company/long-text answers are already
+  // claimed by type, so skip them here.
+  for (const a of answers) {
+    const type = (a.question_type ?? "").toLowerCase();
+    if (type === "company" || type === "long-text") continue;
+    const val = answerToString(a);
+    if (!val) continue;
+    if (out.notionPlan == null && PLAN_VALUE.test(val)) { out.notionPlan = val; continue; }
+    if (out.requestedSlot == null && TIME_SLOT_VALUE.test(val)) { out.requestedSlot = val; continue; }
+    if (out.notionEmail == null && EMAIL_VALUE.test(val)) { out.notionEmail = val; continue; }
   }
   return out;
 }

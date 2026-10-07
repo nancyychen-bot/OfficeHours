@@ -58,6 +58,15 @@ describe("decideBookingStatusPatch", () => {
     expect(decideBookingStatusPatch("unassigned", "waitlist", "2:00-2:30 PM")).toEqual({});
   });
 
+  it("promotes a no_help_needed guest to claimable once a slot appears (self-heals a misparsed non-English slot)", () => {
+    expect(decideBookingStatusPatch("no_help_needed", "approved", "2:30-3:00PM")).toEqual({ status: "unassigned" });
+    expect(decideBookingStatusPatch("no_help_needed", "pending", "2:30-3:00PM")).toEqual({ status: "unassigned" });
+  });
+
+  it("leaves a no_help_needed guest unchanged when there is still no slot", () => {
+    expect(decideBookingStatusPatch("no_help_needed", "approved", null)).toEqual({});
+  });
+
   it("never disturbs an active, non-declined booking (no un-claim)", () => {
     expect(decideBookingStatusPatch("assigned", "approved", "2:00-2:30 PM")).toEqual({});
     expect(decideBookingStatusPatch("checked_in", "pending", null)).toEqual({});

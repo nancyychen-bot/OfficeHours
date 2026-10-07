@@ -59,13 +59,25 @@ const LABEL: Record<"notionEmail" | "notionPlan" | "experience" | "reasons" | "c
 
 const matchesAny = (label: string, patterns: RegExp[]): boolean => patterns.some((p) => p.test(label));
 
-// Language-independent value signatures. The option VALUES for these questions
-// are the same regardless of the form's language (the plan tiers, the clock
-// times, an email address), so they recover a field even when its label is in a
-// locale we haven't added to LABEL yet.
+// Language-independent value signatures. The option/answer VALUES for these
+// questions are identical across languages (clock times, plan tiers, an email
+// address, a URL), so they identify a field without reading any label text.
+const CLOCK_TIME = /\d{1,2}:\d{2}/;
 const PLAN_VALUE = /^(enterprise|business|plus|free)$/i;
-const TIME_SLOT_VALUE = /\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?\s*[-–—~]\s*\d{1,2}:\d{2}/i;
 const EMAIL_VALUE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const URL_VALUE = /^https?:\/\//i;
+
+/** A clock time anywhere in the value — a plain string or any array element. */
+function hasClockTime(value: unknown): boolean {
+  if (typeof value === "string") return CLOCK_TIME.test(value);
+  if (Array.isArray(value)) return value.some((v) => typeof v === "string" && CLOCK_TIME.test(v));
+  return false;
+}
+
+/** A single/multi select or dropdown (not free text, not company). */
+function isSelectType(type: string): boolean {
+  return /select|dropdown|choice/.test(type);
+}
 
 function mapAnswers(answers: LumaRegistrationAnswer[]): {
   role: string | null;
@@ -93,31 +105,37 @@ function mapAnswers(answers: LumaRegistrationAnswer[]): {
     const type = (a.question_type ?? "").toLowerCase();
     const val = answerToString(a);
 
-    if (type === "company") {
-      out.company ??= val;
-      out.role ??= jobTitleFromAnswer(a);
-      continue;
-    }
-    if (matchesAny(label, LABEL.notionEmail)) { out.notionEmail ??= val; continue; }
-    if (matchesAny(label, LABEL.notionPlan)) { out.notionPlan ??= val; continue; }
-    if (matchesAny(label, LABEL.experience)) { out.experienceLevel ??= val; continue; }
-    if (matchesAny(label, LABEL.reasons)) { out.attendReasons ??= val; continue; }
-    if (matchesAny(label, LABEL.slot)) { out.requestedSlot ??= val; continue; }
-    if (matchesAny(label, LABEL.challenge) || type === "long-text") { out.challenge ??= val; continue; }
+    // 1. Company (by type) → company + role.
+    if (type === "company") { out.company ??= val; out.role ??= jobTitleFromAnswer(a); continue; }
+    // 2. Slot — a clock-time value (string "2:30-3:00PM" or an array of times).
+    if (hasClockTime(a.value)) { out.requestedSlot ??= val; continue; }
+    // 3. Plan — the tier set is identical in every language.
+    if (val && PLAN_VALUE.test(val)) { out.notionPlan ??= val; continue; }
+    // 4. Reasons — the multi-select (its value is an array); slot already took times.
+    if (Array.isArray(a.value)) { out.attendReasons ??= val; continue; }
+    // 5. Notion email — an email-shaped value.
+    if (val && EMAIL_VALUE.test(val)) { out.notionEmail ??= val; continue; }
+    // 6. LinkedIn — a URL value, or a label with the universal brand token → ignore.
+    if (val && URL_VALUE.test(val)) continue;
+    if (/linkedin/i.test(label)) continue;
+    // 7. Experience — the remaining single-select string.
+    if (isSelectType(type)) { out.experienceLevel ??= val; continue; }
+    // 8. Challenge — the remaining free text.
+    if (type === "long-text" || type === "text" || type === "short-text") { out.challenge ??= val; continue; }
   }
 
-  // Second pass: value-based backstops for any field a localized label didn't
-  // catch. Only fills fields still null and never overrides a label/type match,
-  // so it can't fight the pass above. company/long-text answers are already
-  // claimed by type, so skip them here.
+  // Last-ditch fallback: if a field is still unmapped (an unusual payload), try the
+  // multilingual label patterns. These are no longer load-bearing — the loop above
+  // resolves the standard template — but they add robustness for an odd form.
   for (const a of answers) {
-    const type = (a.question_type ?? "").toLowerCase();
-    if (type === "company" || type === "long-text") continue;
+    const label = a.label ?? "";
     const val = answerToString(a);
-    if (!val) continue;
-    if (out.notionPlan == null && PLAN_VALUE.test(val)) { out.notionPlan = val; continue; }
-    if (out.requestedSlot == null && TIME_SLOT_VALUE.test(val)) { out.requestedSlot = val; continue; }
-    if (out.notionEmail == null && EMAIL_VALUE.test(val)) { out.notionEmail = val; continue; }
+    if (out.notionEmail == null && matchesAny(label, LABEL.notionEmail)) { out.notionEmail = val; continue; }
+    if (out.notionPlan == null && matchesAny(label, LABEL.notionPlan)) { out.notionPlan = val; continue; }
+    if (out.experienceLevel == null && matchesAny(label, LABEL.experience)) { out.experienceLevel = val; continue; }
+    if (out.attendReasons == null && matchesAny(label, LABEL.reasons)) { out.attendReasons = val; continue; }
+    if (out.requestedSlot == null && matchesAny(label, LABEL.slot)) { out.requestedSlot = val; continue; }
+    if (out.challenge == null && matchesAny(label, LABEL.challenge)) { out.challenge = val; continue; }
   }
   return out;
 }

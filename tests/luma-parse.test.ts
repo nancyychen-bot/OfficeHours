@@ -96,3 +96,58 @@ describe("normalizeGuest — non-English (Korean) intake mapping", () => {
     expect(n.notionPlan).toBeNull();
   });
 });
+
+describe("normalizeGuest — value-shape mapping (language-independent)", () => {
+  // Same shape as the real Korean Seoul form, but labels in a THIRD language
+  // (Spanish) with no dictionary entry — must still map every field.
+  const SPANISH = [
+    { label: "¿En qué empresa trabajas?", question_id: "q1", question_type: "company", value: { company: "Analytical", job_title: "Ingeniera" } },
+    { label: "URL de LinkedIn", question_id: "q2", question_type: "text", value: "https://linkedin.com/in/ada" },
+    { label: "¿Qué correo usas para Notion?", question_id: "q3", question_type: "text", value: "ada@notion.so" },
+    { label: "¿Qué plan de Notion usas?", question_id: "q4", question_type: "select", value: "Business" },
+    { label: "¿Tu nivel de experiencia con Notion?", question_id: "q5", question_type: "select", value: "Avanzado" },
+    { label: "¿Por qué quieres venir?", question_id: "q6", question_type: "select", value: ["Ayuda 1:1", "Coworking"] },
+    { label: "¿En qué necesitas ayuda?", question_id: "q7", question_type: "long-text", value: "Un CRM" },
+    { label: "Horario preferido", question_id: "q8", question_type: "select", value: "2:30-3:00PM" },
+    { label: "Acepto ser contactado", question_id: "q9", question_type: "agree-check", value: true },
+  ];
+
+  it("maps every field from a form in an unknown language", () => {
+    const n = normalizeGuest(guest(SPANISH));
+    expect(n.company).toBe("Analytical");
+    expect(n.role).toBe("Ingeniera");
+    expect(n.notionEmail).toBe("ada@notion.so");
+    expect(n.notionPlan).toBe("Business");
+    expect(n.experienceLevel).toBe("Avanzado");
+    expect(n.attendReasons).toBe("Ayuda 1:1, Coworking");
+    expect(n.challenge).toBe("Un CRM");
+    expect(n.requestedSlot).toBe("2:30-3:00PM");
+  });
+
+  it("splits experience (single-select string) from reasons (multi-select array)", () => {
+    const n = normalizeGuest(guest([
+      { label: "x", question_id: "a", question_type: "select", value: "Avanzado" },
+      { label: "y", question_id: "b", question_type: "select", value: ["Ayuda 1:1"] },
+    ]));
+    expect(n.experienceLevel).toBe("Avanzado");
+    expect(n.attendReasons).toBe("Ayuda 1:1");
+  });
+
+  it("maps a time-slot delivered as an array of times", () => {
+    const n = normalizeGuest(guest([
+      { label: "z", question_id: "s", question_type: "select", value: ["2:00-2:30PM", "3:00-3:30PM"] },
+    ]));
+    expect(n.requestedSlot).toBe("2:00-2:30PM, 3:00-3:30PM");
+    expect(n.attendReasons).toBeNull(); // claimed as slot, not reasons
+  });
+
+  it("ignores the LinkedIn URL and the consent checkbox", () => {
+    const n = normalizeGuest(guest([
+      { label: "LinkedIn", question_id: "l", question_type: "text", value: "https://linkedin.com/in/ada" },
+      { label: "Acepto", question_id: "c", question_type: "agree-check", value: true },
+    ]));
+    expect(n.notionEmail).toBeNull();
+    expect(n.challenge).toBeNull();
+    expect(n.requestedSlot).toBeNull();
+  });
+});

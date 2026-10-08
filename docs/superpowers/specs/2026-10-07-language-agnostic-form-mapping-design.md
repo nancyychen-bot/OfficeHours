@@ -141,22 +141,22 @@ visible on `/readiness` until a clean re-register clears it.
 
 New `emailFormAnomalies(event, questions, anomalies, baseUrl)` reusing
 `alertRecipients()` + `sendEmail(...)`. One email, only when anomalies exist, with
-context: event name + luma id, the anomalies, and the full question list (type +
-label + what each would map to). Example:
+context: event name + luma id, the anomalies, and the full question list (label +
+options; the question definition has no `type`, so the email renders `[?]`).
+Example (a form whose slot options were accidentally removed):
 
 ```
 Build Bar Seoul (evt-jzP5hHix8aFcYZ1): registration form shape anomaly
 
 Anomalies:
-  • expected 2 free-text questions, found 1
+  • no question with time-slot options
 
 Questions seen:
-  [company] "어느 회사에서 일하고 계신가요?"
-  [select]  "어떤 Notion 요금제를 사용 중이신가요?"   (plan tiers)
-  [select]  "희망 시간대…"                              (time slots)
-  [select]  "Notion 사용 경험…"
-  [select]  "Build Bar에 오고 싶은 이유…"
-  [text]    "1:1 지원을 원하신다면…"
+  [?] "어느 회사에서 일하고 계신가요?"
+  [?] "어떤 Notion 요금제를 사용 중이신가요?"
+  [?] "Notion 사용 경험…"
+  [?] "Build Bar에 오고 싶은 이유…"
+  [?] "1:1 지원을 원하신다면…"
 
 Fix: correct the form in Luma so it matches the Build Bar template, then re-add
 the event. Guest fields still map best-effort meanwhile.

@@ -21,6 +21,13 @@ const isTimeSlot = (q: LumaRegistrationQuestion) => optionStrings(q).some((s) =>
 // are never tier names, so this won't misfire on them.
 const isPlan = (q: LumaRegistrationQuestion) => optionStrings(q).filter((o) => PLAN_VALUE.test(o.trim())).length >= 2;
 
+// The Build Bar template has exactly 5 non-options (free-text/other) questions:
+// company, LinkedIn, Notion email, the 1:1-help (challenge) prose, and the consent
+// checkbox. An extra one can collide with the challenge field at ingest (challenge
+// = "the remaining free-text answer"), so flag any excess for the operator to
+// verify. Update this if the template itself gains/loses a non-options question.
+const TEMPLATE_NON_OPTION_QUESTIONS = 5;
+
 /**
  * Validate that a Luma registration form matches the Build Bar template SHAPE.
  *
@@ -54,6 +61,17 @@ export function classifyForm(questions: LumaRegistrationQuestion[]): { anomalies
   const otherOptionQs = qs.filter((q) => hasOptions(q) && !isPlan(q) && !isTimeSlot(q)).length;
   if (otherOptionQs === 0) {
     anomalies.push("no experience/reasons options question");
+  }
+
+  // An extra free-text question beyond the template can be mis-captured as the
+  // guest's `challenge`. We can't tell free-text questions apart here (the form
+  // definition carries no `type`), so count all non-options questions and flag
+  // any excess over the template for a human to eyeball.
+  const nonOptions = qs.filter((q) => !hasOptions(q)).length;
+  if (nonOptions > TEMPLATE_NON_OPTION_QUESTIONS) {
+    anomalies.push(
+      `${nonOptions} free-text/other questions (template has ${TEMPLATE_NON_OPTION_QUESTIONS}) — an extra free-text question can collide with the 1:1-help field; verify the guest "challenge" maps correctly`,
+    );
   }
 
   return { anomalies };

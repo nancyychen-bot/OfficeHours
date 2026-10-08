@@ -151,6 +151,24 @@ describe("normalizeGuest — value-shape mapping (language-independent)", () => 
     expect(n.requestedSlot).toBeNull();
   });
 
+  it("prefers the labelled 1:1-help question for challenge over an earlier free-text question", () => {
+    // Two free-text answers; the real challenge question is SECOND. Without a
+    // tiebreaker the first ("Vegetarian") would wrongly become the challenge.
+    const n = normalizeGuest(guest([
+      { label: "Any dietary restrictions?", question_id: "d", question_type: "text", value: "Vegetarian" },
+      { label: "What do you require help with?", question_id: "c", question_type: "text", value: "Automating my roadmap" },
+    ]));
+    expect(n.challenge).toBe("Automating my roadmap");
+  });
+
+  it("falls back to the first free-text answer for challenge when no label matches (unknown locale)", () => {
+    const n = normalizeGuest(guest([
+      { label: "질문 하나", question_id: "x", question_type: "text", value: "첫 번째 답변" },
+      { label: "질문 둘", question_id: "y", question_type: "text", value: "두 번째 답변" },
+    ]));
+    expect(n.challenge).toBe("첫 번째 답변");
+  });
+
   it("does not steal a reasons array into slot when one element mentions a time", () => {
     const n = normalizeGuest(guest([
       { label: "z", question_id: "r", question_type: "multi-select", value: ["Available after 2:30", "Coworking"] },

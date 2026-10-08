@@ -51,6 +51,18 @@ describe("classifyForm", () => {
     expect(classifyForm(oneOther).anomalies.some((a) => /experience\/reasons/i.test(a))).toBe(false);
   });
 
+  it("flags an extra free-text question that could collide with the challenge field", () => {
+    const extra: LumaRegistrationQuestion[] = [...KOREAN, { id: "q10", label: "어떻게 알게 되셨나요?" }];
+    const { anomalies } = classifyForm(extra);
+    expect(anomalies.some((a) => /free-text|collide|challenge/i.test(a))).toBe(true);
+  });
+
+  it("does not flag the standard template's free-text count", () => {
+    // KOREAN has exactly 5 non-options questions (company, LinkedIn, email,
+    // challenge, consent) — the template count, so no collision anomaly.
+    expect(classifyForm(KOREAN).anomalies).toEqual([]);
+  });
+
   it("does not throw on questions missing ids/labels/options", () => {
     expect(() => classifyForm([{ label: "x" }])).not.toThrow();
   });

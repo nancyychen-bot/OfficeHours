@@ -104,6 +104,21 @@ function mapAnswers(answers: LumaRegistrationAnswer[]): {
     requestedSlot: null as string | null,
   };
 
+  // Tiebreaker: `challenge` is otherwise "the first remaining free-text answer",
+  // which a SECOND free-text question (e.g. an added "dietary restrictions?" field)
+  // could win by appearing earlier. Prefer the free-text answer whose LABEL names
+  // the 1:1-help question (multilingual patterns) so position doesn't matter. When
+  // no label matches (a brand-new locale), the main loop still falls back to the
+  // first free-text answer — and classifyForm flags the extra question for review.
+  for (const a of answers) {
+    const type = (a.question_type ?? "").toLowerCase();
+    const isFreeText = type === "long-text" || type === "text" || type === "short-text";
+    if (isFreeText && matchesAny(a.label ?? "", LABEL.challenge)) {
+      out.challenge = answerToString(a);
+      break;
+    }
+  }
+
   for (const a of answers) {
     const label = a.label ?? "";
     const type = (a.question_type ?? "").toLowerCase();

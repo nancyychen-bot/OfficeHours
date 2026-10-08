@@ -20,35 +20,41 @@ const isTimeSlot = (q: LumaRegistrationQuestion) => optionStrings(q).some((s) =>
 // on the plan question doesn't make it undetectable. Experience/reasons options
 // are never tier names, so this won't misfire on them.
 const isPlan = (q: LumaRegistrationQuestion) => optionStrings(q).filter((o) => PLAN_VALUE.test(o.trim())).length >= 2;
-const isFreeText = (q: LumaRegistrationQuestion) => { const t = (q.type ?? "").toLowerCase(); return !hasOptions(q) && t !== "company" && /text/.test(t); };
-const isLinkedIn = (q: LumaRegistrationQuestion) => /linkedin/i.test(q.label ?? "");
 
 /**
- * Validate that a Luma registration form matches the Build Bar template SHAPE,
- * using option values + question type only (never label text, so it is
- * language-independent). Returns human-readable anomaly strings; empty ⇒ the form
- * is well-formed. Used only for the operator alert — ingest does not depend on it.
+ * Validate that a Luma registration form matches the Build Bar template SHAPE.
+ *
+ * IMPORTANT: Luma's event-detail `registration_questions` carry only `{id, label,
+ * options}` — there is NO `type` on the question definition (only the per-guest
+ * `registration_answers` carry a `question_type`). So the only language-independent
+ * signals available here are the OPTION VALUES. We validate the three
+ * options-backed questions — plan (tier options), slot (clock-time options), and
+ * at least one experience/reasons question — and deliberately do NOT try to
+ * validate the free-text questions (company/email/challenge/consent are all just
+ * `{id, label}` and indistinguishable without reading the label's language). Those
+ * free-text fields are resolved at INGEST by value shape regardless, so a missing
+ * one surfaces there, not here.
+ *
+ * Returns human-readable anomaly strings; empty ⇒ the form's options questions
+ * match the template. Used only for the operator alert — ingest does not depend
+ * on it.
  */
 export function classifyForm(questions: LumaRegistrationQuestion[]): { anomalies: string[] } {
   const qs = questions ?? [];
   const anomalies: string[] = [];
 
-  if (!qs.some((q) => (q.type ?? "").toLowerCase() === "company")) {
-    anomalies.push("no company question");
+  if (!qs.some(isPlan)) {
+    anomalies.push("no question with plan-tier options (Enterprise/Business/Plus/Free)");
   }
-  const planCount = qs.filter(isPlan).length;
-  if (planCount === 0) anomalies.push("no question with plan-tier options (Enterprise/Business/Plus/Free)");
-
-  const slotCount = qs.filter(isTimeSlot).length;
-  if (slotCount === 0) anomalies.push("no question with time-slot options");
-
-  // Options questions that are NOT plan and NOT slot are the experience + reasons
-  // pair; the template has at least one such question beyond plan/slot.
+  if (!qs.some(isTimeSlot)) {
+    anomalies.push("no question with time-slot options");
+  }
+  // Options questions that are NOT plan and NOT slot are the experience/reasons
+  // questions; the template has at least one such question beyond plan/slot.
   const otherOptionQs = qs.filter((q) => hasOptions(q) && !isPlan(q) && !isTimeSlot(q)).length;
-  if (otherOptionQs === 0) anomalies.push("no experience/reasons options question");
-
-  const freeText = qs.filter((q) => isFreeText(q) && !isLinkedIn(q)).length;
-  if (freeText !== 2) anomalies.push(`expected 2 free-text questions (email + 1:1 help), found ${freeText}`);
+  if (otherOptionQs === 0) {
+    anomalies.push("no experience/reasons options question");
+  }
 
   return { anomalies };
 }

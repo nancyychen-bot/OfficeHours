@@ -92,21 +92,27 @@ a genuinely ambiguous payload; they are no longer load-bearing.
 ### 2. Registration classifier — `lib/luma/classify.ts` (new)
 
 `classifyForm(questions: LumaRegistrationQuestion[]): { anomalies: string[] }`.
-Pure. Validates the form has the expected template shape, using option values +
-`type` (no label text):
+Pure. **Reality check (verified against the live Seoul form):** Luma's event-detail
+`registration_questions` carry only `{ id, label, options }` — there is **NO `type`
+field** on the question definition (only the per-guest `registration_answers` carry
+a `question_type`). So the *only* language-independent signal available here is the
+OPTION VALUES. The classifier therefore validates just the three options-backed
+questions:
 
-- exactly one question whose options are plan tiers,
-- exactly one question whose options look like clock times (the slot question),
-- at least one more options question (experience/reasons — these two can't be told
-  apart at registration, since Luma marks both `select`; that's fine, ingest
-  splits them by cardinality),
-- a `company`-type question,
-- exactly **two** non-LinkedIn free-text questions (the email + challenge pair;
-  LinkedIn identified by the universal `linkedin` brand token or a url-ish label).
+- a question whose options are plan tiers (≥2 of Enterprise/Business/Plus/Free),
+- a question whose options look like clock times (the slot question),
+- at least one more options question (experience/reasons — indistinguishable from
+  each other here, which is fine; ingest splits them by value cardinality).
 
-Each missing/duplicated expectation appends a human-readable string to
-`anomalies` (e.g. `"no question with time-slot options"`, `"expected 2 free-text
-questions, found 1"`). Empty `anomalies` ⇒ the form matches the template.
+It deliberately does **not** try to validate the free-text questions
+(company/email/challenge/consent are all just `{id, label}` with no options and no
+type, so they're indistinguishable without reading the label's language). Those
+fields are resolved at INGEST by value shape regardless, so a missing one surfaces
+there, not here.
+
+Each missing expectation appends a human-readable string to `anomalies` (e.g.
+`"no question with time-slot options"`, `"no experience/reasons options question"`).
+Empty `anomalies` ⇒ the form's options questions match the template.
 
 ### 3. Persist anomalies — `events.form_anomalies` (migration)
 

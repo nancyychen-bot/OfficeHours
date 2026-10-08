@@ -39,4 +39,16 @@ describe("classifyForm", () => {
   it("does not throw on questions missing ids/types", () => {
     expect(() => classifyForm([{ label: "x" }])).not.toThrow();
   });
+
+  it("flags a missing company question", () => {
+    const noCompany = KOREAN.filter((q) => q.id !== "q1");
+    expect(classifyForm(noCompany).anomalies.some((a) => /company/i.test(a))).toBe(true);
+  });
+
+  it("still detects the plan question when it has an extra non-tier option", () => {
+    const withOther = KOREAN.map((q) =>
+      q.id === "q4" ? { ...q, options: ["Enterprise", "Business", "Plus", "Free", "Not sure"] } : q,
+    );
+    expect(classifyForm(withOther).anomalies.some((a) => /plan/i.test(a))).toBe(false);
+  });
 });

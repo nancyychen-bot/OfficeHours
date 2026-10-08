@@ -16,7 +16,10 @@ function optionStrings(q: LumaRegistrationQuestion): string[] {
 
 const hasOptions = (q: LumaRegistrationQuestion) => Array.isArray(q.options) && q.options.length > 0;
 const isTimeSlot = (q: LumaRegistrationQuestion) => optionStrings(q).some((s) => CLOCK_TIME.test(s));
-const isPlan = (q: LumaRegistrationQuestion) => { const s = optionStrings(q); return s.length > 0 && s.every((o) => PLAN_VALUE.test(o.trim())); };
+// Require ≥2 plan-tier options (not ALL), so an added "Other"/"Not sure" option
+// on the plan question doesn't make it undetectable. Experience/reasons options
+// are never tier names, so this won't misfire on them.
+const isPlan = (q: LumaRegistrationQuestion) => optionStrings(q).filter((o) => PLAN_VALUE.test(o.trim())).length >= 2;
 const isFreeText = (q: LumaRegistrationQuestion) => { const t = (q.type ?? "").toLowerCase(); return !hasOptions(q) && t !== "company" && /text/.test(t); };
 const isLinkedIn = (q: LumaRegistrationQuestion) => /linkedin/i.test(q.label ?? "");
 
@@ -40,7 +43,7 @@ export function classifyForm(questions: LumaRegistrationQuestion[]): { anomalies
   if (slotCount === 0) anomalies.push("no question with time-slot options");
 
   // Options questions that are NOT plan and NOT slot are the experience + reasons
-  // pair; the template has at least one (experience) beyond plan/slot.
+  // pair; the template has at least one such question beyond plan/slot.
   const otherOptionQs = qs.filter((q) => hasOptions(q) && !isPlan(q) && !isTimeSlot(q)).length;
   if (otherOptionQs === 0) anomalies.push("no experience/reasons options question");
 

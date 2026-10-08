@@ -81,6 +81,24 @@ describe("evaluateEvent", () => {
   });
 });
 
+describe("evaluateEvent — form anomalies", () => {
+  const base = {
+    city: "Seoul", timezone: "Asia/Seoul", address: "123 St", slotCount: 4,
+    calendarConnected: true,
+    slack: { postable: true, botInChannel: true, channelName: "#x" },
+  };
+
+  it("reports an error when the form has anomalies", () => {
+    const issues = evaluateEvent({ ...base, formAnomalies: ["no question with time-slot options"] });
+    expect(issues.some((i) => i.level === "error" && /form shape/i.test(i.message))).toBe(true);
+  });
+
+  it("reports nothing extra when there are no anomalies", () => {
+    const clean = evaluateEvent({ ...base, formAnomalies: [] });
+    expect(clean.some((i) => /form shape/i.test(i.message))).toBe(false);
+  });
+});
+
 describe("evaluateCalendar", () => {
   it("no issues for a valid key with a webhook secret", () => {
     expect(evaluateCalendar({ keyValid: true, hasWebhookSecret: true })).toEqual([]);

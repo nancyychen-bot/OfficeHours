@@ -16,6 +16,9 @@ export interface EventCheckInput {
   calendarConnected: boolean;
   /** Slack routing for the event's city, or null if none is configured. */
   slack: { postable: boolean; botInChannel: boolean | null; channelName: string | null } | null;
+  /** Form-shape anomalies from classifyForm at registration ([] = clean, treat
+   * absent as []). Non-empty ⇒ guest fields may not map. */
+  formAnomalies?: string[];
 }
 
 /**
@@ -44,6 +47,9 @@ export function evaluateEvent(e: EventCheckInput): Issue[] {
   }
   if (!e.address) {
     issues.push(warn("No street address — calendar invites fall back to the city name."));
+  }
+  if (e.formAnomalies && e.formAnomalies.length > 0) {
+    issues.push(err(`Registration form shape looks off (${e.formAnomalies[0]}) — guest fields may not map. Re-add the event after fixing the Luma form.`));
   }
 
   return issues;

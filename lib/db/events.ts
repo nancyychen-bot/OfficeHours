@@ -114,6 +114,7 @@ export async function upsertEvent(input: {
   timezone: string;
   status?: Enums<"event_status">;
   lumaCalendar?: string; // keyring id of the owning Luma calendar
+  formAnomalies?: string[]; // null/omitted = don't touch; [] = classified clean
 }): Promise<EventRow> {
   const supabase = getAdminClient();
   const { data, error } = await supabase
@@ -127,6 +128,9 @@ export async function upsertEvent(input: {
         // Tag the owning calendar (probed at ingest). Only when provided, so a
         // non-ingest upsert doesn't reset it.
         ...(input.lumaCalendar ? { luma_calendar: input.lumaCalendar } : {}),
+        // Only write when provided, so a plain re-register without classification
+        // doesn't wipe a previously recorded result.
+        ...(input.formAnomalies !== undefined ? { form_anomalies: input.formAnomalies } : {}),
         // Only overwrite public_url when we actually have one (don't clobber on re-register).
         ...(input.publicUrl ? { public_url: input.publicUrl } : {}),
         event_date: input.eventDate,

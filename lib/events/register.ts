@@ -1,5 +1,8 @@
 import { getLumaEvent, extractSlotOptions, resolveLumaEventId, cityFromGeo } from "../luma/client";
 import { lumaCalendars } from "../luma/calendars";
+import { classifyForm } from "../luma/classify";
+import { emailFormAnomalies } from "../readiness/email";
+import { env } from "../env";
 
 export class CalendarNotConnectedError extends Error {
   constructor(public eventId: string) {
@@ -105,6 +108,8 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     publicUrlFrom(input.lumaEvent) ??
     ((detail as { url?: string }).url ?? null);
 
+  const { anomalies } = classifyForm(detail.registration_questions ?? []);
+
   const event = await upsertEvent({
     lumaEventId: detail.id,
     name: detail.name,
@@ -115,6 +120,7 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     eventDate,
     timezone,
     lumaCalendar: calendarId,
+    formAnomalies: anomalies,
     // Status intentionally omitted: a new event gets the DB default ('planned'),
     // and re-registering an existing event must not reset its status.
   });
@@ -126,6 +132,21 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     await ensureLocationOption(city);
   } catch (err) {
     console.error("[register] ensureLocationOption failed", err);
+  }
+
+  // Alert the operator if the form shape doesn't match the template (guest fields
+  // may not map). Never fail the registration over it.
+  if (anomalies.length > 0) {
+    try {
+      await emailFormAnomalies(
+        { name: event.name, lumaEventId: event.luma_event_id },
+        detail.registration_questions ?? [],
+        anomalies,
+        env.app.baseUrl().replace(/\/$/, ""),
+      );
+    } catch (err) {
+      console.error("[register] form-anomaly email failed", err);
+    }
   }
 
   const labels = extractSlotOptions(detail.registration_questions ?? []);

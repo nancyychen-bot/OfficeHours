@@ -150,4 +150,12 @@ describe("normalizeGuest — value-shape mapping (language-independent)", () => 
     expect(n.challenge).toBeNull();
     expect(n.requestedSlot).toBeNull();
   });
+
+  it("does not steal a reasons array into slot when one element mentions a time", () => {
+    const n = normalizeGuest(guest([
+      { label: "z", question_id: "r", question_type: "multi-select", value: ["Available after 2:30", "Coworking"] },
+    ]));
+    expect(n.attendReasons).toBe("Available after 2:30, Coworking");
+    expect(n.requestedSlot).toBeNull();
+  });
 });

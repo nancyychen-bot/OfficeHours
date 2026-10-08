@@ -62,15 +62,19 @@ const matchesAny = (label: string, patterns: RegExp[]): boolean => patterns.some
 // Language-independent value signatures. The option/answer VALUES for these
 // questions are identical across languages (clock times, plan tiers, an email
 // address, a URL), so they identify a field without reading any label text.
-const CLOCK_TIME = /\d{1,2}:\d{2}/;
+// A slot value is a clock-time RANGE (e.g. "2:30-3:00PM", "2:00–2:30 PM") — always
+// two times joined by a dash/tilde in real Build Bar forms. Requiring the range
+// (not a bare clock) keeps a reasons/experience option that merely mentions a time
+// (e.g. "Available after 2:30") from being misclaimed as the slot.
+const TIME_RANGE = /\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?\s*[-–—~]\s*\d{1,2}:\d{2}/i;
 const PLAN_VALUE = /^(enterprise|business|plus|free)$/i;
 const EMAIL_VALUE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_VALUE = /^https?:\/\//i;
 
-/** A clock time anywhere in the value — a plain string or any array element. */
+/** A clock-time RANGE anywhere in the value — a plain string or any array element. */
 function hasClockTime(value: unknown): boolean {
-  if (typeof value === "string") return CLOCK_TIME.test(value);
-  if (Array.isArray(value)) return value.some((v) => typeof v === "string" && CLOCK_TIME.test(v));
+  if (typeof value === "string") return TIME_RANGE.test(value);
+  if (Array.isArray(value)) return value.some((v) => typeof v === "string" && TIME_RANGE.test(v));
   return false;
 }
 

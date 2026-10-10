@@ -14,6 +14,8 @@ export interface CalendarReport {
   cities: string[];
   calendarId: string | null;
   calendarUrl: string | null;
+  /** Luma key check: true = valid, false = rejected (401/403), null = unreachable. */
+  keyValid: boolean | null;
   issues: Issue[];
 }
 export interface EventReport {
@@ -36,9 +38,41 @@ export interface ReadinessReport {
   untracked: UntrackedEvent[];
   errorCount: number;
   warnCount: number;
+  /** How many connected calendars had their Luma key checked this run. */
+  calendarsChecked: number;
+  /** How many of those came back `null` (Luma unreachable, not rejected). */
+  calendarsUnreachable: number;
 }
 
 const DEFAULT_WINDOW_DAYS = 21;
+
+/**
+ * True when the ONLY thing wrong is that every connected calendar's key check
+ * came back "unreachable" (keyValid null) — i.e. Luma itself was briefly
+ * unreachable when the cron ran, not a per-calendar problem and not actionable.
+ * A rejected key (error), a partial outage, any event/setup warning, or an
+ * untracked event all make this false, so real problems are never mistaken for
+ * a transient. The caller suppresses only the first such run (see
+ * `shouldSuppressReadinessEmail`), so a sustained outage still alerts.
+ */
+export function isTransientLumaOutage(r: ReadinessReport): boolean {
+  return (
+    r.calendarsChecked > 0 &&
+    r.calendarsUnreachable === r.calendarsChecked &&
+    r.errorCount === 0 &&
+    r.untracked.length === 0 &&
+    // The only warnings are the one-per-unreachable-calendar "unreachable" warns.
+    r.warnCount === r.calendarsUnreachable
+  );
+}
+
+/**
+ * Suppress the alert email ONLY for a first transient Luma outage. If the prior
+ * run was also a transient outage (a sustained outage), escalate and email.
+ */
+export function shouldSuppressReadinessEmail(transient: boolean, prevWasTransient: boolean): boolean {
+  return transient && !prevWasTransient;
+}
 
 /**
  * Gather live setup health across every connected calendar and every upcoming
@@ -66,12 +100,14 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
   const calendars: CalendarReport[] = await Promise.all(
     cals.map(async (c) => {
       const row = dbById.get(c.id);
+      const keyValid = await validateLumaKey(c.apiKey);
       return {
         id: c.id,
         cities: [...(citiesByCal.get(c.id) ?? [])].sort(),
         calendarId: row?.calendarId ?? null,
         calendarUrl: row?.calendarUrl ?? (await calendarUrlForCalendar(c.id)),
-        issues: evaluateCalendar({ keyValid: await validateLumaKey(c.apiKey), hasWebhookSecret: !!c.webhookSecret }),
+        keyValid,
+        issues: evaluateCalendar({ keyValid, hasWebhookSecret: !!c.webhookSecret }),
       };
     }),
   );
@@ -139,6 +175,8 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
     untracked,
     errorCount: all.filter((i) => i.level === "error").length,
     warnCount: all.filter((i) => i.level === "warn").length,
+    calendarsChecked: calendars.length,
+    calendarsUnreachable: calendars.filter((c) => c.keyValid === null).length,
   };
 }
 

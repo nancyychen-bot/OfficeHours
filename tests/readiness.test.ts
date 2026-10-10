@@ -113,3 +113,60 @@ describe("evaluateCalendar", () => {
     expect(issues[0].level).toBe("warn");
   });
 });
+
+import { isTransientLumaOutage, shouldSuppressReadinessEmail, type ReadinessReport } from "@/lib/readiness/check";
+
+function report(p: Partial<ReadinessReport> = {}): ReadinessReport {
+  return {
+    generatedForDays: 21,
+    calendars: [],
+    events: [],
+    untracked: [],
+    errorCount: 0,
+    warnCount: 0,
+    calendarsChecked: 0,
+    calendarsUnreachable: 0,
+    ...p,
+  };
+}
+
+describe("isTransientLumaOutage", () => {
+  it("is true when EVERY calendar is unreachable and nothing else is wrong", () => {
+    expect(isTransientLumaOutage(report({ calendarsChecked: 5, calendarsUnreachable: 5, warnCount: 5 }))).toBe(true);
+  });
+
+  it("is false when a key is actually rejected (an error present)", () => {
+    expect(isTransientLumaOutage(report({ calendarsChecked: 5, calendarsUnreachable: 4, errorCount: 1, warnCount: 4 }))).toBe(false);
+  });
+
+  it("is false when only SOME calendars are unreachable", () => {
+    expect(isTransientLumaOutage(report({ calendarsChecked: 5, calendarsUnreachable: 3, warnCount: 3 }))).toBe(false);
+  });
+
+  it("is false when there are extra warnings beyond the unreachable ones (e.g. an event warn)", () => {
+    expect(isTransientLumaOutage(report({ calendarsChecked: 5, calendarsUnreachable: 5, warnCount: 6 }))).toBe(false);
+  });
+
+  it("is false when there are untracked events to act on", () => {
+    expect(
+      isTransientLumaOutage(report({ calendarsChecked: 5, calendarsUnreachable: 5, warnCount: 5, untracked: [{} as never] })),
+    ).toBe(false);
+  });
+
+  it("is false when there are no calendars at all", () => {
+    expect(isTransientLumaOutage(report({ calendarsChecked: 0, calendarsUnreachable: 0 }))).toBe(false);
+  });
+});
+
+describe("shouldSuppressReadinessEmail", () => {
+  it("suppresses a first transient outage", () => {
+    expect(shouldSuppressReadinessEmail(true, false)).toBe(true);
+  });
+  it("escalates (does NOT suppress) a transient outage that persisted into a second run", () => {
+    expect(shouldSuppressReadinessEmail(true, true)).toBe(false);
+  });
+  it("never suppresses a non-transient report", () => {
+    expect(shouldSuppressReadinessEmail(false, false)).toBe(false);
+    expect(shouldSuppressReadinessEmail(false, true)).toBe(false);
+  });
+});

@@ -10,6 +10,23 @@ const ingestRegistration = vi.fn<(...a: any[]) => Promise<any>>();
 const registerEventFromLuma = vi.fn<(...a: any[]) => Promise<any>>();
 const logSync = vi.fn<(...a: any[]) => Promise<void>>(async () => {});
 
+// Mirrors the real class so the webhook's `instanceof` check matches (the mock
+// below exports THIS class as the module's NotABuildBarEventError). Defined via
+// vi.hoisted so it exists when the hoisted vi.mock factory runs.
+const { NotABuildBarEventError } = vi.hoisted(() => {
+  class NotABuildBarEventError extends Error {
+    eventId: string;
+    eventName: string;
+    constructor(eventId: string, eventName: string) {
+      super(`${eventId} ("${eventName}") is not a Build Bar event`);
+      this.name = "NotABuildBarEventError";
+      this.eventId = eventId;
+      this.eventName = eventName;
+    }
+  }
+  return { NotABuildBarEventError };
+});
+
 vi.mock("@/lib/luma/calendars", () => ({
   // No secrets configured → the handler processes the request unsigned, so the
   // test doesn't need to craft a valid signature.
@@ -20,6 +37,7 @@ vi.mock("@/lib/events/ingest", () => ({
 }));
 vi.mock("@/lib/events/register", () => ({
   registerEventFromLuma: (...a: any[]) => (registerEventFromLuma as any)(...a),
+  NotABuildBarEventError,
 }));
 vi.mock("@/lib/events/cancel-event", () => ({ cancelEventByLumaId: vi.fn(async () => ({ found: false, cancelled: 0 })) }));
 vi.mock("@/lib/sync/log", () => ({ logSync: (...a: any[]) => (logSync as any)(...a) }));
@@ -53,11 +71,27 @@ describe("luma webhook — auto-register on unknown event", () => {
     const res = await POST(req(envelope));
     const json = await res.json();
 
-    expect(registerEventFromLuma).toHaveBeenCalledWith({ lumaEvent: "evt-new" });
+    expect(registerEventFromLuma).toHaveBeenCalledWith({ lumaEvent: "evt-new" }, { requireBuildBarName: true });
     expect(json.autoRegistered).toBe(true);
     const actions = logSync.mock.calls.map((c) => (c[0] as any).action);
     expect(actions).toContain("auto_register");
     expect(actions).not.toContain("unknown_event");
+  });
+
+  it("skips a foreign (non-Build-Bar) event instead of registering it or emailing", async () => {
+    ingestRegistration.mockResolvedValue({ status: "ignored", reason: "not a registered Notion Build Bar event (evt-new)" });
+    registerEventFromLuma.mockRejectedValue(new NotABuildBarEventError("evt-new", "How AI are you? Come find out."));
+
+    const res = await POST(req(envelope));
+    const json = await res.json();
+
+    expect(json.skipped).toBe(true);
+    const actions = logSync.mock.calls.map((c) => (c[0] as any).action);
+    expect(actions).toContain("skipped_foreign_event");
+    expect(actions).not.toContain("unknown_event");
+    const log = logSync.mock.calls.map((c) => c[0] as any).find((a) => a.action === "skipped_foreign_event");
+    expect(log.result).toBe("applied");
+    expect(log.note).toContain("How AI are you?");
   });
 
   it("falls back to the unknown_event drop when auto-registration fails", async () => {

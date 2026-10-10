@@ -4,7 +4,7 @@ import { lumaWebhookSecrets } from "@/lib/luma/calendars";
 import { normalizeGuest } from "@/lib/luma/parse";
 import type { LumaWebhookEnvelope } from "@/lib/luma/types";
 import { ingestRegistration } from "@/lib/events/ingest";
-import { registerEventFromLuma } from "@/lib/events/register";
+import { registerEventFromLuma, NotABuildBarEventError } from "@/lib/events/register";
 import { cancelEventByLumaId } from "@/lib/events/cancel-event";
 import { logSync } from "@/lib/sync/log";
 
@@ -83,13 +83,14 @@ export async function POST(req: Request) {
       // The event isn't in our table yet — typically a new city's event that went
       // live on Luma and collected RSVPs before it was registered in the hub. Luma
       // never resends webhooks, so dropping here silently loses every RSVP in that
-      // window. The signature already proved this came from a CONNECTED calendar
-      // (i.e. a Build Bar calendar), so auto-register the event now; that path also
-      // backfills the event's full Luma guest list, which ingests THIS guest too.
-      // Fall back to the prior drop-and-log if auto-registration can't complete
-      // (e.g. Luma has no venue city/timezone on the event yet).
+      // window. The signature proved this came from a CONNECTED calendar — but
+      // those calendars also host non-Build-Bar Notion events, so auto-register
+      // ONLY our events (requireBuildBarName); a foreign event is skipped, not
+      // imported. The auto-register path also backfills the event's full Luma guest
+      // list, which ingests THIS guest too. Fall back to the prior drop-and-log if
+      // it can't complete (e.g. Luma has no venue city/timezone on the event yet).
       try {
-        const reg = await registerEventFromLuma({ lumaEvent: norm.lumaEventId });
+        const reg = await registerEventFromLuma({ lumaEvent: norm.lumaEventId }, { requireBuildBarName: true });
         await logSync({
           direction: "luma_in",
           result: "applied",
@@ -98,6 +99,17 @@ export async function POST(req: Request) {
         });
         return NextResponse.json({ received: true, autoRegistered: true });
       } catch (regErr) {
+        if (regErr instanceof NotABuildBarEventError) {
+          // A foreign event sharing a connected calendar. Correctly NOT ours — don't
+          // register, don't email, just record it. Not an error.
+          await logSync({
+            direction: "luma_in",
+            result: "applied",
+            action: "skipped_foreign_event",
+            note: `${norm.lumaEventId} "${regErr.eventName}" is not a Build Bar event — skipped (guest ${norm.guestName})`,
+          });
+          return NextResponse.json({ received: true, skipped: true });
+        }
         // Log as an ERROR with a distinct action (not result:"applied", which is
         // indistinguishable from a successful upsert) so it's visible and queryable.
         // Include the guest so a manual registration can recover it. Still 200 to

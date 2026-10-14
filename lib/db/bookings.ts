@@ -153,6 +153,13 @@ export function decideBookingStatusPatch(
   if (existingStatus === "cancelled") {
     return { status: openStatus, booked_by_display_name: null, booked_by_type: null, booked_by_email: null };
   }
+  // A guest recorded as "no help needed" (no slot at the time) who now has a
+  // requested slot does want a 1:1 after all — open them for claiming. This also
+  // self-heals bookings misparsed as no_help_needed because a non-English slot
+  // label failed to map (see lib/luma/parse.ts); a re-ingest promotes them.
+  if (existingStatus === "no_help_needed" && requestedSlot) {
+    return { status: "unassigned" };
+  }
   return {};
 }
 
@@ -328,6 +335,32 @@ export async function reassignBooking(
       booked_by_display_name: displayName,
       booked_by_type: bookedByType,
       booked_by_email: null, // re-set from the new expert's Notion Person
+      previously_matched: true,
+    })
+    .eq("id", bookingId)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Assign an expert (name + type + email) to a booking from the hub, regardless of
+ * current status — fills an unassigned 1:1, converts a cowork/no-help attendee who
+ * now wants one, or reassigns. Sets the email up front so the invite can go out.
+ */
+export async function setBookingAssignment(
+  bookingId: string,
+  expert: { displayName: string; type: BookedByType; email: string },
+): Promise<Booking | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({
+      status: "assigned",
+      booked_by_display_name: expert.displayName,
+      booked_by_type: expert.type,
+      booked_by_email: expert.email,
       previously_matched: true,
     })
     .eq("id", bookingId)

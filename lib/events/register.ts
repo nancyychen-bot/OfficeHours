@@ -1,10 +1,24 @@
 import { getLumaEvent, extractSlotOptions, resolveLumaEventId, cityFromGeo } from "../luma/client";
 import { lumaCalendars } from "../luma/calendars";
+import { classifyForm } from "../luma/classify";
+import { emailFormAnomalies } from "../readiness/email";
+import { isOurEventName } from "../readiness/untracked";
+import { env } from "../env";
 
 export class CalendarNotConnectedError extends Error {
   constructor(public eventId: string) {
     super(`Luma event ${eventId} is not on any connected calendar.`);
     this.name = "CalendarNotConnectedError";
+  }
+}
+
+/** The event is on a connected calendar but isn't a Build Bar / Office Hours event
+ * (the master + city calendars host other Notion community events too). Used to
+ * stop the webhook auto-register from pulling in foreign events + their guests. */
+export class NotABuildBarEventError extends Error {
+  constructor(public eventId: string, public eventName: string) {
+    super(`Luma event ${eventId} ("${eventName}") is not a Build Bar / Office Hours event.`);
+    this.name = "NotABuildBarEventError";
   }
 }
 import type { LumaEventDetail } from "../luma/types";
@@ -60,7 +74,10 @@ export function requireTimezone(tz: string | null | undefined, eventId: string):
  * slots from the Luma slot dropdown (labels verbatim, times from start+length).
  * Idempotent — safe to re-run when the form changes.
  */
-export async function registerEventFromLuma(input: RegisterInput): Promise<RegisterResult> {
+export async function registerEventFromLuma(
+  input: RegisterInput,
+  opts: { requireBuildBarName?: boolean } = {},
+): Promise<RegisterResult> {
   const supabase = getAdminClient();
   const eventId = await resolveLumaEventId(input.lumaEvent);
 
@@ -84,6 +101,15 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     throw new CalendarNotConnectedError(eventId);
   }
 
+  // Auto-registration (the webhook) passes requireBuildBarName: a connected
+  // calendar can host other Notion community events (AI Labs, dinners, …), and we
+  // must not pull those — or their guests — into the hub. Manual registration
+  // (the add-event form / script) omits this, so an operator can still register
+  // an oddly-named event on purpose.
+  if (opts.requireBuildBarName && !isOurEventName(detail.name)) {
+    throw new NotABuildBarEventError(eventId, detail.name);
+  }
+
   const timezone = requireTimezone(detail.timezone, detail.id);
   const eventDate = localCalendarDate(detail.start_at, timezone);
 
@@ -105,6 +131,8 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     publicUrlFrom(input.lumaEvent) ??
     ((detail as { url?: string }).url ?? null);
 
+  const { anomalies } = classifyForm(detail.registration_questions ?? []);
+
   const event = await upsertEvent({
     lumaEventId: detail.id,
     name: detail.name,
@@ -115,6 +143,7 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     eventDate,
     timezone,
     lumaCalendar: calendarId,
+    formAnomalies: anomalies,
     // Status intentionally omitted: a new event gets the DB default ('planned'),
     // and re-registering an existing event must not reset its status.
   });
@@ -126,6 +155,21 @@ export async function registerEventFromLuma(input: RegisterInput): Promise<Regis
     await ensureLocationOption(city);
   } catch (err) {
     console.error("[register] ensureLocationOption failed", err);
+  }
+
+  // Alert the operator if the form shape doesn't match the template (guest fields
+  // may not map). Never fail the registration over it.
+  if (anomalies.length > 0) {
+    try {
+      await emailFormAnomalies(
+        { name: event.name, lumaEventId: event.luma_event_id },
+        detail.registration_questions ?? [],
+        anomalies,
+        env.app.baseUrl().replace(/\/$/, ""),
+      );
+    } catch (err) {
+      console.error("[register] form-anomaly email failed", err);
+    }
   }
 
   const labels = extractSlotOptions(detail.registration_questions ?? []);

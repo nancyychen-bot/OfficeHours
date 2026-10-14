@@ -145,6 +145,30 @@ describe("bookingToPageProperties event fields", () => {
   });
 });
 
+describe("select options with commas (Notion rejects commas in select names)", () => {
+  // A guest field (e.g. company-size "500-2,999", "3,000+") that lands in a
+  // select property would make Notion reject the ENTIRE page push —
+  // "Invalid select option, commas not allowed" — so even the Status/claim
+  // update never lands. Strip commas so the push succeeds.
+  const booking = {
+    guest_name: "G", status: "unassigned", luma_status: "pending",
+    experience_level: "500-2,999", notion_plan: "3,000+",
+  } as any;
+
+  it("strips commas from a select value on create", () => {
+    const props = bookingToPageProperties(booking) as Record<string, any>;
+    expect(props[PROP.experienceLevel].select.name).toBe("500-2999");
+    expect(props[PROP.notionPlan].select.name).toBe("3000+");
+    expect(JSON.stringify(props)).not.toContain(",999");
+  });
+
+  it("leaves comma-free select values untouched", () => {
+    const props = bookingToPageProperties({ ...booking, experience_level: "Beginner", notion_plan: "Plus" }) as Record<string, any>;
+    expect(props[PROP.experienceLevel].select.name).toBe("Beginner");
+    expect(props[PROP.notionPlan].select.name).toBe("Plus");
+  });
+});
+
 describe("luma status + no_help_needed mapping", () => {
   it("round-trips luma status", () => {
     expect(lumaStatusToLabel("waitlist")).toBe("Waitlist");

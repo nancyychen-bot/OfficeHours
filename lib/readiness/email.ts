@@ -1,6 +1,7 @@
 import { sendEmail } from "../email/resend";
 import { problemsOnly, type CalendarReport, type EventReport, type ReadinessReport } from "./check";
 import type { UntrackedEvent } from "./untracked";
+import type { LumaRegistrationQuestion } from "../luma/types";
 
 /** Who gets the setup-problem alert. Defaults to Nancy; override with a
  * comma-separated READINESS_ALERT_EMAILS env var if the recipients change. */
@@ -95,4 +96,54 @@ export async function emailReadinessProblems(report: ReadinessReport, baseUrl: s
     }
   }
   return sent;
+}
+
+/**
+ * Alert the operator that an event's Luma form shape doesn't match the template,
+ * so guest fields may not map. Reuses the readiness recipients + transport. No-op
+ * (returns 0) when there are no anomalies or no recipients.
+ */
+export async function emailFormAnomalies(
+  event: { name: string; lumaEventId: string | null },
+  questions: LumaRegistrationQuestion[],
+  anomalies: string[],
+  baseUrl: string,
+): Promise<number> {
+  if (anomalies.length === 0) return 0;
+  const recipients = alertRecipients();
+  if (recipients.length === 0) return 0;
+
+  const idPart = event.lumaEventId ? ` (${event.lumaEventId})` : "";
+  const subject = `⚠️ ${event.name}${idPart}: registration form shape anomaly`;
+  const qLines = questions.map((q) => `  [${q.type ?? "?"}] ${q.label ?? "(no label)"}`);
+  const text = [
+    `${event.name}${idPart}: registration form shape anomaly`,
+    "",
+    "Anomalies:",
+    ...anomalies.map((a) => `  • ${a}`),
+    "",
+    "Questions seen:",
+    ...qLines,
+    "",
+    "Fix the form in Luma to match the Build Bar template, then re-add the event.",
+    `Readiness: ${baseUrl}/readiness`,
+  ].join("\n");
+  const html =
+    `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px;color:#111;max-width:620px">` +
+    `<p><strong>${escapeHtml(event.name)}${escapeHtml(idPart)}</strong>: registration form shape anomaly</p>` +
+    `<p><strong>Anomalies</strong></p><ul>${anomalies.map((a) => `<li>${escapeHtml(a)}</li>`).join("")}</ul>` +
+    `<p><strong>Questions seen</strong></p><ul>${questions.map((q) => `<li>[${escapeHtml(q.type ?? "?")}] ${escapeHtml(q.label ?? "(no label)")}</li>`).join("")}</ul>` +
+    `<p>Fix the form in Luma to match the Build Bar template, then re-add the event.</p>` +
+    `<p><a href="${baseUrl}/readiness">Open the readiness page →</a></p></div>`;
+
+  let count = 0;
+  for (const to of recipients) {
+    try {
+      await sendEmail({ to, subject, html, text });
+      count++;
+    } catch (err) {
+      console.error("[form-anomaly] alert email failed for", to, err);
+    }
+  }
+  return count;
 }

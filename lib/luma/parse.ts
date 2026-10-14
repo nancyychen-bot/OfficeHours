@@ -42,15 +42,46 @@ function jobTitleFromAnswer(answer: LumaRegistrationAnswer): string | null {
   return null;
 }
 
-// Label pins for the finalized Build Bar form (case-insensitive `.test`).
-const LABEL = {
-  notionEmail: /email.*notion/i,
-  notionPlan: /type of notion plan|notion plan/i,
-  experience: /experience level/i,
-  reasons: /why.*(come|build bar)/i,
-  challenge: /help.*building|need help with/i,
-  slot: /requested time slot|time slot/i,
+// Label pins for the Build Bar form. The form is translated per region (Seoul
+// renamed every label into Korean), so each field carries patterns for every
+// language we've seen — add the next locale's phrasing here. Matching is still
+// backstopped by `question_type` (company/long-text) and, below, by
+// language-independent answer VALUES, so a brand-new locale degrades gracefully
+// instead of silently dropping fields.
+const LABEL: Record<"notionEmail" | "notionPlan" | "experience" | "reasons" | "challenge" | "slot", RegExp[]> = {
+  notionEmail: [/email.*notion/i, /notion.*email/i, /이메일/],
+  notionPlan: [/type of notion plan/i, /notion plan/i, /요금제/],
+  experience: [/experience level/i, /경험/],
+  reasons: [/why.*(come|build bar)/i, /이유/],
+  challenge: [/help.*building/i, /need help with/i, /help.*require/i, /require.*help/i, /도움.*필요|필요.*도움/],
+  slot: [/requested time slot/i, /time slot/i, /시간대/],
 };
+
+const matchesAny = (label: string, patterns: RegExp[]): boolean => patterns.some((p) => p.test(label));
+
+// Language-independent value signatures. The option/answer VALUES for these
+// questions are identical across languages (clock times, plan tiers, an email
+// address, a URL), so they identify a field without reading any label text.
+// A slot value is a clock-time RANGE (e.g. "2:30-3:00PM", "2:00–2:30 PM") — always
+// two times joined by a dash/tilde in real Build Bar forms. Requiring the range
+// (not a bare clock) keeps a reasons/experience option that merely mentions a time
+// (e.g. "Available after 2:30") from being misclaimed as the slot.
+const TIME_RANGE = /\d{1,2}:\d{2}\s*(?:[ap]\.?m\.?)?\s*[-–—~]\s*\d{1,2}:\d{2}/i;
+const PLAN_VALUE = /^(enterprise|business|plus|free)$/i;
+const EMAIL_VALUE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const URL_VALUE = /^https?:\/\//i;
+
+/** A clock-time RANGE anywhere in the value — a plain string or any array element. */
+function hasClockTime(value: unknown): boolean {
+  if (typeof value === "string") return TIME_RANGE.test(value);
+  if (Array.isArray(value)) return value.some((v) => typeof v === "string" && TIME_RANGE.test(v));
+  return false;
+}
+
+/** A single/multi select or dropdown (not free text, not company). */
+function isSelectType(type: string): boolean {
+  return /select|dropdown|choice/.test(type);
+}
 
 function mapAnswers(answers: LumaRegistrationAnswer[]): {
   role: string | null;
@@ -73,22 +104,57 @@ function mapAnswers(answers: LumaRegistrationAnswer[]): {
     requestedSlot: null as string | null,
   };
 
+  // Tiebreaker: `challenge` is otherwise "the first remaining free-text answer",
+  // which a SECOND free-text question (e.g. an added "dietary restrictions?" field)
+  // could win by appearing earlier. Prefer the free-text answer whose LABEL names
+  // the 1:1-help question (multilingual patterns) so position doesn't matter. When
+  // no label matches (a brand-new locale), the main loop still falls back to the
+  // first free-text answer — and classifyForm flags the extra question for review.
+  for (const a of answers) {
+    const type = (a.question_type ?? "").toLowerCase();
+    const isFreeText = type === "long-text" || type === "text" || type === "short-text";
+    if (isFreeText && matchesAny(a.label ?? "", LABEL.challenge)) {
+      out.challenge = answerToString(a);
+      break;
+    }
+  }
+
   for (const a of answers) {
     const label = a.label ?? "";
     const type = (a.question_type ?? "").toLowerCase();
     const val = answerToString(a);
 
-    if (type === "company") {
-      out.company ??= val;
-      out.role ??= jobTitleFromAnswer(a);
-      continue;
-    }
-    if (LABEL.notionEmail.test(label)) { out.notionEmail ??= val; continue; }
-    if (LABEL.notionPlan.test(label)) { out.notionPlan ??= val; continue; }
-    if (LABEL.experience.test(label)) { out.experienceLevel ??= val; continue; }
-    if (LABEL.reasons.test(label)) { out.attendReasons ??= val; continue; }
-    if (LABEL.slot.test(label)) { out.requestedSlot ??= val; continue; }
-    if (LABEL.challenge.test(label) || type === "long-text") { out.challenge ??= val; continue; }
+    // 1. Company (by type) → company + role.
+    if (type === "company") { out.company ??= val; out.role ??= jobTitleFromAnswer(a); continue; }
+    // 2. Slot — a clock-time value (string "2:30-3:00PM" or an array of times).
+    if (hasClockTime(a.value)) { out.requestedSlot ??= val; continue; }
+    // 3. Plan — the tier set is identical in every language.
+    if (val && PLAN_VALUE.test(val)) { out.notionPlan ??= val; continue; }
+    // 4. Reasons — the multi-select (its value is an array); slot already took times.
+    if (Array.isArray(a.value)) { out.attendReasons ??= val; continue; }
+    // 5. Notion email — an email-shaped value.
+    if (val && EMAIL_VALUE.test(val)) { out.notionEmail ??= val; continue; }
+    // 6. LinkedIn — a URL value, or a label with the universal brand token → ignore.
+    if (val && URL_VALUE.test(val)) continue;
+    if (/linkedin/i.test(label)) continue;
+    // 7. Experience — the remaining single-select string.
+    if (isSelectType(type)) { out.experienceLevel ??= val; continue; }
+    // 8. Challenge — the remaining free text.
+    if (type === "long-text" || type === "text" || type === "short-text") { out.challenge ??= val; continue; }
+  }
+
+  // Last-ditch fallback: if a field is still unmapped (an unusual payload), try the
+  // multilingual label patterns. These are no longer load-bearing — the loop above
+  // resolves the standard template — but they add robustness for an odd form.
+  for (const a of answers) {
+    const label = a.label ?? "";
+    const val = answerToString(a);
+    if (out.notionEmail == null && matchesAny(label, LABEL.notionEmail)) { out.notionEmail = val; continue; }
+    if (out.notionPlan == null && matchesAny(label, LABEL.notionPlan)) { out.notionPlan = val; continue; }
+    if (out.experienceLevel == null && matchesAny(label, LABEL.experience)) { out.experienceLevel = val; continue; }
+    if (out.attendReasons == null && matchesAny(label, LABEL.reasons)) { out.attendReasons = val; continue; }
+    if (out.requestedSlot == null && matchesAny(label, LABEL.slot)) { out.requestedSlot = val; continue; }
+    if (out.challenge == null && matchesAny(label, LABEL.challenge)) { out.challenge = val; continue; }
   }
   return out;
 }

@@ -25,6 +25,7 @@
     "sync:location-options": "tsx --env-file=.env.local scripts/sync-location-options.ts",
     "backup": "tsx --env-file=.env.local scripts/backup-db.ts",
     "backfill:slack-ids": "tsx --env-file=.env.local scripts/backfill-slack-channel-ids.ts",
+    "backfill:event": "tsx --env-file=.env.local scripts/backfill-event.ts",
     "gen:types": "supabase gen types typescript --project-id jldgxdaemtdqcfrdzeby --schema public > lib/supabase/types.ts"
   },
   "dependencies": {

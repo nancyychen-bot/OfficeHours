@@ -16,6 +16,13 @@ export interface EventCheckInput {
   calendarConnected: boolean;
   /** Slack routing for the event's city, or null if none is configured. */
   slack: { postable: boolean; botInChannel: boolean | null; channelName: string | null } | null;
+  /** Form-shape anomalies from classifyForm at registration ([] = clean, treat
+   * absent as []). Non-empty ⇒ guest fields may not map. */
+  formAnomalies?: string[];
+  /** Luma's own "registered" count for the event, or null if stats haven't synced. */
+  lumaRegistered?: number | null;
+  /** Bookings actually synced into the hub for this event. */
+  bookingCount?: number;
 }
 
 /**
@@ -44,6 +51,23 @@ export function evaluateEvent(e: EventCheckInput): Issue[] {
   }
   if (!e.address) {
     issues.push(warn("No street address — calendar invites fall back to the city name."));
+  }
+  if (e.formAnomalies && e.formAnomalies.length > 0) {
+    issues.push(err(`Registration form shape looks off (${e.formAnomalies[0]}) — guest fields may not map. Re-add the event after fixing the Luma form.`));
+  }
+  // RSVP sync gap: Luma shows many more registered than we have bookings. Catches
+  // a disconnected webhook or a stalled backfill (the Singapore Oct event sat at
+  // 14/242) before the event day. Needs both a meaningful absolute gap and a
+  // relative one, so normal webhook lag on a small/new event doesn't cry wolf.
+  if (e.lumaRegistered != null && e.bookingCount != null) {
+    const missing = e.lumaRegistered - e.bookingCount;
+    if (missing >= 10 && e.bookingCount < e.lumaRegistered * 0.75) {
+      issues.push(
+        err(
+          `Only ${e.bookingCount} of ${e.lumaRegistered} Luma RSVPs synced (${missing} missing) — the webhook may be disconnected or the event date is stale. Re-run \`npm run register:event -- --luma <id>\`.`,
+        ),
+      );
+    }
   }
 
   return issues;

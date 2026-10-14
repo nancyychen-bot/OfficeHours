@@ -81,6 +81,46 @@ describe("evaluateEvent", () => {
   });
 });
 
+describe("evaluateEvent — RSVP sync gap (bookings << Luma registered)", () => {
+  it("errors when far fewer bookings are synced than Luma shows registered", () => {
+    const issues = evaluateEvent({ ...okEvent, lumaRegistered: 242, bookingCount: 14 });
+    expect(issues.some((i) => i.level === "error" && /rsvp|synced|registered/i.test(i.message))).toBe(true);
+  });
+
+  it("does not alarm when bookings roughly match Luma registered", () => {
+    const issues = evaluateEvent({ ...okEvent, lumaRegistered: 30, bookingCount: 29 });
+    expect(issues.some((i) => /rsvp|synced/i.test(i.message))).toBe(false);
+  });
+
+  it("does not alarm on a tiny absolute gap (webhook lag on a small event)", () => {
+    const issues = evaluateEvent({ ...okEvent, lumaRegistered: 8, bookingCount: 2 });
+    expect(issues.some((i) => /rsvp|synced/i.test(i.message))).toBe(false);
+  });
+
+  it("does not alarm when the Luma registered count is unknown (stats not synced yet)", () => {
+    const issues = evaluateEvent({ ...okEvent, lumaRegistered: null, bookingCount: 0 });
+    expect(issues.some((i) => /rsvp|synced/i.test(i.message))).toBe(false);
+  });
+});
+
+describe("evaluateEvent — form anomalies", () => {
+  const base = {
+    city: "Seoul", timezone: "Asia/Seoul", address: "123 St", slotCount: 4,
+    calendarConnected: true,
+    slack: { postable: true, botInChannel: true, channelName: "#x" },
+  };
+
+  it("reports an error when the form has anomalies", () => {
+    const issues = evaluateEvent({ ...base, formAnomalies: ["no question with time-slot options"] });
+    expect(issues.some((i) => i.level === "error" && /form shape/i.test(i.message))).toBe(true);
+  });
+
+  it("reports nothing extra when there are no anomalies", () => {
+    const clean = evaluateEvent({ ...base, formAnomalies: [] });
+    expect(clean.some((i) => /form shape/i.test(i.message))).toBe(false);
+  });
+});
+
 describe("evaluateCalendar", () => {
   it("no issues for a valid key with a webhook secret", () => {
     expect(evaluateCalendar({ keyValid: true, hasWebhookSecret: true })).toEqual([]);
@@ -93,5 +133,62 @@ describe("evaluateCalendar", () => {
     const issues = evaluateCalendar({ keyValid: null, hasWebhookSecret: true });
     expect(issues).toHaveLength(1);
     expect(issues[0].level).toBe("warn");
+  });
+});
+
+import { isTransientLumaOutage, shouldSuppressReadinessEmail, type ReadinessReport } from "@/lib/readiness/check";
+
+function report(p: Partial<ReadinessReport> = {}): ReadinessReport {
+  return {
+    generatedForDays: 21,
+    calendars: [],
+    events: [],
+    untracked: [],
+    errorCount: 0,
+    warnCount: 0,
+    calendarsChecked: 0,
+    calendarsUnreachable: 0,
+    ...p,
+  };
+}
+
+describe("isTransientLumaOutage", () => {
+  it("is true when EVERY calendar is unreachable and nothing else is wrong", () => {
+    expect(isTransientLumaOutage(report({ calendarsChecked: 5, calendarsUnreachable: 5, warnCount: 5 }))).toBe(true);
+  });
+
+  it("is false when a key is actually rejected (an error present)", () => {
+    expect(isTransientLumaOutage(report({ calendarsChecked: 5, calendarsUnreachable: 4, errorCount: 1, warnCount: 4 }))).toBe(false);
+  });
+
+  it("is false when only SOME calendars are unreachable", () => {
+    expect(isTransientLumaOutage(report({ calendarsChecked: 5, calendarsUnreachable: 3, warnCount: 3 }))).toBe(false);
+  });
+
+  it("is false when there are extra warnings beyond the unreachable ones (e.g. an event warn)", () => {
+    expect(isTransientLumaOutage(report({ calendarsChecked: 5, calendarsUnreachable: 5, warnCount: 6 }))).toBe(false);
+  });
+
+  it("is false when there are untracked events to act on", () => {
+    expect(
+      isTransientLumaOutage(report({ calendarsChecked: 5, calendarsUnreachable: 5, warnCount: 5, untracked: [{} as never] })),
+    ).toBe(false);
+  });
+
+  it("is false when there are no calendars at all", () => {
+    expect(isTransientLumaOutage(report({ calendarsChecked: 0, calendarsUnreachable: 0 }))).toBe(false);
+  });
+});
+
+describe("shouldSuppressReadinessEmail", () => {
+  it("suppresses a first transient outage", () => {
+    expect(shouldSuppressReadinessEmail(true, false)).toBe(true);
+  });
+  it("escalates (does NOT suppress) a transient outage that persisted into a second run", () => {
+    expect(shouldSuppressReadinessEmail(true, true)).toBe(false);
+  });
+  it("never suppresses a non-transient report", () => {
+    expect(shouldSuppressReadinessEmail(false, false)).toBe(false);
+    expect(shouldSuppressReadinessEmail(false, true)).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus, fetchEventStats, LumaUrlUnresolvedError, cityFromGeo } from "@/lib/luma/client";
+import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus, fetchEventStats, lumaFetch, listEventGuests, LumaUrlUnresolvedError, cityFromGeo } from "@/lib/luma/client";
 import type { LumaRegistrationQuestion } from "@/lib/luma/types";
 
 describe("parseLumaEventId", () => {
@@ -105,6 +105,63 @@ describe("resolveLumaEventId", () => {
   });
 });
 
+describe("lumaFetch (rate-limit backoff)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("retries a 429 and returns the eventual success", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls++;
+      return calls < 3
+        ? ({ status: 429, ok: false, headers: new Headers() } as Response)
+        : ({ status: 200, ok: true, headers: new Headers() } as Response);
+    }));
+    const res = await lumaFetch("https://x", undefined, { baseDelayMs: 0 });
+    expect(res.status).toBe(200);
+    expect(calls).toBe(3);
+  });
+
+  it("retries transient 5xx too", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls++;
+      return calls < 2
+        ? ({ status: 503, ok: false, headers: new Headers() } as Response)
+        : ({ status: 200, ok: true, headers: new Headers() } as Response);
+    }));
+    const res = await lumaFetch("https://x", undefined, { baseDelayMs: 0 });
+    expect(res.status).toBe(200);
+    expect(calls).toBe(2);
+  });
+
+  it("returns the last 429 after exhausting attempts (so the caller still throws)", async () => {
+    const fetchMock = vi.fn(async () => ({ status: 429, ok: false, headers: new Headers() } as Response));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await lumaFetch("https://x", undefined, { attempts: 3, baseDelayMs: 0 });
+    expect(res.status).toBe(429);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does NOT retry an ordinary 4xx (e.g. 401) — returns immediately", async () => {
+    const fetchMock = vi.fn(async () => ({ status: 401, ok: false, headers: new Headers() } as Response));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await lumaFetch("https://x", undefined, { attempts: 5, baseDelayMs: 0 });
+    expect(res.status).toBe(401);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("listEventGuests recovers from a transient 429 mid-pagination", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls++;
+      if (calls === 1) return { status: 429, ok: false, headers: new Headers() } as Response;
+      return { status: 200, ok: true, headers: new Headers(), json: async () => ({ entries: [{ id: "gst-1" }], has_more: false }) } as unknown as Response;
+    }));
+    const guests = await listEventGuests("evt-1", "k", { baseDelayMs: 0 });
+    expect(guests).toHaveLength(1);
+  });
+});
+
 describe("extractSlotOptions", () => {
   const slotQ: LumaRegistrationQuestion = {
     id: "q3", label: "Requested time slot for 1:1 help",
@@ -129,6 +186,18 @@ describe("extractSlotOptions", () => {
   });
   it("returns [] when no question has options", () => {
     expect(extractSlotOptions([textQ])).toEqual([]);
+  });
+
+  it("picks the time-slot question on a non-English form even when the plan question comes first", () => {
+    // Korean Build Bar form: several single-selects have options. The English
+    // label hint matches none of them, so the slot question must be found by its
+    // clock-time option VALUES — not by falling back to the first (plan) question.
+    const planQ: LumaRegistrationQuestion = { id: "p", label: "어떤 Notion 요금제를 사용 중이신가요?", options: ["Enterprise", "Business", "Plus", "Free"] };
+    const expQ: LumaRegistrationQuestion = { id: "e", label: "Notion 사용 경험 수준은 어느 정도라고 생각하시나요?", options: ["능숙함", "초보"] };
+    const koreanSlotQ: LumaRegistrationQuestion = { id: "s", label: "희망 시간대 (1:1 도움을 선택하셨다면 필수)", options: ["2:00-2:30PM", "2:30-3:00PM", "3:00-3:30PM"] };
+    expect(extractSlotOptions([planQ, expQ, koreanSlotQ])).toEqual([
+      "2:00-2:30PM", "2:30-3:00PM", "3:00-3:30PM",
+    ]);
   });
 });
 

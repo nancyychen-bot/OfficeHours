@@ -4,6 +4,7 @@ import { lumaWebhookSecrets } from "@/lib/luma/calendars";
 import { normalizeGuest } from "@/lib/luma/parse";
 import type { LumaWebhookEnvelope } from "@/lib/luma/types";
 import { ingestRegistration } from "@/lib/events/ingest";
+import { registerEventFromLuma, NotABuildBarEventError } from "@/lib/events/register";
 import { cancelEventByLumaId } from "@/lib/events/cancel-event";
 import { logSync } from "@/lib/sync/log";
 
@@ -67,6 +68,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   }
 
+  // A rescheduled/edited event sends `event.updated`. Refresh it from Luma so the
+  // hub's event_date, slots, and name stay current — otherwise a reschedule leaves
+  // bookings stranded under the old date (they vanish from the operator's
+  // date-filtered Notion views). Reuses the auto-register path: refreshes/creates
+  // only OUR events (requireBuildBarName), skips foreign ones sharing a calendar.
+  if (type === "event.updated") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = (data as any)?.event?.id ?? (data as any)?.id;
+    const lumaEventId = typeof raw === "string" ? (raw.match(/evt-[A-Za-z0-9]+/)?.[0] ?? null) : null;
+    if (!lumaEventId) {
+      await logSync({ direction: "luma_in", result: "applied", action: "event.updated", note: `no evt id in payload: ${JSON.stringify(data).slice(0, 300)}` });
+      return NextResponse.json({ received: true });
+    }
+    try {
+      const reg = await registerEventFromLuma({ lumaEvent: lumaEventId }, { requireBuildBarName: true });
+      await logSync({ direction: "luma_in", result: "applied", action: "event.updated", note: `refreshed ${lumaEventId} (${reg.city}) — date/slots resynced, ${reg.importedGuests} guest(s)` });
+    } catch (err) {
+      if (err instanceof NotABuildBarEventError) {
+        await logSync({ direction: "luma_in", result: "applied", action: "event.updated", note: `foreign event ${lumaEventId} ("${err.eventName}") — ignored` });
+      } else {
+        // 200 still (avoid a Luma retry-storm); the error is captured + queryable.
+        await logSync({ direction: "luma_in", result: "error", action: "event.updated", note: `refresh failed for ${lumaEventId}: ${err instanceof Error ? err.message : String(err)}` });
+      }
+    }
+    return NextResponse.json({ received: true });
+  }
+
   if (type !== "guest.registered" && type !== "guest.updated") {
     await logSync({ direction: "luma_in", result: "applied", action: type, note: "ignored (not a guest event)" });
     return NextResponse.json({ received: true });
@@ -79,19 +107,48 @@ export async function POST(req: Request) {
     // to both Notion workspaces. Shared with the event backfill via ingest.
     const outcome = await ingestRegistration(norm, { live: true });
     if (outcome.status === "ignored") {
-      // A registration for an event that isn't in our table has nowhere to route,
-      // so the guest is dropped. Log it as an ERROR with a distinct action (not
-      // result:"applied", which is indistinguishable from a successful upsert) so
-      // it's visible and queryable — the usual cause is a new city's event not
-      // being registered yet during a staged rollout. Include the guest so it's
-      // actionable. Still return 200 to avoid a Luma retry-storm.
-      await logSync({
-        direction: "luma_in",
-        result: "error",
-        action: "unknown_event",
-        note: `${outcome.reason} — guest ${norm.guestName} <${norm.guestEmail ?? "no email"}>`,
-      });
-      return NextResponse.json({ received: true, ignored: true });
+      // The event isn't in our table yet — typically a new city's event that went
+      // live on Luma and collected RSVPs before it was registered in the hub. Luma
+      // never resends webhooks, so dropping here silently loses every RSVP in that
+      // window. The signature proved this came from a CONNECTED calendar — but
+      // those calendars also host non-Build-Bar Notion events, so auto-register
+      // ONLY our events (requireBuildBarName); a foreign event is skipped, not
+      // imported. The auto-register path also backfills the event's full Luma guest
+      // list, which ingests THIS guest too. Fall back to the prior drop-and-log if
+      // it can't complete (e.g. Luma has no venue city/timezone on the event yet).
+      try {
+        const reg = await registerEventFromLuma({ lumaEvent: norm.lumaEventId }, { requireBuildBarName: true });
+        await logSync({
+          direction: "luma_in",
+          result: "applied",
+          action: "auto_register",
+          note: `${norm.lumaEventId} (${reg.city}) auto-registered on first RSVP — imported ${reg.importedGuests} guest(s)`,
+        });
+        return NextResponse.json({ received: true, autoRegistered: true });
+      } catch (regErr) {
+        if (regErr instanceof NotABuildBarEventError) {
+          // A foreign event sharing a connected calendar. Correctly NOT ours — don't
+          // register, don't email, just record it. Not an error.
+          await logSync({
+            direction: "luma_in",
+            result: "applied",
+            action: "skipped_foreign_event",
+            note: `${norm.lumaEventId} "${regErr.eventName}" is not a Build Bar event — skipped (guest ${norm.guestName})`,
+          });
+          return NextResponse.json({ received: true, skipped: true });
+        }
+        // Log as an ERROR with a distinct action (not result:"applied", which is
+        // indistinguishable from a successful upsert) so it's visible and queryable.
+        // Include the guest so a manual registration can recover it. Still 200 to
+        // avoid a Luma retry-storm.
+        await logSync({
+          direction: "luma_in",
+          result: "error",
+          action: "unknown_event",
+          note: `${outcome.reason} — guest ${norm.guestName} <${norm.guestEmail ?? "no email"}> — auto-register failed: ${regErr instanceof Error ? regErr.message : String(regErr)}`,
+        });
+        return NextResponse.json({ received: true, ignored: true });
+      }
     }
 
     await logSync({

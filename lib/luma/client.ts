@@ -8,7 +8,49 @@ import type { LumaStatus } from "../sync/types";
 import { lumaCalendars } from "./calendars";
 
 const BASE = "https://public-api.luma.com";
-const SLOT_HINT = /slot|time|session/i;
+
+/** Default attempts (incl. the first) before a rate-limited/transient call gives up. */
+const LUMA_FETCH_ATTEMPTS = 5;
+/** Base backoff; doubles each retry (0.5s, 1s, 2s, 4s), capped by attempts. */
+const LUMA_FETCH_BASE_DELAY_MS = 500;
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * `fetch()` for Luma's API with backoff on rate-limit (429) and transient 5xx.
+ * Luma throttles hard when a cron enumerates a large event's full guest list;
+ * without backoff the call just throws and the sync never catches up (the live
+ * Singapore 242-guest event 429'd for ~20h straight). Honors `Retry-After` when
+ * present, else exponential backoff. Any other status (2xx, ordinary 4xx like
+ * 401/403) returns immediately — the caller decides what it means. After the
+ * last attempt the final response is returned as-is, so existing `!res.ok`
+ * handling still throws on a permanent 429.
+ */
+export async function lumaFetch(
+  url: string | URL,
+  init?: RequestInit,
+  opts: { attempts?: number; baseDelayMs?: number } = {},
+): Promise<Response> {
+  const attempts = opts.attempts ?? LUMA_FETCH_ATTEMPTS;
+  const baseDelayMs = opts.baseDelayMs ?? LUMA_FETCH_BASE_DELAY_MS;
+  const retryable = (status: number) => status === 429 || status >= 500;
+  let res = await fetch(url, init);
+  for (let attempt = 1; attempt < attempts; attempt++) {
+    if (!retryable(res.status)) return res;
+    const retryAfter = Number(res.headers?.get("retry-after"));
+    const delay =
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : baseDelayMs * 2 ** (attempt - 1);
+    await sleep(delay);
+    res = await fetch(url, init);
+  }
+  return res;
+}
+
+const SLOT_HINT = /slot|time|session|시간/i;
+// A slot option is a clock time (e.g. "2:30-3:00PM", "9:00 AM"). Language-
+// independent, so it identifies the time-slot question even on a translated form
+// where neither the label nor the other options (plan tiers, Korean text) match.
+const SLOT_OPTION_TIME = /\d{1,2}:\d{2}/;
 
 /**
  * The event's city for hub routing, from Luma's `geo_address_json`. Luma leaves
@@ -70,7 +112,7 @@ export async function listUpcomingCalendarEvents(apiKey: string): Promise<Upcomi
     url.searchParams.set("after", after);
     url.searchParams.set("pagination_limit", "50");
     if (cursor) url.searchParams.set("pagination_cursor", cursor);
-    const res = await fetch(url, { headers: { "x-luma-api-key": apiKey } });
+    const res = await lumaFetch(url, { headers: { "x-luma-api-key": apiKey } });
     if (res.status === 401 || res.status === 403) {
       throw new LumaApiKeyInvalidError(`Luma rejected the API key: HTTP ${res.status}`);
     }
@@ -196,7 +238,11 @@ export async function resolveLumaEventId(input: string): Promise<string> {
  * by the backfill to import guests who registered before the hub tracked the
  * event — Luma doesn't resend webhooks retroactively.
  */
-export async function listEventGuests(eventId: string, apiKey: string): Promise<LumaGuestListEntry[]> {
+export async function listEventGuests(
+  eventId: string,
+  apiKey: string,
+  opts: { attempts?: number; baseDelayMs?: number } = {},
+): Promise<LumaGuestListEntry[]> {
   const out: LumaGuestListEntry[] = [];
   let cursor: string | undefined;
   do {
@@ -204,7 +250,7 @@ export async function listEventGuests(eventId: string, apiKey: string): Promise<
     url.searchParams.set("event_id", eventId);
     url.searchParams.set("pagination_limit", "50");
     if (cursor) url.searchParams.set("pagination_cursor", cursor);
-    const res = await fetch(url, { headers: { "x-luma-api-key": apiKey } });
+    const res = await lumaFetch(url, { headers: { "x-luma-api-key": apiKey } }, opts);
     if (!res.ok) throw new Error(`Luma guests/list ${eventId} failed: HTTP ${res.status}`);
     const body = (await res.json()) as LumaGuestListResponse;
     out.push(...(body.entries ?? []));
@@ -255,23 +301,32 @@ function optionLabel(o: unknown): string {
 /**
  * Given a Luma event's registration questions, return the ordered option labels
  * of the slot dropdown. Picks the sole question with options, else the one whose
- * label hints slot/time, else the first with options. [] if none.
+ * options look like clock times (language-independent), else the one whose label
+ * hints slot/time, else the first with options. [] if none.
+ *
+ * Option-value matching takes priority over the label hint so a translated form
+ * (e.g. Seoul's Korean labels) still finds the time-slot question instead of
+ * falling back to the first options question — which is the plan dropdown, whose
+ * tiers would then masquerade as time slots.
  */
 export function extractSlotOptions(questions: LumaRegistrationQuestion[]): string[] {
   const withOptions = (questions ?? []).filter(
     (q) => Array.isArray(q.options) && q.options.length > 0,
   );
   if (withOptions.length === 0) return [];
+  const byOptionTime = withOptions.find((q) =>
+    (q.options ?? []).some((o) => SLOT_OPTION_TIME.test(optionLabel(o))),
+  );
   const chosen =
     withOptions.length === 1
       ? withOptions[0]
-      : withOptions.find((q) => SLOT_HINT.test(q.label ?? "")) ?? withOptions[0];
+      : byOptionTime ?? withOptions.find((q) => SLOT_HINT.test(q.label ?? "")) ?? withOptions[0];
   return (chosen.options ?? []).map(optionLabel);
 }
 
 /** Fetch full event detail (host-only) incl. registration_questions. */
 export async function getLumaEvent(eventId: string, apiKey: string): Promise<LumaEventDetail> {
-  const res = await fetch(`${BASE}/v1/event/get?api_id=${encodeURIComponent(eventId)}`, {
+  const res = await lumaFetch(`${BASE}/v1/event/get?api_id=${encodeURIComponent(eventId)}`, {
     headers: { "x-luma-api-key": apiKey },
   });
   if (!res.ok) {

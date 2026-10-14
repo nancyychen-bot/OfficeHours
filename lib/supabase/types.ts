@@ -226,6 +226,7 @@ export type Database = {
           event_date: string
           feedback_reminder_sent_at: string | null
           feedback_sent_at: string | null
+          form_anomalies: Json | null
           id: string
           luma_calendar: string
           luma_event_id: string | null
@@ -246,6 +247,7 @@ export type Database = {
           event_date: string
           feedback_reminder_sent_at?: string | null
           feedback_sent_at?: string | null
+          form_anomalies?: Json | null
           id?: string
           luma_calendar?: string
           luma_event_id?: string | null
@@ -266,6 +268,7 @@ export type Database = {
           event_date?: string
           feedback_reminder_sent_at?: string | null
           feedback_sent_at?: string | null
+          form_anomalies?: Json | null
           id?: string
           luma_calendar?: string
           luma_event_id?: string | null

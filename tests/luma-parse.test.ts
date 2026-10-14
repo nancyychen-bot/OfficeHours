@@ -42,3 +42,138 @@ describe("normalizeGuest — intake mapping", () => {
     expect(n.requestedSlot).toBeNull();
   });
 });
+
+// The form is translated per region (Seoul renamed every label into Korean), so
+// label text can't be the only signal. These lock in that a fully-Korean form
+// still maps every field — via Korean label patterns and, for fields whose
+// option values are themselves language-independent, value-based backstops.
+const KOREAN_ANSWERS = [
+  { label: "어느 회사에서 일하고 계신가요?", question_id: "q1", question_type: "company", value: { company: "Analytical", job_title: "엔지니어" } },
+  { label: "Notion에서 사용하는 이메일은 무엇인가요?", question_id: "q2", question_type: "text", value: "ada@notion.so" },
+  { label: "어떤 Notion 요금제를 사용 중이신가요?", question_id: "q3", question_type: "single-select", value: "Business" },
+  { label: "Notion 사용 경험이 어느 정도이신 것 같으신가요?", question_id: "q4", question_type: "single-select", value: "능숙해요 - 어느 정도 익숙해요" },
+  { label: "Build Bar에 오고 싶은 이유는 무엇인가요?", question_id: "q5", question_type: "multi-select", value: ["1:1 도움이 필요해요", "함께 코워킹하고 싶어요"] },
+  { label: "1:1 도움을 원하신다면, 어떤 도움을 만드는 데 도움이 필요하신가요?", question_id: "q6", question_type: "long-text", value: "CRM 만들기" },
+  { label: "희망 시간대 (1:1 도움을 선택하셨으면 필수)", question_id: "q7", question_type: "checkbox", value: ["2:00-2:30PM"] },
+];
+
+describe("normalizeGuest — non-English (Korean) intake mapping", () => {
+  it("maps every field from a fully-translated Korean form", () => {
+    const n = normalizeGuest(guest(KOREAN_ANSWERS));
+    expect(n.company).toBe("Analytical");
+    expect(n.role).toBe("엔지니어");
+    expect(n.notionEmail).toBe("ada@notion.so");
+    expect(n.notionPlan).toBe("Business");
+    expect(n.experienceLevel).toBe("능숙해요 - 어느 정도 익숙해요");
+    expect(n.attendReasons).toBe("1:1 도움이 필요해요, 함께 코워킹하고 싶어요");
+    expect(n.challenge).toBe("CRM 만들기");
+    expect(n.requestedSlot).toBe("2:00-2:30PM");
+  });
+
+  it("falls back to value signals when a label is in an unknown language (plan tier, time slot, email)", () => {
+    // Labels that match NO dictionary pattern in any language: the known-value
+    // backstops must still recover plan, slot, and the Notion email.
+    const n = normalizeGuest(
+      guest([
+        { label: "¿Qué plan de Notion usas?", question_id: "p1", question_type: "single-select", value: "Enterprise" },
+        { label: "¿Qué correo usas?", question_id: "p2", question_type: "text", value: "jose@notion.so" },
+        { label: "Franja horaria preferida", question_id: "p3", question_type: "checkbox", value: ["3:00-3:30 PM"] },
+      ]),
+    );
+    expect(n.notionPlan).toBe("Enterprise");
+    expect(n.notionEmail).toBe("jose@notion.so");
+    expect(n.requestedSlot).toBe("3:00-3:30 PM");
+  });
+
+  it("does not let the value backstops hijack the LinkedIn URL or a plain text answer", () => {
+    const n = normalizeGuest(
+      guest([
+        { label: "LinkedIn URL", question_id: "l1", question_type: "text", value: "https://linkedin.com/in/ada" },
+      ]),
+    );
+    expect(n.notionEmail).toBeNull();
+    expect(n.requestedSlot).toBeNull();
+    expect(n.notionPlan).toBeNull();
+  });
+});
+
+describe("normalizeGuest — value-shape mapping (language-independent)", () => {
+  // Same shape as the real Korean Seoul form, but labels in a THIRD language
+  // (Spanish) with no dictionary entry — must still map every field.
+  const SPANISH = [
+    { label: "¿En qué empresa trabajas?", question_id: "q1", question_type: "company", value: { company: "Analytical", job_title: "Ingeniera" } },
+    { label: "URL de LinkedIn", question_id: "q2", question_type: "text", value: "https://linkedin.com/in/ada" },
+    { label: "¿Qué correo usas para Notion?", question_id: "q3", question_type: "text", value: "ada@notion.so" },
+    { label: "¿Qué plan de Notion usas?", question_id: "q4", question_type: "select", value: "Business" },
+    { label: "¿Tu nivel de experiencia con Notion?", question_id: "q5", question_type: "select", value: "Avanzado" },
+    { label: "¿Por qué quieres venir?", question_id: "q6", question_type: "select", value: ["Ayuda 1:1", "Coworking"] },
+    { label: "¿En qué necesitas ayuda?", question_id: "q7", question_type: "long-text", value: "Un CRM" },
+    { label: "Horario preferido", question_id: "q8", question_type: "select", value: "2:30-3:00PM" },
+    { label: "Acepto ser contactado", question_id: "q9", question_type: "agree-check", value: true },
+  ];
+
+  it("maps every field from a form in an unknown language", () => {
+    const n = normalizeGuest(guest(SPANISH));
+    expect(n.company).toBe("Analytical");
+    expect(n.role).toBe("Ingeniera");
+    expect(n.notionEmail).toBe("ada@notion.so");
+    expect(n.notionPlan).toBe("Business");
+    expect(n.experienceLevel).toBe("Avanzado");
+    expect(n.attendReasons).toBe("Ayuda 1:1, Coworking");
+    expect(n.challenge).toBe("Un CRM");
+    expect(n.requestedSlot).toBe("2:30-3:00PM");
+  });
+
+  it("splits experience (single-select string) from reasons (multi-select array)", () => {
+    const n = normalizeGuest(guest([
+      { label: "x", question_id: "a", question_type: "select", value: "Avanzado" },
+      { label: "y", question_id: "b", question_type: "select", value: ["Ayuda 1:1"] },
+    ]));
+    expect(n.experienceLevel).toBe("Avanzado");
+    expect(n.attendReasons).toBe("Ayuda 1:1");
+  });
+
+  it("maps a time-slot delivered as an array of times", () => {
+    const n = normalizeGuest(guest([
+      { label: "z", question_id: "s", question_type: "select", value: ["2:00-2:30PM", "3:00-3:30PM"] },
+    ]));
+    expect(n.requestedSlot).toBe("2:00-2:30PM, 3:00-3:30PM");
+    expect(n.attendReasons).toBeNull(); // claimed as slot, not reasons
+  });
+
+  it("ignores the LinkedIn URL and the consent checkbox", () => {
+    const n = normalizeGuest(guest([
+      { label: "LinkedIn", question_id: "l", question_type: "text", value: "https://linkedin.com/in/ada" },
+      { label: "Acepto", question_id: "c", question_type: "agree-check", value: true },
+    ]));
+    expect(n.notionEmail).toBeNull();
+    expect(n.challenge).toBeNull();
+    expect(n.requestedSlot).toBeNull();
+  });
+
+  it("prefers the labelled 1:1-help question for challenge over an earlier free-text question", () => {
+    // Two free-text answers; the real challenge question is SECOND. Without a
+    // tiebreaker the first ("Vegetarian") would wrongly become the challenge.
+    const n = normalizeGuest(guest([
+      { label: "Any dietary restrictions?", question_id: "d", question_type: "text", value: "Vegetarian" },
+      { label: "What do you require help with?", question_id: "c", question_type: "text", value: "Automating my roadmap" },
+    ]));
+    expect(n.challenge).toBe("Automating my roadmap");
+  });
+
+  it("falls back to the first free-text answer for challenge when no label matches (unknown locale)", () => {
+    const n = normalizeGuest(guest([
+      { label: "질문 하나", question_id: "x", question_type: "text", value: "첫 번째 답변" },
+      { label: "질문 둘", question_id: "y", question_type: "text", value: "두 번째 답변" },
+    ]));
+    expect(n.challenge).toBe("첫 번째 답변");
+  });
+
+  it("does not steal a reasons array into slot when one element mentions a time", () => {
+    const n = normalizeGuest(guest([
+      { label: "z", question_id: "r", question_type: "multi-select", value: ["Available after 2:30", "Coworking"] },
+    ]));
+    expect(n.attendReasons).toBe("Available after 2:30, Coworking");
+    expect(n.requestedSlot).toBeNull();
+  });
+});

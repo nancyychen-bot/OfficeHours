@@ -3,6 +3,7 @@ import {
   substitute,
   templateKeyFor,
   renderComms,
+  buildVars,
   SAMPLE_FIELDS,
   type CommsFields,
   type OverrideMap,
@@ -85,5 +86,25 @@ describe("renderComms", () => {
     expect(r.text).toContain("• Jordan Lee — PM, Acme — Challenge: CRM");
     expect(r.text).toContain("talk to Nancy Chen");
     expect(r.text).not.toContain("Guest Email:"); // no full details dump
+  });
+});
+
+describe("complete_registration template", () => {
+  const f = {
+    bookingId: "b-1", guestName: "Sam", guestEmail: "sam@x.com", company: null, role: null,
+    challenge: null, guestPhone: null, slotName: null, slotStartsAt: null, slotEndsAt: null,
+    eventName: "Notion Build Bar Singapore", eventDate: "2026-10-22", location: "Singapore",
+    address: null, helperName: null, helperEmail: null, status: "no_help_needed", slotId: null,
+    calendarUrl: null, completionLink: "https://hub.test/complete-registration/TOK",
+  } as unknown as CommsFields;
+
+  it("maps completionLink into the body", () => {
+    expect(buildVars("guest", f).completionLink).toBe("https://hub.test/complete-registration/TOK");
+  });
+
+  it("renders the guest email with the completion link", () => {
+    const out = renderComms("complete_registration", "guest", f);
+    expect(out).not.toBeNull();
+    expect(out!.html + out!.text).toContain("https://hub.test/complete-registration/TOK");
   });
 });

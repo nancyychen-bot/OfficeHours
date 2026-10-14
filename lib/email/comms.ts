@@ -80,6 +80,16 @@ const defaultDeps: CommsDeps = {
     // Per-city calendar link (from the event's Luma calendar tag); null falls
     // back to the global community calendar in buildVars.
     f.calendarUrl = await calendarUrlForCalendar((d.luma_calendar as string) ?? null);
+    // Magic link for the invited-guest completion form. Minted here (async) and
+    // read synchronously by buildVars — same pattern as calendarUrl above.
+    try {
+      const { issueBookingToken } = await import("../auth/booking-token");
+      const secret = env.hub.sessionSecret();
+      const tok = await issueBookingToken(f.bookingId, secret, Date.now());
+      f.completionLink = `${env.app.baseUrl().replace(/\/$/, "")}/complete-registration/${tok}`;
+    } catch {
+      /* best-effort; the completion email just omits the link if signing fails */
+    }
     return f;
   },
   reserve: reserveCommsSlot,
@@ -117,6 +127,7 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   day_of_agenda: [], // aggregate per-expert email — sent via lib/events/agenda, not here
   unclaim_denied: [], // sent directly to the would-be unclaimer via sendCommsToEmail
   slot_changed: ["helper", "guest"], // guest self-served a new slot: notify both; expert removed
+  complete_registration: ["guest"],
 };
 
 /** Kinds that tear down a booking → attach a calendar CANCEL to remove the hold. */

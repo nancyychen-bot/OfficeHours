@@ -116,7 +116,7 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
   const until = new Date(Date.now() + withinDays * 86_400_000).toISOString().slice(0, 10);
   const { data: eventRows } = await supabase
     .from("events")
-    .select("id, name, city, timezone, address, event_date, luma_calendar, luma_event_id, readiness_acked_at, prep_instructions, status, form_anomalies")
+    .select("id, name, city, timezone, address, event_date, luma_calendar, luma_event_id, readiness_acked_at, prep_instructions, status, form_anomalies, luma_stats")
     .gte("event_date", today)
     .lte("event_date", until)
     .neq("status", "cancelled")
@@ -125,11 +125,17 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
 
   const ids = events.map((e) => e.id as string);
   const slotCounts = new Map<string, number>();
+  const bookingCounts = new Map<string, number>();
   if (ids.length) {
     const { data: slotRows } = await supabase.from("slots").select("event_id").in("event_id", ids);
     for (const s of slotRows ?? []) {
       const eid = s.event_id as string;
       slotCounts.set(eid, (slotCounts.get(eid) ?? 0) + 1);
+    }
+    const { data: bookingRows } = await supabase.from("bookings").select("event_id").in("event_id", ids);
+    for (const b of bookingRows ?? []) {
+      const eid = b.event_id as string;
+      bookingCounts.set(eid, (bookingCounts.get(eid) ?? 0) + 1);
     }
   }
 
@@ -152,6 +158,8 @@ export async function checkReadiness(withinDays = DEFAULT_WINDOW_DAYS): Promise<
         calendarConnected: knownIds.has((e.luma_calendar as string) || "default"),
         slack,
         formAnomalies: (e.form_anomalies as string[] | null) ?? [],
+        lumaRegistered: (e.luma_stats as { registered?: number } | null)?.registered ?? null,
+        bookingCount: bookingCounts.get(e.id as string) ?? 0,
       });
       return {
         lumaEventId: (e.luma_event_id as string) ?? null,

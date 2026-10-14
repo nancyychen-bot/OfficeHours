@@ -68,6 +68,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   }
 
+  // A rescheduled/edited event sends `event.updated`. Refresh it from Luma so the
+  // hub's event_date, slots, and name stay current — otherwise a reschedule leaves
+  // bookings stranded under the old date (they vanish from the operator's
+  // date-filtered Notion views). Reuses the auto-register path: refreshes/creates
+  // only OUR events (requireBuildBarName), skips foreign ones sharing a calendar.
+  if (type === "event.updated") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = (data as any)?.event?.id ?? (data as any)?.id;
+    const lumaEventId = typeof raw === "string" ? (raw.match(/evt-[A-Za-z0-9]+/)?.[0] ?? null) : null;
+    if (!lumaEventId) {
+      await logSync({ direction: "luma_in", result: "applied", action: "event.updated", note: `no evt id in payload: ${JSON.stringify(data).slice(0, 300)}` });
+      return NextResponse.json({ received: true });
+    }
+    try {
+      const reg = await registerEventFromLuma({ lumaEvent: lumaEventId }, { requireBuildBarName: true });
+      await logSync({ direction: "luma_in", result: "applied", action: "event.updated", note: `refreshed ${lumaEventId} (${reg.city}) — date/slots resynced, ${reg.importedGuests} guest(s)` });
+    } catch (err) {
+      if (err instanceof NotABuildBarEventError) {
+        await logSync({ direction: "luma_in", result: "applied", action: "event.updated", note: `foreign event ${lumaEventId} ("${err.eventName}") — ignored` });
+      } else {
+        // 200 still (avoid a Luma retry-storm); the error is captured + queryable.
+        await logSync({ direction: "luma_in", result: "error", action: "event.updated", note: `refresh failed for ${lumaEventId}: ${err instanceof Error ? err.message : String(err)}` });
+      }
+    }
+    return NextResponse.json({ received: true });
+  }
+
   if (type !== "guest.registered" && type !== "guest.updated") {
     await logSync({ direction: "luma_in", result: "applied", action: type, note: "ignored (not a guest event)" });
     return NextResponse.json({ received: true });

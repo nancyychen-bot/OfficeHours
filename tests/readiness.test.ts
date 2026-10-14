@@ -81,6 +81,28 @@ describe("evaluateEvent", () => {
   });
 });
 
+describe("evaluateEvent — RSVP sync gap (bookings << Luma registered)", () => {
+  it("errors when far fewer bookings are synced than Luma shows registered", () => {
+    const issues = evaluateEvent({ ...okEvent, lumaRegistered: 242, bookingCount: 14 });
+    expect(issues.some((i) => i.level === "error" && /rsvp|synced|registered/i.test(i.message))).toBe(true);
+  });
+
+  it("does not alarm when bookings roughly match Luma registered", () => {
+    const issues = evaluateEvent({ ...okEvent, lumaRegistered: 30, bookingCount: 29 });
+    expect(issues.some((i) => /rsvp|synced/i.test(i.message))).toBe(false);
+  });
+
+  it("does not alarm on a tiny absolute gap (webhook lag on a small event)", () => {
+    const issues = evaluateEvent({ ...okEvent, lumaRegistered: 8, bookingCount: 2 });
+    expect(issues.some((i) => /rsvp|synced/i.test(i.message))).toBe(false);
+  });
+
+  it("does not alarm when the Luma registered count is unknown (stats not synced yet)", () => {
+    const issues = evaluateEvent({ ...okEvent, lumaRegistered: null, bookingCount: 0 });
+    expect(issues.some((i) => /rsvp|synced/i.test(i.message))).toBe(false);
+  });
+});
+
 describe("evaluateEvent — form anomalies", () => {
   const base = {
     city: "Seoul", timezone: "Asia/Seoul", address: "123 St", slotCount: 4,

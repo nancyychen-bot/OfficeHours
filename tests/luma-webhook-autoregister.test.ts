@@ -118,3 +118,54 @@ describe("luma webhook — auto-register on unknown event", () => {
     expect(json.received).toBe(true);
   });
 });
+
+// Regression: a rescheduled Luma event sends `event.updated`, which used to be
+// ignored — so the hub's event_date/slots went stale and bookings sat under the
+// wrong date (the Singapore Oct-1→Oct-22 reschedule hid every RSVP from the
+// Oct-22 view). Now `event.updated` refreshes the event from Luma.
+describe("luma webhook — event.updated refreshes the event", () => {
+  beforeEach(() => {
+    ingestRegistration.mockReset();
+    registerEventFromLuma.mockReset();
+    logSync.mockReset();
+  });
+
+  const updated = { type: "event.updated", data: { event: { id: "evt-resched" } } };
+
+  it("re-registers the event (refreshing date/slots) and does not ingest a guest", async () => {
+    registerEventFromLuma.mockResolvedValue({ city: "Singapore", importedGuests: 242 });
+
+    const res = await POST(req(updated));
+    const json = await res.json();
+
+    expect(registerEventFromLuma).toHaveBeenCalledWith({ lumaEvent: "evt-resched" }, { requireBuildBarName: true });
+    expect(ingestRegistration).not.toHaveBeenCalled();
+    expect(json.received).toBe(true);
+    const log = logSync.mock.calls.map((c) => c[0] as any).find((a) => a.action === "event.updated");
+    expect(log.result).toBe("applied");
+    expect(log.note).toMatch(/refresh/i);
+  });
+
+  it("ignores a foreign (non-Build-Bar) event's update without erroring", async () => {
+    registerEventFromLuma.mockRejectedValue(new NotABuildBarEventError("evt-resched", "AI Labs"));
+
+    const res = await POST(req(updated));
+    const json = await res.json();
+
+    expect(json.received).toBe(true);
+    const log = logSync.mock.calls.map((c) => c[0] as any).find((a) => a.action === "event.updated");
+    expect(log.result).toBe("applied");
+    expect(log.note).toMatch(/foreign|ignored/i);
+  });
+
+  it("logs an error (still 200) when the refresh fails transiently", async () => {
+    registerEventFromLuma.mockRejectedValue(new Error("Luma unreachable"));
+
+    const res = await POST(req(updated));
+    const json = await res.json();
+
+    expect(json.received).toBe(true);
+    const log = logSync.mock.calls.map((c) => c[0] as any).find((a) => a.action === "event.updated");
+    expect(log.result).toBe("error");
+  });
+});

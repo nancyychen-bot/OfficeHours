@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus, fetchEventStats, LumaUrlUnresolvedError, cityFromGeo } from "@/lib/luma/client";
+import { parseLumaEventId, resolveLumaEventId, extractSlotOptions, updateGuestStatus, fetchEventStats, lumaFetch, listEventGuests, LumaUrlUnresolvedError, cityFromGeo } from "@/lib/luma/client";
 import type { LumaRegistrationQuestion } from "@/lib/luma/types";
 
 describe("parseLumaEventId", () => {
@@ -102,6 +102,63 @@ describe("resolveLumaEventId", () => {
 
   it("throws for input that is neither an id nor a URL", async () => {
     await expect(resolveLumaEventId("just some words")).rejects.toThrow(/Could not find an evt- id/);
+  });
+});
+
+describe("lumaFetch (rate-limit backoff)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("retries a 429 and returns the eventual success", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls++;
+      return calls < 3
+        ? ({ status: 429, ok: false, headers: new Headers() } as Response)
+        : ({ status: 200, ok: true, headers: new Headers() } as Response);
+    }));
+    const res = await lumaFetch("https://x", undefined, { baseDelayMs: 0 });
+    expect(res.status).toBe(200);
+    expect(calls).toBe(3);
+  });
+
+  it("retries transient 5xx too", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls++;
+      return calls < 2
+        ? ({ status: 503, ok: false, headers: new Headers() } as Response)
+        : ({ status: 200, ok: true, headers: new Headers() } as Response);
+    }));
+    const res = await lumaFetch("https://x", undefined, { baseDelayMs: 0 });
+    expect(res.status).toBe(200);
+    expect(calls).toBe(2);
+  });
+
+  it("returns the last 429 after exhausting attempts (so the caller still throws)", async () => {
+    const fetchMock = vi.fn(async () => ({ status: 429, ok: false, headers: new Headers() } as Response));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await lumaFetch("https://x", undefined, { attempts: 3, baseDelayMs: 0 });
+    expect(res.status).toBe(429);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does NOT retry an ordinary 4xx (e.g. 401) — returns immediately", async () => {
+    const fetchMock = vi.fn(async () => ({ status: 401, ok: false, headers: new Headers() } as Response));
+    vi.stubGlobal("fetch", fetchMock);
+    const res = await lumaFetch("https://x", undefined, { attempts: 5, baseDelayMs: 0 });
+    expect(res.status).toBe(401);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("listEventGuests recovers from a transient 429 mid-pagination", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls++;
+      if (calls === 1) return { status: 429, ok: false, headers: new Headers() } as Response;
+      return { status: 200, ok: true, headers: new Headers(), json: async () => ({ entries: [{ id: "gst-1" }], has_more: false }) } as unknown as Response;
+    }));
+    const guests = await listEventGuests("evt-1", "k", { baseDelayMs: 0 });
+    expect(guests).toHaveLength(1);
   });
 });
 

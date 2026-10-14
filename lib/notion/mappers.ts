@@ -50,7 +50,15 @@ const richText = (v: string | null | undefined) => ({
 const title = (v: string) => ({
   title: [{ type: "text" as const, text: { content: v.slice(0, 2000) } }],
 });
-const select = (name: string | null | undefined) => ({ select: name ? { name } : null });
+// Notion forbids commas in a select option NAME (comma is its multi-select
+// delimiter) and rejects the WHOLE page write if one appears — so a single
+// comma'd guest value (e.g. company size "500-2,999", "3,000+") would silently
+// block every property update on that page, including Status/claim mirroring.
+// Strip commas so the write always lands.
+const select = (name: string | null | undefined) => {
+  const clean = name?.replace(/,/g, "").trim();
+  return { select: clean ? { name: clean } : null };
+};
 const dateProp = (v: string | null | undefined) => ({ date: v ? { start: v } : null });
 const multiSelect = (csv: string | null | undefined) => ({
   multi_select: csv

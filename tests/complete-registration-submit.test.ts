@@ -20,6 +20,17 @@ describe("buildGuestData → normalizeGuest", () => {
     expect(norm.lumaEventId).toBe("evt-9");
   });
 
+  it("preserves the invited guest's name + phone (not clobbered to email)", () => {
+    const data = buildGuestData({
+      lumaGuestId: "gst-11", guestEmail: "sam@x.com", lumaEventId: "evt-11",
+      guestName: "Sam Rivera", guestPhone: "+1 555 0100",
+      answers: [{ label: "What would you need help with building?", kind: "text", value: "Dashboards" }],
+    });
+    const norm = normalizeGuest(data);
+    expect(norm.guestName).toBe("Sam Rivera");
+    expect(norm.guestPhone).toBe("+1 555 0100");
+  });
+
   it("drops blank answers so empty fields stay unmapped", () => {
     const data = buildGuestData({
       lumaGuestId: "gst-10", guestEmail: "g@x.com", lumaEventId: "evt-10",

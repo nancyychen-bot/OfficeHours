@@ -28,6 +28,8 @@ export async function POST(req: Request) {
       lumaGuestId: booking.luma_guest_id,
       guestEmail: booking.guest_email,
       lumaEventId: event.luma_event_id,
+      guestName: booking.guest_name,
+      guestPhone: booking.guest_phone,
       answers,
     });
     // live:false → silent (no assignment emails, no re-sent completion link); still

@@ -1,7 +1,16 @@
 import type { LumaGuestData } from "@/lib/luma/types";
 
 export interface SubmittedAnswer { label: string; kind: "text" | "select" | "slot"; value: string | string[] }
-export interface BuildInput { lumaGuestId: string; guestEmail: string; lumaEventId: string; answers: SubmittedAnswer[] }
+export interface BuildInput {
+  lumaGuestId: string;
+  guestEmail: string;
+  lumaEventId: string;
+  answers: SubmittedAnswer[];
+  /** Carried through from the existing booking so the replayed upsert preserves
+   * the invited guest's name/phone (which the webhook set) instead of nulling them. */
+  guestName?: string | null;
+  guestPhone?: string | null;
+}
 
 /** Map the form's per-question kind to a Luma question_type the value-shape
  * mapper (lib/luma/parse.ts) understands. "slot"/"select" → dropdown; "text" →
@@ -21,6 +30,8 @@ export function buildGuestData(input: BuildInput): LumaGuestData {
   return {
     id: input.lumaGuestId,
     user_email: input.guestEmail,
+    user_name: input.guestName ?? null,
+    phone_number: input.guestPhone ?? null,
     approval_status: "approved",
     event: { id: input.lumaEventId },
     registration_answers: input.answers

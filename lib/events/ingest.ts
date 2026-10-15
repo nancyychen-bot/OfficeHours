@@ -44,6 +44,9 @@ export async function ingestRegistration(
       await postGuestCancelledDM(prior.id);
     } else if (nextLumaStatus === "waitlist") {
       await sendBookingComms(prior.id, "waitlisted");
+    } else if (prior.luma_status === "declined" && nextLumaStatus === "approved") {
+      // A spot opened up (re-approved in Luma) — confirm attendance with the guest.
+      await sendBookingComms(prior.id, "reapproved");
     }
   }
 

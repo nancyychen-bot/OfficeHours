@@ -3,6 +3,7 @@ import {
   substitute,
   templateKeyFor,
   renderComms,
+  buildVars,
   SAMPLE_FIELDS,
   type CommsFields,
   type OverrideMap,
@@ -85,5 +86,14 @@ describe("renderComms", () => {
     expect(r.text).toContain("• Jordan Lee — PM, Acme — Challenge: CRM");
     expect(r.text).toContain("talk to Nancy Chen");
     expect(r.text).not.toContain("Guest Email:"); // no full details dump
+  });
+});
+
+describe("reapproved (spot opened) template", () => {
+  it("renders the guest spot-opened email with a cancel link", () => {
+    const out = renderComms("reapproved", "guest", f({ status: "no_help_needed" }));
+    expect(out).not.toBeNull();
+    expect(out!.subject.toLowerCase()).toContain("spot opened");
+    expect(out!.html + out!.text).toContain("cancel your registration");
   });
 });

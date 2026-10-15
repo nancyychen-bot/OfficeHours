@@ -28,4 +28,30 @@ describe("generateSlotsFromOptions", () => {
   it("returns [] for no labels", () => {
     expect(generateSlotsFromOptions([], "2026-08-26T21:00:00.000Z", 30)).toEqual([]);
   });
+
+  it("follows the label clock times, not the fixed length (20-min blocks)", () => {
+    // Sydney: 20-min labels but the default length is 30. The labels must win,
+    // so the times stay 20 min apart instead of drifting.
+    const slots = generateSlotsFromOptions(
+      ["5:00-5:20PM", "5:20-5:40PM", "5:40-6:00PM"],
+      "2026-10-22T06:00:00.000Z", // first label's start = event start
+      30,
+    );
+    expect(slots.map((s) => s.starts_at)).toEqual([
+      "2026-10-22T06:00:00.000Z",
+      "2026-10-22T06:20:00.000Z",
+      "2026-10-22T06:40:00.000Z",
+    ]);
+    expect(slots[0].ends_at).toBe("2026-10-22T06:20:00.000Z"); // 5:20 PM
+  });
+
+  it("honors gaps between non-contiguous labels", () => {
+    const slots = generateSlotsFromOptions(
+      ["5:00-5:20PM", "7:40-8:00PM"],
+      "2026-10-22T06:00:00.000Z",
+      20,
+    );
+    expect(slots[1].starts_at).toBe("2026-10-22T08:40:00.000Z"); // 7:40 PM = +160 min
+    expect(slots[1].ends_at).toBe("2026-10-22T09:00:00.000Z"); // 8:00 PM
+  });
 });

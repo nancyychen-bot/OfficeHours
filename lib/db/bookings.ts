@@ -121,8 +121,9 @@ export async function getBookingByNotionPageId(
  * - New going/pending guest → open for claiming: `unassigned` if they requested a
  *   1:1 slot, else `no_help_needed`.
  * - Waitlisted + already claimed → release the helper (slot kept in case they're
- *   approved later). Claimability itself is gated in `claimBooking` on luma_status,
- *   so a waitlisted guest can't be re-claimed even while `unassigned`.
+ *   approved later). Claimability follows booking `status`: only `unassigned` is
+ *   offered for claim, so a zero-answer invited guest (who lands `no_help_needed`)
+ *   is never surfaced for claiming.
  * - Previously-cancelled guest who re-registers (and isn't declined) → reactivate
  *   to the open status with the assignee cleared.
  * - Otherwise (active) → leave assignment untouched; a slot/answer edit must never
@@ -415,11 +416,26 @@ export async function checkInByLumaGuestId(lumaGuestId: string): Promise<Booking
  */
 export async function markNoShowsForStartedSlots(now: Date = new Date()): Promise<Booking[]> {
   const supabase = getAdminClient();
-  // Candidate slots: started more than the grace period ago.
+  // Guard: only events that are today or already past can produce no-shows. A
+  // future-dated event must NEVER no-show its guests, even if a slot carries a
+  // bad (past) start time — e.g. a reschedule that didn't propagate to slots.
+  // Without this, a stray past slot date auto-no-shows guests minutes after they
+  // register, and a no_show booking can't be claimed (Singapore, 2026-10-15).
+  const todayUtc = now.toISOString().slice(0, 10);
+  const { data: liveEvents, error: evErr } = await supabase
+    .from("events")
+    .select("id")
+    .lte("event_date", todayUtc);
+  if (evErr) throw evErr;
+  const eventIds = (liveEvents ?? []).map((e) => e.id);
+  if (eventIds.length === 0) return [];
+
+  // Candidate slots: started more than the grace period ago, on a live event.
   const { data: startedSlots, error: slotErr } = await supabase
     .from("slots")
     .select("id")
-    .lt("starts_at", noShowCutoffISO(now));
+    .lt("starts_at", noShowCutoffISO(now))
+    .in("event_id", eventIds);
   if (slotErr) throw slotErr;
   const slotIds = (startedSlots ?? []).map((s) => s.id);
   if (slotIds.length === 0) return [];

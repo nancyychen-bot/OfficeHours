@@ -660,7 +660,7 @@ export type Database = {
         | "no_help_needed"
         | "cowork_only"
       event_status: "planned" | "live" | "completed" | "cancelled"
-      luma_status: "pending" | "approved" | "waitlist" | "declined"
+      luma_status: "pending" | "approved" | "waitlist" | "declined" | "invited"
       sync_direction:
         | "luma_in"
         | "notion_dev_in"
@@ -805,7 +805,7 @@ export const Constants = {
         "cowork_only",
       ],
       event_status: ["planned", "live", "completed", "cancelled"],
-      luma_status: ["pending", "approved", "waitlist", "declined"],
+      luma_status: ["pending", "approved", "waitlist", "declined", "invited"],
       sync_direction: [
         "luma_in",
         "notion_dev_in",

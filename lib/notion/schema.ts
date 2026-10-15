@@ -55,6 +55,7 @@ export const LUMA_STATUS_LABEL = {
   approved: "Approved",
   waitlist: "Waitlist",
   declined: "Declined",
+  invited: "Invited",
 } as const;
 
 export const BOOKED_BY_TYPE_LABEL = {
@@ -111,6 +112,7 @@ export function buildBookingsProperties(cities: string[] = ["SF", "NYC"]) {
           { name: LUMA_STATUS_LABEL.approved, color: "green" },
           { name: LUMA_STATUS_LABEL.waitlist, color: "yellow" },
           { name: LUMA_STATUS_LABEL.declined, color: "red" },
+          { name: LUMA_STATUS_LABEL.invited, color: "gray" },
         ],
       },
     },

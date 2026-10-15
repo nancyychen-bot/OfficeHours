@@ -268,9 +268,9 @@ export interface LumaEventStats {
   capacity: number | null;
 }
 
-/** Authoritative per-event counts straight from Luma's guest list. */
-export async function fetchEventStats(eventId: string, apiKey: string): Promise<LumaEventStats> {
-  const guests = await listEventGuests(eventId, apiKey);
+/** Count buckets from an already-fetched guest list (pure, so the list can be
+ * reused by the cron for invited-guest ingestion without a second fetch). */
+export function statsFromGuests(guests: LumaGuestListEntry[]): LumaEventStats {
   const stats: LumaEventStats = { registered: 0, approved: 0, checkedIn: 0, waitlist: 0, pending: 0, capacity: null };
   for (const g of guests) {
     const st = g.approval_status;
@@ -285,6 +285,11 @@ export async function fetchEventStats(eventId: string, apiKey: string): Promise<
     if ((g.event_tickets ?? []).some((t) => t.checked_in_at)) stats.checkedIn++;
   }
   return stats;
+}
+
+/** Authoritative per-event counts straight from Luma's guest list. */
+export async function fetchEventStats(eventId: string, apiKey: string): Promise<LumaEventStats> {
+  return statsFromGuests(await listEventGuests(eventId, apiKey));
 }
 
 function optionLabel(o: unknown): string {
@@ -348,6 +353,9 @@ const LUMA_API_STATUS: Record<LumaStatus, string> = {
   declined: "declined",
   waitlist: "waitlist",
   pending: "pending_approval",
+  // Inbound-only: the hub never pushes a guest TO "invited" on Luma, so this is
+  // never sent — present only to satisfy the Record<LumaStatus, string> type.
+  invited: "invited",
 };
 
 /**

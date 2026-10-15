@@ -89,8 +89,7 @@ export async function declinePendingForEvent(eventId: string): Promise<number> {
   return declined;
 }
 
-/** Decline still-pending guests at 8am local, the day before each event (before
- * the 9am reminders, so declines are reflected). */
+/** Decline still-pending guests at noon local, the day before each event. */
 export async function dispatchDeclinePendingForTomorrow(
   now: Date = new Date(),
 ): Promise<{ events: number; guests: number }> {

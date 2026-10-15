@@ -13,6 +13,8 @@ export function approvalStatusToLumaStatus(approvalStatus: string | null | undef
       return "declined";
     case "waitlist":
       return "waitlist";
+    case "invited":
+      return "invited";
     default:
       return "pending";
   }

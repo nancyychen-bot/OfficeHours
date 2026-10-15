@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "cowork_only_accept" | "guest_cancelled" | "prep_reminder_day_before_paid";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "cowork_only_accept" | "guest_cancelled" | "prep_reminder_day_before_paid" | "reapproved";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -181,7 +181,8 @@ export type TemplateKey =
   | "feedback_request__guest"
   | "feedback_reminder__guest"
   | "cowork_only__guest"
-  | "cowork_only_accept__guest";
+  | "cowork_only_accept__guest"
+  | "reapproved__guest";
 
 export interface TemplateDef {
   label: string;
@@ -483,6 +484,16 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
+  reapproved__guest: {
+    label: "Spot opened up", description: "Luma Status flipped Declined → Approved (a spot opened)", role: "guest",
+    subject: "A spot opened up — you're in for Notion Build Bar 🎉",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Good news — a spot has opened up and **you're now confirmed** for Notion Build Bar in {{location}} on {{eventDate}}! We'd love to have you.", "",
+      "If you can no longer make it, please **[cancel your registration]({{eventUrl}})** so we can offer the spot to someone else.", "",
+      "See you there,", SIGNOFF, "", `*${SUPPORT}*`,
+    ),
+  },
   waitlisted__guest: {
     label: "Waitlisted", description: "Luma Status set to Waitlist", role: "guest",
     subject: "You're on the waitlist for Notion Build Bar",
@@ -619,6 +630,7 @@ export const PLACEHOLDERS: Array<{ token: string; desc: string }> = [
   { token: "{{calendarLink}}", desc: "Notion community calendar URL" },
   { token: "{{eventUrl}}", desc: "This event's public Luma page (for cancel/registration links)" },
   { token: "{{supportEmail}}", desc: "Community support email" },
+  { token: "{{eventName}}", desc: "Event name, e.g. Notion Build Bar Singapore" },
 ];
 
 // ---- rendering --------------------------------------------------------------
@@ -661,6 +673,7 @@ export function buildVars(role: Recipient, f: CommsFields): Record<string, strin
     eventInstructions: f.eventInstructions?.trim()
       ? `${PREP_INSTRUCTIONS_LABEL}\n${f.eventInstructions.trim()}`
       : "",
+    eventName: f.eventName ?? "",
   };
 }
 

@@ -1,8 +1,9 @@
 import { getAdminClient } from "../supabase/admin";
 import { listEvents } from "../db/events";
-import { fetchEventStats } from "../luma/client";
+import { listEventGuests, statsFromGuests } from "../luma/client";
 import { apiKeyForCalendar } from "../luma/calendars";
 import { logSync } from "../sync/log";
+import { syncInvitedGuestsForEvent } from "./invited-sync";
 
 /**
  * Max events whose full Luma guest list one cron tick enumerates. Each event
@@ -30,13 +31,17 @@ export function selectStatsSyncBatch<
 /** Fetch + persist Luma stats for one event (by luma_event_id). Best-effort. */
 export async function syncLumaStatsForEvent(eventId: string, lumaEventId: string, apiKey: string): Promise<boolean> {
   try {
-    const stats = await fetchEventStats(lumaEventId, apiKey);
+    const guests = await listEventGuests(lumaEventId, apiKey);
+    const stats = statsFromGuests(guests);
     const supabase = getAdminClient();
     const { error } = await supabase
       .from("events")
       .update({ luma_stats: stats as unknown as Record<string, number | null>, luma_synced_at: new Date().toISOString() })
       .eq("id", eventId);
     if (error) throw error;
+    // Pull host-invited guests into the hub (silent; mirrored to Notion). Reuses
+    // the guest list already fetched for stats — no extra Luma calls.
+    await syncInvitedGuestsForEvent(eventId, lumaEventId, guests);
     return true;
   } catch (err) {
     await logSync({

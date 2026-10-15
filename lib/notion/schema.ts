@@ -112,6 +112,7 @@ export function buildBookingsProperties(cities: string[] = ["SF", "NYC"]) {
           { name: LUMA_STATUS_LABEL.approved, color: "green" },
           { name: LUMA_STATUS_LABEL.waitlist, color: "yellow" },
           { name: LUMA_STATUS_LABEL.declined, color: "red" },
+          { name: LUMA_STATUS_LABEL.invited, color: "gray" },
         ],
       },
     },

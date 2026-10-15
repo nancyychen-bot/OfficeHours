@@ -5,7 +5,6 @@ import { pushBookingToWorkspaces } from "../notion/push";
 import { sendBookingComms } from "../email/comms";
 import { clearAllComms, clearCommsForKinds } from "../db/email-log";
 import { shouldSendGuestCancelled } from "./cancellation";
-import { isInvitedGuest, shouldSendCompletion } from "./invited";
 import { postGuestCancelledDM } from "../slack/notify";
 import { approvalStatusToLumaStatus } from "../luma/approval";
 import type { NormalizedRegistration } from "../luma/parse";
@@ -104,13 +103,6 @@ export async function ingestRegistration(
     dev: { slotLabel: slot?.name ?? null, location: event.city, eventName: event.name, eventDate: event.event_date },
     ambassador: { slotLabel: slot?.name ?? null, location: event.city, eventName: event.name, eventDate: event.event_date },
   });
-
-  // Host-invited (zero-answer) guest on the live webhook: email them a tokenized
-  // link to finish the registration form. One-shot — reserve() in the comms ledger
-  // dedups across the repeated guest.updated webhooks Luma fires.
-  if (shouldSendCompletion({ invited: isInvitedGuest(norm), lumaStatus: nextLumaStatus, live: opts.live })) {
-    await sendBookingComms(booking.id, "complete_registration");
-  }
 
   return { status: "ingested", booking, checkedIn };
 }

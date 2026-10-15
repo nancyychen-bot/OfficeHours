@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "cowork_only_accept" | "guest_cancelled" | "prep_reminder_day_before_paid" | "complete_registration";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "cowork_only_accept" | "guest_cancelled" | "prep_reminder_day_before_paid";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -40,8 +40,6 @@ export interface CommsFields {
   eventInstructions?: string | null;
   /** Other bookings the expert holds in this slot (populated for the double-booked email). */
   conflicts?: Array<{ name: string; challenge: string | null; role: string | null; company: string | null }>;
-  /** Absolute magic-link for the invited-guest completion form (minted in getFields). */
-  completionLink?: string | null;
 }
 
 // ---- shared helpers ---------------------------------------------------------
@@ -183,8 +181,7 @@ export type TemplateKey =
   | "feedback_request__guest"
   | "feedback_reminder__guest"
   | "cowork_only__guest"
-  | "cowork_only_accept__guest"
-  | "complete_registration__guest";
+  | "cowork_only_accept__guest";
 
 export interface TemplateDef {
   label: string;
@@ -577,20 +574,6 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
-  complete_registration__guest: {
-    label: "Complete your registration",
-    description: "Invited guests finish the registration form",
-    role: "guest",
-    subject: "Want a 1:1 at {{eventName}}? Complete your registration",
-    body: b(
-      "Hi {{firstName}},", "",
-      "You're on the list for {{eventName}} — we're excited to have you!", "",
-      "**If you'd like a 1:1 session with a Notion expert, you must complete your registration below.** It's the only way we can match you with an expert and hold a time slot for you — and it only takes a minute:", "",
-      "👉 **[Complete your registration]({{completionLink}})**", "",
-      "**Without it, you won't be paired for a 1:1.** You're still very welcome to come cowork alongside the Notion experts — just know a dedicated one-on-one isn't guaranteed unless you finish the form above.", "",
-      "See you there,", SIGNOFF, "", `*${SUPPORT}*`,
-    ),
-  },
   feedback_request__guest: {
     label: "Feedback request", description: "the minute the event ends — checked-in guests", role: "guest",
     subject: "How was Notion Build Bar? (2 mins) 💜",
@@ -636,7 +619,6 @@ export const PLACEHOLDERS: Array<{ token: string; desc: string }> = [
   { token: "{{calendarLink}}", desc: "Notion community calendar URL" },
   { token: "{{eventUrl}}", desc: "This event's public Luma page (for cancel/registration links)" },
   { token: "{{supportEmail}}", desc: "Community support email" },
-  { token: "{{completionLink}}", desc: "Magic-link for the invited-guest completion form" },
   { token: "{{eventName}}", desc: "Event name, e.g. Notion Build Bar Singapore" },
 ];
 
@@ -680,7 +662,6 @@ export function buildVars(role: Recipient, f: CommsFields): Record<string, strin
     eventInstructions: f.eventInstructions?.trim()
       ? `${PREP_INSTRUCTIONS_LABEL}\n${f.eventInstructions.trim()}`
       : "",
-    completionLink: f.completionLink ?? "",
     eventName: f.eventName ?? "",
   };
 }

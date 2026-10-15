@@ -41,17 +41,12 @@ const SAMPLE: CommsFields = {
   calendarUrl: null,
   eventUrl: "https://lu.ma/notion-build-bar-singapore",
   eventInstructions: "Check in at the 5th-floor reception and ask for the Notion Build Bar.",
-  completionLink: "https://hub.example/complete-registration/PREVIEW-TOKEN",
 } as CommsFields;
 
 async function main() {
   const to = arg("--to") ?? process.env.TEST_EMAIL ?? "nancy.y.chen@gmail.com";
   const dry = process.argv.includes("--dry");
   const only = arg("--only");
-  // Override the completion-form link with a real, clickable one (e.g. a minted
-  // localhost token) so the preview's button actually opens the form.
-  const link = arg("--link");
-  if (link) SAMPLE.completionLink = link;
 
   let overrides: OverrideMap = new Map();
   try {

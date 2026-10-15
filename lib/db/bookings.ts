@@ -121,8 +121,9 @@ export async function getBookingByNotionPageId(
  * - New going/pending guest → open for claiming: `unassigned` if they requested a
  *   1:1 slot, else `no_help_needed`.
  * - Waitlisted + already claimed → release the helper (slot kept in case they're
- *   approved later). Claimability itself is gated in `claimBooking` on luma_status,
- *   so a waitlisted guest can't be re-claimed even while `unassigned`.
+ *   approved later). Claimability follows booking `status`: only `unassigned` is
+ *   offered for claim, so a zero-answer invited guest (who lands `no_help_needed`)
+ *   is never surfaced for claiming.
  * - Previously-cancelled guest who re-registers (and isn't declined) → reactivate
  *   to the open status with the assignee cleared.
  * - Otherwise (active) → leave assignment untouched; a slot/answer edit must never

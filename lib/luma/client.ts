@@ -348,6 +348,9 @@ const LUMA_API_STATUS: Record<LumaStatus, string> = {
   declined: "declined",
   waitlist: "waitlist",
   pending: "pending_approval",
+  // Inbound-only: the hub never pushes a guest TO "invited" on Luma, so this is
+  // never sent — present only to satisfy the Record<LumaStatus, string> type.
+  invited: "invited",
 };
 
 /**

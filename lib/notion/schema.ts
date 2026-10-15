@@ -55,6 +55,7 @@ export const LUMA_STATUS_LABEL = {
   approved: "Approved",
   waitlist: "Waitlist",
   declined: "Declined",
+  invited: "Invited",
 } as const;
 
 export const BOOKED_BY_TYPE_LABEL = {

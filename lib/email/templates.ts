@@ -1,4 +1,4 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "cowork_only_accept" | "guest_cancelled" | "prep_reminder_day_before_paid" | "reapproved";
+export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "day_of_guest" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "cowork_only_accept" | "guest_cancelled" | "prep_reminder_day_before_paid" | "reapproved";
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -166,6 +166,7 @@ export type TemplateKey =
   | "prep_reminder_day_before__guest"
   | "prep_reminder_day_before_paid__guest"
   | "day_of_agenda__helper"
+  | "day_of_guest__guest"
   | "assigned__guest" | "assigned__helper"
   | "checked_in__guest__matched" | "checked_in__guest__unmatched" | "checked_in__guest__nohelp" | "checked_in__helper"
   | "arrived_after_no_show__guest__matched" | "arrived_after_no_show__guest__nohelp" | "arrived_after_no_show__helper"
@@ -220,10 +221,10 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
   },
   prep_reminder_day_before__guest: {
     label: "Prep reminder — day before", description: "1 day before — approved Free-plan guests", role: "guest",
-    subject: "Your Notion Build Bar 1:1 is tomorrow ✨",
+    subject: "Notion Build Bar is tomorrow ✨",
     body: b(
       "Hi {{firstName}},", "",
-      "Quick reminder — your **Notion Build Bar** session is **tomorrow**. We can't wait to build with you!", "",
+      "Quick reminder — **Notion Build Bar** is **tomorrow**. We can't wait to build with you!", "",
       "**Before you arrive, head to [ntn.so/community-events]({{trialLink}}) to complete these 3 steps:**",
       "1. Download the Notion desktop app",
       "2. Claim your free Notion Business trial (if you are currently not on a Business plan)",
@@ -237,10 +238,10 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
   },
   prep_reminder_day_before_paid__guest: {
     label: "Prep reminder — day before (non-Free)", description: "1 day before — approved guests not on Free", role: "guest",
-    subject: "Your Notion Build Bar 1:1 is tomorrow ✨",
+    subject: "Notion Build Bar is tomorrow ✨",
     body: b(
       "Hi {{firstName}},", "",
-      "Quick reminder — your **Notion Build Bar** session is **tomorrow**. We can't wait to build with you!", "",
+      "Quick reminder — **Notion Build Bar** is **tomorrow**. We can't wait to build with you!", "",
       "**Before you arrive, head to [ntn.so/community-events]({{trialLink}}) to complete these 3 steps:**",
       "1. Download the Notion desktop app",
       "2. Claim your free Notion Business trial (if you are currently not on a Business plan)",
@@ -313,6 +314,20 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "{{agenda}}", "",
       "Thanks for helping people build today!", "",
       SUPPORT_HELPER, "", "See you there,", SIGNOFF,
+    ),
+  },
+  day_of_guest__guest: {
+    label: "Day-of 1:1 reminder", description: "morning of — guests with a claimed 1:1 (their slot + expert)", role: "guest",
+    subject: "📅 Your Notion Build Bar 1:1 is today — {{slotName}}",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Quick reminder — your **Notion Build Bar 1:1** is **today** at:", "",
+      "🕔 **{{slotName}}** · with **{{expertName}}**", "",
+      "📍 Please **arrive 10 minutes early** so we can get you checked in before your slot starts.", "",
+      "Bring a **fully charged laptop** and the workspace or question you want help with — your expert is ready to build with you.", "",
+      "{{eventInstructions}}", "",
+      "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
+      SUPPORT, "", "See you soon,", SIGNOFF,
     ),
   },
   checked_in__guest__matched: {

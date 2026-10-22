@@ -748,6 +748,29 @@ export function renderComms(
   return renderTemplate(content, buildVars(role, f));
 }
 
+/** The email TEMPLATE for a (kind, role) — subject + html with {{tokens}} left
+ * intact — for the read-only flow preview. Context-variant guest kinds resolve to
+ * their base variant. Returns null when no template exists for the pair. */
+export function previewTemplateFor(
+  kind: CommsKind,
+  role: Recipient,
+  overrides?: OverrideMap,
+): { subject: string; html: string; label: string } | null {
+  const candidates: TemplateKey[] =
+    kind === "checked_in" && role === "guest"
+      ? ["checked_in__guest__matched"]
+      : kind === "arrived_after_no_show" && role === "guest"
+        ? ["arrived_after_no_show__guest__matched"]
+        : [`${kind}__${role}` as TemplateKey];
+  const key = candidates.find((k) => k in TEMPLATE_REGISTRY);
+  if (!key) return null;
+  const def = TEMPLATE_REGISTRY[key];
+  const ov = overrides?.get(key);
+  const content = { subject: ov?.subject ?? def.subject, body: ov?.body ?? def.body };
+  const { subject, html } = renderTemplate(content, {}); // empty vars → tokens stay literal
+  return { subject, html, label: def.label };
+}
+
 export interface AgendaItem {
   guestName: string;
   slotName: string | null;

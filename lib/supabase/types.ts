@@ -20,6 +20,30 @@ export type Database = {
         Update: { created_at?: string; email?: string }
         Relationships: []
       }
+      cities: {
+        Row: {
+          aliases: string[]
+          locale: string
+          luma_calendar: string | null
+          name: string
+          slug: string
+        }
+        Insert: {
+          aliases?: string[]
+          locale?: string
+          luma_calendar?: string | null
+          name: string
+          slug: string
+        }
+        Update: {
+          aliases?: string[]
+          locale?: string
+          luma_calendar?: string | null
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
           attend_reasons: string | null

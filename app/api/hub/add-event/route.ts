@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { env } from "@/lib/env";
 import { verifyFormToken } from "@/lib/auth/form-token";
 import { isValidSession, SESSION_COOKIE } from "@/lib/auth/session";
-import { registerEventFromLuma, CalendarNotConnectedError } from "@/lib/events/register";
+import { registerEventFromLuma, CalendarNotConnectedError, NotABuildBarEventError } from "@/lib/events/register";
 import { lookupChannelIdByName } from "@/lib/slack/api";
 import { setCityChannelName } from "@/lib/db/slack";
 import { resolveNewCalendarEvent, resolveCalendarSlug, CalendarSlugTakenError } from "@/lib/events/onboard";
@@ -82,7 +82,11 @@ export async function POST(req: Request) {
       registerInput = { ...registerInput, lumaEvent: resolved.eventId, publicUrl: eventPublicUrl };
     }
 
-    const result = await registerEventFromLuma(registerInput);
+    // Enforce the Build Bar / Office Hours name check on the public form so stray
+    // events from the shared calendars (AI Labs, dinners, Notion 101…) can't be
+    // added as dashboards. A logged-in operator may still add an oddly-named event
+    // on purpose (same escape hatch as the register script).
+    const result = await registerEventFromLuma(registerInput, { requireBuildBarName: !(await operatorAuthed()) });
 
     let warning: string | undefined;
     if (result.city) {
@@ -112,6 +116,12 @@ export async function POST(req: Request) {
         error:
           "This event's Luma calendar isn't connected yet. Paste its Luma API key below to connect it (one-time), then add the event.",
       });
+    }
+    if (err instanceof NotABuildBarEventError) {
+      return NextResponse.json({
+        ok: false,
+        error: `"${err.eventName}" doesn't look like a Build Bar / Office Hours event, so it wasn't added (the shared calendars host other Notion events). If this is intentional, ask Nancy Chen to add it while logged in.`,
+      }, { status: 400 });
     }
     if (err instanceof CalendarSlugTakenError) {
       return NextResponse.json({ ok: false, needsCalendar: true, error: err.message }, { status: 400 });

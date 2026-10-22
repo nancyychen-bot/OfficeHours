@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { EventResult, Community, Contributor } from "@/lib/hub/results";
 import { pct } from "@/lib/hub/format";
 import { ResultCard, Stat, SectionLabel } from "./ResultCard";
+import { ArchiveEventButton } from "./ArchiveEventButton";
 
 function ContributorsCard({ contributors }: { contributors: Contributor[] }) {
   return (
@@ -81,6 +82,9 @@ export function ResultsTab({ overall, perEvent, community, contributors, unattri
           <a href={`/embed/${active.key}`} target="_blank" rel="noreferrer" className="break-all text-blue-600 underline">
             {(typeof window !== "undefined" ? window.location.origin : "")}/embed/{active.key}
           </a>
+          <span className="ml-auto">
+            <ArchiveEventButton lumaEventId={active.key} hidden={false} label={active.label} />
+          </span>
         </div>
       ) : null}
       {isOverall && unattributed > 0 ? (

@@ -63,7 +63,8 @@ export async function listEventsInDateRange(fromYmd: string, toYmd: string): Pro
     .select("*")
     .gte("event_date", fromYmd)
     .lte("event_date", toYmd)
-    .neq("status", "cancelled");
+    .neq("status", "cancelled")
+    .eq("hidden", false); // archived events are inert (no comms/stats/readiness)
   if (error) throw error;
   return data ?? [];
 }
@@ -75,7 +76,8 @@ export async function listEventsPendingFeedback(): Promise<EventRow[]> {
     .from("events")
     .select("*")
     .is("feedback_sent_at", null)
-    .neq("status", "cancelled");
+    .neq("status", "cancelled")
+    .eq("hidden", false); // archived events are inert
   if (error) throw error;
   return data ?? [];
 }
@@ -99,6 +101,7 @@ export async function listEvents(): Promise<EventRow[]> {
   const { data, error } = await supabase
     .from("events")
     .select("*")
+    .eq("hidden", false) // archived events are inert (no Luma stats sync)
     .order("event_date", { ascending: false });
   if (error) throw error;
   return data ?? [];

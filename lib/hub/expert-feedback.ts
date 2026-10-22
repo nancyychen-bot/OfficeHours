@@ -1,5 +1,6 @@
 import { getAdminClient } from "../supabase/admin";
 import { listGeneralFeedback } from "../db/expert-general-feedback";
+import { isDashboardEvent } from "./visibility";
 
 export interface ExpertFeedbackListRow {
   type: "Guest" | "General";
@@ -22,21 +23,27 @@ export async function listExpertFeedback(): Promise<ExpertFeedbackListRow[]> {
     .from("expert_feedback")
     .select("expert_name, guest_name, attended, rating, note, responded_at, event_id");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: events } = await (supabase as any).from("events").select("id, name, event_date");
+  const { data: events } = await (supabase as any).from("events").select("id, name, event_date, hidden");
+  // Only visible (our, not-archived) events; feedback for a hidden/foreign event is dropped.
   const evMap = new Map<string, { name: string | null; date: string | null }>();
-  for (const e of events ?? []) evMap.set(e.id, { name: e.name ?? null, date: e.event_date ?? null });
+  for (const e of events ?? []) {
+    if (!isDashboardEvent({ name: e.name ?? null, hidden: e.hidden })) continue;
+    evMap.set(e.id, { name: e.name ?? null, date: e.event_date ?? null });
+  }
 
-  const guestRows: ExpertFeedbackListRow[] = (guest ?? []).map((r: Record<string, unknown>) => ({
-    type: "Guest" as const,
-    expert: (r.expert_name as string) ?? null,
-    eventName: evMap.get(r.event_id as string)?.name ?? null,
-    eventDate: evMap.get(r.event_id as string)?.date ?? null,
-    guest: (r.guest_name as string) ?? null,
-    attended: (r.attended as boolean) ?? null,
-    rating: (r.rating as number) ?? null,
-    note: (r.note as string) ?? null,
-    respondedAt: (r.responded_at as string) ?? null,
-  }));
+  const guestRows: ExpertFeedbackListRow[] = (guest ?? [])
+    .filter((r: Record<string, unknown>) => evMap.has(r.event_id as string))
+    .map((r: Record<string, unknown>) => ({
+      type: "Guest" as const,
+      expert: (r.expert_name as string) ?? null,
+      eventName: evMap.get(r.event_id as string)?.name ?? null,
+      eventDate: evMap.get(r.event_id as string)?.date ?? null,
+      guest: (r.guest_name as string) ?? null,
+      attended: (r.attended as boolean) ?? null,
+      rating: (r.rating as number) ?? null,
+      note: (r.note as string) ?? null,
+      respondedAt: (r.responded_at as string) ?? null,
+    }));
 
   const generalRows: ExpertFeedbackListRow[] = (await listGeneralFeedback()).map((r) => ({
     type: "General" as const,

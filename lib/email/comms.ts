@@ -115,8 +115,10 @@ const RECIPIENTS: Record<CommsKind, Recipient[]> = {
   reassigned_off: ["helper"],
   already_claimed: [], // sent directly to the would-be claimer via sendCommsToEmail
   day_of_agenda: [], // aggregate per-expert email — sent via lib/events/agenda, not here
+  day_of_guest: ["guest"], // morning-of reminder to each claimed-1:1 guest — driven by lib/events/day-of-guest
   unclaim_denied: [], // sent directly to the would-be unclaimer via sendCommsToEmail
   slot_changed: ["helper", "guest"], // guest self-served a new slot: notify both; expert removed
+  reapproved: ["guest"], // Declined → Approved (a spot opened up); confirm attendance
 };
 
 /** Kinds that tear down a booking → attach a calendar CANCEL to remove the hold. */

@@ -100,6 +100,18 @@ describe("applyLumaStatus", () => {
     expect(d.sendComms).not.toHaveBeenCalledWith("b1", "cowork_only");
   });
 
+  it("re-approving a previously-DECLINED guest sends the spot-opened email", async () => {
+    const d = deps();
+    await applyLumaStatus(booking({ status: "no_help_needed", luma_status: "declined" }), "approved", { source: "dev" }, d);
+    expect(d.sendComms).toHaveBeenCalledWith("b1", "reapproved");
+  });
+
+  it("approving a PENDING (never-declined) guest does NOT send reapproved", async () => {
+    const d = deps();
+    await applyLumaStatus(booking({ status: "unassigned", luma_status: "pending" }), "approved", { source: "dev" }, d);
+    expect(d.sendComms).not.toHaveBeenCalledWith("b1", "reapproved");
+  });
+
   it("declining a no-slot 1:1 guest never sends cowork_only", async () => {
     const d = deps();
     await applyLumaStatus(

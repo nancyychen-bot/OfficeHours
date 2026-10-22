@@ -1,4 +1,5 @@
 import { getAdminClient } from "@/lib/supabase/admin";
+import { isDashboardEvent, filterToEvents } from "./visibility";
 
 export interface HubBooking {
   id: string;
@@ -155,14 +156,17 @@ export async function listFeedback(): Promise<HubFeedback[]> {
   });
 }
 
-/** All events with slot + (non-cancelled) booking counts. */
+/** Our visible events (Build Bar / Office Hours, not archived) with slot +
+ * (non-cancelled) booking counts. Non-Build-Bar events on shared calendars and
+ * operator-archived events are excluded — see isDashboardEvent. */
 export async function listEvents(): Promise<HubEvent[]> {
   const supabase = getAdminClient();
-  const { data: events, error } = await supabase
+  const { data: eventsRaw, error } = await supabase
     .from("events")
-    .select("id,name,city,event_date,luma_event_id,status,luma_stats,luma_synced_at")
+    .select("id,name,city,event_date,luma_event_id,status,luma_stats,luma_synced_at,hidden")
     .order("event_date", { ascending: true });
   if (error) throw error;
+  const events = (eventsRaw ?? []).filter((e) => isDashboardEvent({ name: e.name as string, hidden: (e as { hidden?: boolean }).hidden }));
   const { data: slots, error: sErr } = await supabase.from("slots").select("event_id");
   if (sErr) throw sErr;
   const { data: bookings, error: bErr } = await supabase
@@ -188,6 +192,49 @@ export async function listEvents(): Promise<HubEvent[]> {
     luma_stats: ((e as { luma_stats?: unknown }).luma_stats as LumaStats | null) ?? null,
     luma_synced_at: ((e as { luma_synced_at?: string }).luma_synced_at as string) ?? null,
   }));
+}
+
+/** An operator-archived event (hidden = true), for the "Archived" management list.
+ * Includes same-named dupes/tests AND any non-Build-Bar event explicitly archived. */
+export interface ArchivedEvent {
+  id: string;
+  name: string;
+  city: string | null;
+  event_date: string | null;
+  luma_event_id: string;
+}
+
+/** Events the operator has archived (hidden = true), newest first — the "Show
+ * archived" list where they can un-hide. */
+export async function listArchivedEvents(): Promise<ArchivedEvent[]> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select("id,name,city,event_date,luma_event_id,hidden")
+    .eq("hidden", true)
+    .order("event_date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((e) => ({
+    id: e.id as string,
+    name: e.name as string,
+    city: (e.city as string) ?? null,
+    event_date: (e.event_date as string) ?? null,
+    luma_event_id: e.luma_event_id as string,
+  }));
+}
+
+/** The three dashboard inputs with hidden/non-Build-Bar events removed from ALL of
+ * them — events via listEvents, and bookings/feedback restricted to those events so
+ * a hidden event's data never leaks into the overall roll-up, community, or
+ * contributors (which read every booking). Single source for every results surface. */
+export async function listDashboardData(): Promise<{
+  events: HubEvent[];
+  bookings: HubBooking[];
+  feedback: HubFeedback[];
+}> {
+  const [events, allBookings, allFeedback] = await Promise.all([listEvents(), listBookings(), listFeedback()]);
+  const { bookings, feedback } = filterToEvents(events, allBookings, allFeedback);
+  return { events, bookings, feedback };
 }
 
 /** Last successful hub→Notion push time + count of non-cancelled events. */

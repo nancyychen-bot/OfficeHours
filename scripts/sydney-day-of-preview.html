@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sydney Build Bar — day-of email preview</title>
+<style>
+  :root {
+    --bg: #faf9f7;
+    --card: #ffffff;
+    --ink: #1f2328;
+    --ink-soft: #4b5159;
+    --rule: #e8e6e1;
+    --accent: #2b7a6b;
+    --highlight: #fff6d6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 24px 80px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 40px 0 12px; letter-spacing: -0.005em; }
+  .sub { color: var(--ink-soft); margin: 0 0 8px; }
+  .meta {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    color: var(--ink-soft); font-size: 13px; margin-bottom: 24px;
+  }
+  .meta b { color: var(--ink); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 13.5px;
+  }
+  thead th {
+    text-align: left;
+    padding: 10px 12px;
+    background: #f3f1ec;
+    color: var(--ink-soft);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid var(--rule);
+  }
+  tbody td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #faf7ef; }
+  .time { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+  .email { color: var(--ink-soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+
+  /* Email mock */
+  .email-card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 0;
+    overflow: hidden;
+    max-width: 640px;
+    margin: 0;
+  }
+  .email-head {
+    padding: 14px 20px;
+    background: #f3f1ec;
+    border-bottom: 1px solid var(--rule);
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .email-head div { margin: 2px 0; }
+  .email-head b { color: var(--ink); font-weight: 600; }
+  .email-body { padding: 24px 28px 28px; }
+  .email-body p { margin: 0 0 14px; }
+  .email-body .big-slot {
+    display: inline-block;
+    background: var(--highlight);
+    border: 1px solid #e9d989;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 16px;
+    margin: 4px 0 16px;
+  }
+  .email-body a { color: var(--accent); }
+  .legend {
+    color: var(--ink-soft); font-size: 13px; margin-top: 14px;
+    padding: 12px 14px; background: #f3f1ec; border-radius: 6px;
+    border: 1px dashed var(--rule);
+  }
+  .legend code {
+    background: #fff; padding: 1px 5px; border-radius: 3px;
+    border: 1px solid var(--rule); font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sydney Build Bar — day-of email preview</h1>
+  <p class="sub">For review before sending the day-of guest email on Thu Oct 22.</p>
+  <div class="meta">
+    <span><b>Event:</b> Notion Build Bar Sydney (Chippendale)</span>
+    <span><b>Date:</b> Thu, Oct 22, 2026 — Australia/Sydney</span>
+    <span><b>Claimed 1:1s:</b> 33</span>
+  </div>
+
+  <h2>1. Current roster (claimed 1:1s, sorted by slot)</h2>
+  <p class="sub">Pulled live from the hub DB — this is who the day-of email would address.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Local time</th>
+        <th>Slot</th>
+        <th>Guest</th>
+        <th>Guest email</th>
+        <th>Expert</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td class="time">17:00</td><td>5:00–5:20PM</td><td>Ben Lever</td><td class="email">ben@beanstalkagtech.com</td><td>Adam Pino</td></tr>
+      <tr><td class="time">17:00</td><td>5:00–5:20PM</td><td>Bastien</td><td class="email">bastien.web3@gmail.com</td><td>Alex Vulkanovski</td></tr>
+      <tr><td class="time">17:00</td><td>5:00–5:20PM</td><td>Team Doomers</td><td class="email">team@doomers.ai</td><td>John Wilfred Adaikalam Selvaraj</td></tr>
+      <tr><td class="time">17:00</td><td>5:00–5:20PM</td><td>Adriana Ardila</td><td class="email">adri.ardila18@gmail.com</td><td>Ahnaf | ScaleXP</td></tr>
+      <tr><td class="time">17:00</td><td>5:00–5:20PM</td><td>Gabriel Everett</td><td class="email">gabriel@higher-ground.co</td><td>Voltron</td></tr>
+      <tr><td class="time">17:00</td><td>5:00–5:20PM</td><td>trish</td><td class="email">trishpass@gmail.com</td><td>Claire French</td></tr>
+      <tr><td class="time">17:20</td><td>5:20–5:40PM</td><td>Edouard Hakim</td><td class="email">e.hakim@konstruq.com</td><td>Adam Pino</td></tr>
+      <tr><td class="time">17:20</td><td>5:20–5:40PM</td><td>Jacqui Irons</td><td class="email">jirons@bigpond.com</td><td>Ahnaf | ScaleXP</td></tr>
+      <tr><td class="time">17:20</td><td>5:20–5:40PM</td><td>Renske Kleinsmann</td><td class="email">renske.kleinsmann@algenie.com.au</td><td>Joe Ross</td></tr>
+      <tr><td class="time">17:40</td><td>5:40–6:00PM</td><td>Sia</td><td class="email">siaristidou@gmail.com</td><td>John Wilfred Adaikalam Selvaraj</td></tr>
+      <tr><td class="time">17:40</td><td>5:40–6:00PM</td><td>Blaz Lovric</td><td class="email">blaz.lovric.e@gmail.com</td><td>Alex Vulkanovski</td></tr>
+      <tr><td class="time">17:40</td><td>5:40–6:00PM</td><td>Angela Reynolds</td><td class="email">reyang765@gmail.com</td><td>Voltron</td></tr>
+      <tr><td class="time">17:40</td><td>5:40–6:00PM</td><td>Teala S</td><td class="email">teala.stephens@gmail.com</td><td>Ahnaf | ScaleXP</td></tr>
+      <tr><td class="time">17:40</td><td>5:40–6:00PM</td><td>Minh Tuấn Lê</td><td class="email">leminhtuan27092002@gmail.com</td><td>Joe Ross</td></tr>
+      <tr><td class="time">17:40</td><td>5:40–6:00PM</td><td>Peter Fisher</td><td class="email">peter@dharco.com</td><td>Adam Pino</td></tr>
+      <tr><td class="time">17:40</td><td>5:40–6:00PM</td><td>Camilla Gulli</td><td class="email">camilla.gulli@icloud.com</td><td>Claire French</td></tr>
+      <tr><td class="time">18:00</td><td>6:00–6:20PM</td><td>Juan José Ortiz Fonnegra</td><td class="email">juanjo1441@gmail.com</td><td>Adam Hudson</td></tr>
+      <tr><td class="time">18:00</td><td>6:00–6:20PM</td><td>Scott Nevison</td><td class="email">scott@bluebirdrecruitment.com</td><td>Ahnaf | ScaleXP</td></tr>
+      <tr><td class="time">18:00</td><td>6:00–6:20PM</td><td>Lena C</td><td class="email">lena.c2025@gmail.com</td><td>Voltron</td></tr>
+      <tr><td class="time">18:00</td><td>6:00–6:20PM</td><td>Faval</td><td class="email">valentinefavour.okoh@gmail.com</td><td>Ad</td></tr>
+      <tr><td class="time">18:00</td><td>6:00–6:20PM</td><td>Georgie Healy</td><td class="email">georginarosehealy@gmail.com</td><td>Joe Ross</td></tr>
+      <tr><td class="time">18:00</td><td>6:00–6:20PM</td><td>Alina Caballero</td><td class="email">dac.caballero@gmail.com</td><td>All</td></tr>
+      <tr><td class="time">18:20</td><td>6:20–6:40PM</td><td>Ameneh Sadeghpour</td><td class="email">ameneh@mithraconsulting.com.au</td><td>John Wilfred Adaikalam Selvaraj</td></tr>
+      <tr><td class="time">18:20</td><td>6:20–6:40PM</td><td>Vishal Shah</td><td class="email">vishal.8.shah@gmail.com</td><td>Adam Hudson</td></tr>
+      <tr><td class="time">18:20</td><td>6:20–6:40PM</td><td>Jack Pittman</td><td class="email">jackianpittman@gmail.com</td><td>Joe Ross</td></tr>
+      <tr><td class="time">18:20</td><td>6:20–6:40PM</td><td>SLi</td><td class="email">s_li@outlook.com.au</td><td>Voltron Dwyer</td></tr>
+      <tr><td class="time">18:40</td><td>6:40–7:00PM</td><td>Aditi K</td><td class="email">aditi.usyd@gmail.com</td><td>Alex Vulkanovski</td></tr>
+      <tr><td class="time">18:40</td><td>6:40–7:00PM</td><td>Sourav Dasgupta</td><td class="email">sourav.d.gupta@gmail.com</td><td>Ahnaf Ahmed</td></tr>
+      <tr><td class="time">19:00</td><td>7:00–7:20PM</td><td>Alex Vulkanovski</td><td class="email">avulkanovski@gmail.com</td><td>Adam Hudson</td></tr>
+      <tr><td class="time">19:20</td><td>7:20–7:40PM</td><td>Natcha Jarusuraisin</td><td class="email">pro14437@hotmail.com</td><td>Alex Vulkanovski</td></tr>
+      <tr><td class="time">19:40</td><td>7:40–8:00PM</td><td>Stuart Chater</td><td class="email">stuart.chater@outlook.com</td><td>Ahnaf | ScaleXP</td></tr>
+      <tr><td class="time">19:40</td><td>7:40–8:00PM</td><td>Renee</td><td class="email">reneeflows@gmail.com</td><td>Alex Vulkanovski</td></tr>
+      <tr><td class="time">19:40</td><td>7:40–8:00PM</td><td>wetware 🦋</td><td class="email">hellowetware@gmail.com</td><td>Adam Hudson</td></tr>
+    </tbody>
+  </table>
+
+  <h2>2. Sample day-of email (personalized per guest)</h2>
+  <p class="sub">Each of the 33 guests gets this, with their own slot time + expert filled in. Example below is for <b>Ben Lever</b>.</p>
+
+  <div class="email-card">
+    <div class="email-head">
+      <div><b>From:</b> Notion Community Team &lt;bar@makenotion.com&gt;</div>
+      <div><b>To:</b> ben@beanstalkagtech.com</div>
+      <div><b>Subject:</b> 📅 Your Notion Build Bar 1:1 is today — 5:00 PM</div>
+    </div>
+    <div class="email-body">
+      <p>Hi Ben,</p>
+
+      <p>Quick reminder — your <b>Notion Build Bar 1:1</b> is <b>today</b> at:</p>
+
+      <div class="big-slot">
+        🕔 <b>5:00–5:20 PM</b> &nbsp;·&nbsp; with <b>Adam Pino</b>
+      </div>
+
+      <p>📍 Please <b>arrive 10 minutes early</b> so we can get you checked in before your slot starts.</p>
+
+      <p>Bring a <b>fully charged laptop</b> and the workspace or question you want help with — your expert is ready to build with you.</p>
+
+      <p><i>[Getting there &amp; check-in details from the event, if set]</i></p>
+
+      <p>Can't make it? Please <a href="#">cancel your registration</a> so we can free up your spot.</p>
+
+      <p>See you soon,<br />The Notion Community Team</p>
+
+      <p style="color:#4b5159;font-size:13px;margin-top:24px;">
+        <i>If you have any questions please email bar@makenotion.com</i>
+      </p>
+    </div>
+  </div>
+
+  <div class="legend">
+    <b>Fields filled per guest:</b>
+    <code>{{firstName}}</code>
+    <code>{{slotName}}</code> (e.g. "5:00–5:20 PM")
+    <code>{{expertName}}</code>
+    <code>{{eventInstructions}}</code> (the event's "Getting there &amp; checking in" block, if set)
+    <code>{{eventUrl}}</code> (Luma registration page for cancellation)
+  </div>
+</div>
+</body>
+</html>

@@ -42,12 +42,12 @@ describe("isSendDue", () => {
     // 09:00 London on the 27th (the event day) → lapsed, NOT due
     expect(isSendDue(at("2026-08-27T08:00:00Z"), london, rule)).toBe(false);
   });
-  it("respects a different offset/hour (prep T-3 at 9am, decline at 8am)", () => {
+  it("respects a different offset/hour (prep T-3 at 9am, decline at noon)", () => {
     const ev = { event_date: "2026-08-27", timezone: "America/Los_Angeles" };
     // T-3 rule: due at 9am LA on the 24th
     expect(isSendDue(at("2026-08-24T16:00:00Z"), ev, { offsetDays: -3, targetHour: 9 })).toBe(true);
-    // decline rule (8am) is due at 8am LA on the 26th, before the 9am reminder
-    expect(isSendDue(at("2026-08-26T15:00:00Z"), ev, { offsetDays: -1, targetHour: 8 })).toBe(true);
-    expect(isSendDue(at("2026-08-26T15:00:00Z"), ev, { offsetDays: -1, targetHour: 9 })).toBe(false); // 8am, reminder not yet
+    // decline rule (noon) is due at 12:00 LA on the 26th
+    expect(isSendDue(at("2026-08-26T19:00:00Z"), ev, { offsetDays: -1, targetHour: 12 })).toBe(true);
+    expect(isSendDue(at("2026-08-26T19:00:00Z"), ev, { offsetDays: -1, targetHour: 13 })).toBe(false); // noon, 1pm not yet
   });
 });

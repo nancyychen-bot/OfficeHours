@@ -20,6 +20,30 @@ export type Database = {
         Update: { created_at?: string; email?: string }
         Relationships: []
       }
+      cities: {
+        Row: {
+          aliases: string[]
+          locale: string
+          luma_calendar: string | null
+          name: string
+          slug: string
+        }
+        Insert: {
+          aliases?: string[]
+          locale?: string
+          luma_calendar?: string | null
+          name: string
+          slug: string
+        }
+        Update: {
+          aliases?: string[]
+          locale?: string
+          luma_calendar?: string | null
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
           attend_reasons: string | null
@@ -227,6 +251,7 @@ export type Database = {
           feedback_reminder_sent_at: string | null
           feedback_sent_at: string | null
           form_anomalies: Json | null
+          hidden: boolean
           id: string
           luma_calendar: string
           luma_event_id: string | null
@@ -248,6 +273,7 @@ export type Database = {
           feedback_reminder_sent_at?: string | null
           feedback_sent_at?: string | null
           form_anomalies?: Json | null
+          hidden?: boolean
           id?: string
           luma_calendar?: string
           luma_event_id?: string | null
@@ -269,6 +295,7 @@ export type Database = {
           feedback_reminder_sent_at?: string | null
           feedback_sent_at?: string | null
           form_anomalies?: Json | null
+          hidden?: boolean
           id?: string
           luma_calendar?: string
           luma_event_id?: string | null
@@ -660,7 +687,7 @@ export type Database = {
         | "no_help_needed"
         | "cowork_only"
       event_status: "planned" | "live" | "completed" | "cancelled"
-      luma_status: "pending" | "approved" | "waitlist" | "declined"
+      luma_status: "pending" | "approved" | "waitlist" | "declined" | "invited"
       sync_direction:
         | "luma_in"
         | "notion_dev_in"
@@ -805,7 +832,7 @@ export const Constants = {
         "cowork_only",
       ],
       event_status: ["planned", "live", "completed", "cancelled"],
-      luma_status: ["pending", "approved", "waitlist", "declined"],
+      luma_status: ["pending", "approved", "waitlist", "declined", "invited"],
       sync_direction: [
         "luma_in",
         "notion_dev_in",

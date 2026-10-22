@@ -1,13 +1,14 @@
-import { listBookings, listFeedback, listEvents } from "@/lib/hub/queries";
+import { listDashboardData, listArchivedEvents } from "@/lib/hub/queries";
 import { computeResults, computeCommunity, computeContributors } from "@/lib/hub/results";
 import { HubNav } from "@/components/hub/HubNav";
 import { ResultsTab } from "@/components/hub/ResultsTab";
+import { ArchivedEvents } from "@/components/hub/ArchivedEvents";
 
 // Always render fresh (reads the live DB); the middleware guards access.
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [bookings, feedback, events] = await Promise.all([listBookings(), listFeedback(), listEvents()]);
+  const [{ events, bookings, feedback }, archived] = await Promise.all([listDashboardData(), listArchivedEvents()]);
   const { overall, perEvent, unattributed } = computeResults(bookings, feedback, events);
   const community = computeCommunity(bookings);
   const contributors = computeContributors(bookings);
@@ -18,6 +19,7 @@ export default async function DashboardPage() {
         High-level numbers and insight — attendance, 1:1 coverage, satisfaction, confidence lift, interests, and repeat attendance.
       </p>
       <ResultsTab overall={overall} perEvent={perEvent} community={community} contributors={contributors} unattributed={unattributed} />
+      <ArchivedEvents archived={archived} />
     </main>
   );
 }

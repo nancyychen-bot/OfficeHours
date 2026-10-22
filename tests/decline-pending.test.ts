@@ -82,12 +82,12 @@ describe("dispatchDeclinePendingForTomorrow (timezone filter)", () => {
     logSync.mockReset();
   });
 
-  it("only processes events whose local clock has reached 8am at (event_date − 1)", async () => {
-    // now = 13:00 UTC on 2026-08-25. Both events are on 2026-08-26, so the
-    // decline rule (offsetDays −1, targetHour 8) targets 8am local on 2026-08-25.
-    //  - New_York (UTC-4 DST): 09:00 local → 9 ≥ 8 → DUE
-    //  - Los_Angeles (UTC-7 DST): 06:00 local → 6 < 8 → NOT yet
-    const now = new Date("2026-08-25T13:00:00Z");
+  it("only processes events whose local clock has reached noon at (event_date − 1)", async () => {
+    // now = 16:00 UTC on 2026-08-25. Both events are on 2026-08-26, so the
+    // decline rule (offsetDays −1, targetHour 12) targets noon local on 2026-08-25.
+    //  - New_York (UTC-4 DST): 12:00 local → 12 ≥ 12 → DUE
+    //  - Los_Angeles (UTC-7 DST): 09:00 local → 9 < 12 → NOT yet
+    const now = new Date("2026-08-25T16:00:00Z");
     listEventsInDateRange.mockResolvedValue([
       { id: "due", event_date: "2026-08-26", timezone: "America/New_York" },
       { id: "early", event_date: "2026-08-26", timezone: "America/Los_Angeles" },
@@ -139,6 +139,14 @@ describe("selectDeclinablePendings", () => {
     const rows = [
       bk({ id: "p1", luma_status: "pending", status: "unassigned" }),
       bk({ id: "c1", luma_status: "pending", status: "cowork_only" }),
+    ];
+    expect(selectDeclinablePendings(rows).map((b) => b.id)).toEqual(["p1"]);
+  });
+
+  it("never declines an invited guest (only pending)", () => {
+    const rows = [
+      bk({ id: "p1", luma_status: "pending", status: "unassigned" }),
+      bk({ id: "i1", luma_status: "invited", status: "no_help_needed" }),
     ];
     expect(selectDeclinablePendings(rows).map((b) => b.id)).toEqual(["p1"]);
   });

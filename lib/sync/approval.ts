@@ -39,6 +39,12 @@ export async function applyLumaStatus(
     if (wasAssigned) current = (await deps.resetAssignment(booking.id, releaseTo)) ?? current;
   }
 
+  // Declined → Approved means a spot opened up for someone previously turned
+  // away — email them to confirm their attendance. Only this exact transition.
+  if (next === "approved" && booking.luma_status === "declined") {
+    await deps.sendComms(booking.id, "reapproved");
+  }
+
   if (next === "approved" && isCoworkOnlyMismatch(booking)) {
     await deps.sendComms(booking.id, "cowork_only");
   }

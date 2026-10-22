@@ -1,4 +1,12 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "cowork_only_accept" | "guest_cancelled" | "prep_reminder_day_before_paid";
+export const COMMS_KINDS = [
+  "assigned", "checked_in", "no_show", "cancelled", "expert_unavailable", "declined",
+  "waitlisted", "event_cancelled", "arrived_after_no_show", "double_booked",
+  "feedback_request", "feedback_reminder", "prep_reminder", "rematch_pending",
+  "unmatched_notice", "reassigned_off", "already_claimed", "day_of_agenda", "day_of_guest",
+  "unclaim_denied", "slot_changed", "prep_reminder_day_before", "cowork_only",
+  "cowork_only_accept", "guest_cancelled", "prep_reminder_day_before_paid", "reapproved",
+] as const;
+export type CommsKind = (typeof COMMS_KINDS)[number];
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */
@@ -166,6 +174,7 @@ export type TemplateKey =
   | "prep_reminder_day_before__guest"
   | "prep_reminder_day_before_paid__guest"
   | "day_of_agenda__helper"
+  | "day_of_guest__guest"
   | "assigned__guest" | "assigned__helper"
   | "checked_in__guest__matched" | "checked_in__guest__unmatched" | "checked_in__guest__nohelp" | "checked_in__helper"
   | "arrived_after_no_show__guest__matched" | "arrived_after_no_show__guest__nohelp" | "arrived_after_no_show__helper"
@@ -181,7 +190,8 @@ export type TemplateKey =
   | "feedback_request__guest"
   | "feedback_reminder__guest"
   | "cowork_only__guest"
-  | "cowork_only_accept__guest";
+  | "cowork_only_accept__guest"
+  | "reapproved__guest";
 
 export interface TemplateDef {
   label: string;
@@ -219,10 +229,10 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
   },
   prep_reminder_day_before__guest: {
     label: "Prep reminder — day before", description: "1 day before — approved Free-plan guests", role: "guest",
-    subject: "Your Notion Build Bar 1:1 is tomorrow ✨",
+    subject: "Notion Build Bar is tomorrow ✨",
     body: b(
       "Hi {{firstName}},", "",
-      "Quick reminder — your **Notion Build Bar** session is **tomorrow**. We can't wait to build with you!", "",
+      "Quick reminder — **Notion Build Bar** is **tomorrow**. We can't wait to build with you!", "",
       "**Before you arrive, head to [ntn.so/community-events]({{trialLink}}) to complete these 3 steps:**",
       "1. Download the Notion desktop app",
       "2. Claim your free Notion Business trial (if you are currently not on a Business plan)",
@@ -236,10 +246,10 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
   },
   prep_reminder_day_before_paid__guest: {
     label: "Prep reminder — day before (non-Free)", description: "1 day before — approved guests not on Free", role: "guest",
-    subject: "Your Notion Build Bar 1:1 is tomorrow ✨",
+    subject: "Notion Build Bar is tomorrow ✨",
     body: b(
       "Hi {{firstName}},", "",
-      "Quick reminder — your **Notion Build Bar** session is **tomorrow**. We can't wait to build with you!", "",
+      "Quick reminder — **Notion Build Bar** is **tomorrow**. We can't wait to build with you!", "",
       "**Before you arrive, head to [ntn.so/community-events]({{trialLink}}) to complete these 3 steps:**",
       "1. Download the Notion desktop app",
       "2. Claim your free Notion Business trial (if you are currently not on a Business plan)",
@@ -312,6 +322,20 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       "{{agenda}}", "",
       "Thanks for helping people build today!", "",
       SUPPORT_HELPER, "", "See you there,", SIGNOFF,
+    ),
+  },
+  day_of_guest__guest: {
+    label: "Day-of 1:1 reminder", description: "morning of — guests with a claimed 1:1 (their slot + expert)", role: "guest",
+    subject: "📅 Your Notion Build Bar 1:1 is today — {{slotName}}",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Quick reminder — your **Notion Build Bar 1:1** is **today** at:", "",
+      "🕔 **{{slotName}}** · with **{{expertName}}**", "",
+      "📍 Please **arrive 10 minutes early** so we can get you checked in before your slot starts.", "",
+      "Bring a **fully charged laptop** and the workspace or question you want help with — your expert is ready to build with you.", "",
+      "{{eventInstructions}}", "",
+      "Can't make it? Please **[cancel your registration]({{eventUrl}})** so we can free up your spot.", "",
+      SUPPORT, "", "See you soon,", SIGNOFF,
     ),
   },
   checked_in__guest__matched: {
@@ -483,6 +507,16 @@ export const TEMPLATE_REGISTRY: Record<TemplateKey, TemplateDef> = {
       SUPPORT_HELPER, "", "Thanks for building with us,", SIGNOFF,
     ),
   },
+  reapproved__guest: {
+    label: "Spot opened up", description: "Luma Status flipped Declined → Approved (a spot opened)", role: "guest",
+    subject: "A spot opened up — you're in for Notion Build Bar 🎉",
+    body: b(
+      "Hi {{firstName}},", "",
+      "Good news — a spot has opened up and **you're now confirmed** for Notion Build Bar in {{location}} on {{eventDate}}! We'd love to have you.", "",
+      "If you can no longer make it, please **[cancel your registration]({{eventUrl}})** so we can offer the spot to someone else.", "",
+      "See you there,", SIGNOFF, "", `*${SUPPORT}*`,
+    ),
+  },
   waitlisted__guest: {
     label: "Waitlisted", description: "Luma Status set to Waitlist", role: "guest",
     subject: "You're on the waitlist for Notion Build Bar",
@@ -619,6 +653,7 @@ export const PLACEHOLDERS: Array<{ token: string; desc: string }> = [
   { token: "{{calendarLink}}", desc: "Notion community calendar URL" },
   { token: "{{eventUrl}}", desc: "This event's public Luma page (for cancel/registration links)" },
   { token: "{{supportEmail}}", desc: "Community support email" },
+  { token: "{{eventName}}", desc: "Event name, e.g. Notion Build Bar Singapore" },
 ];
 
 // ---- rendering --------------------------------------------------------------
@@ -661,6 +696,7 @@ export function buildVars(role: Recipient, f: CommsFields): Record<string, strin
     eventInstructions: f.eventInstructions?.trim()
       ? `${PREP_INSTRUCTIONS_LABEL}\n${f.eventInstructions.trim()}`
       : "",
+    eventName: f.eventName ?? "",
   };
 }
 
@@ -710,6 +746,29 @@ export function renderComms(
   const ov = overrides?.get(key);
   const content = { subject: ov?.subject ?? def.subject, body: ov?.body ?? def.body };
   return renderTemplate(content, buildVars(role, f));
+}
+
+/** The email TEMPLATE for a (kind, role) — subject + html with {{tokens}} left
+ * intact — for the read-only flow preview. Context-variant guest kinds resolve to
+ * their base variant. Returns null when no template exists for the pair. */
+export function previewTemplateFor(
+  kind: CommsKind,
+  role: Recipient,
+  overrides?: OverrideMap,
+): { subject: string; html: string; label: string } | null {
+  const candidates: TemplateKey[] =
+    kind === "checked_in" && role === "guest"
+      ? ["checked_in__guest__matched"]
+      : kind === "arrived_after_no_show" && role === "guest"
+        ? ["arrived_after_no_show__guest__matched"]
+        : [`${kind}__${role}` as TemplateKey];
+  const key = candidates.find((k) => k in TEMPLATE_REGISTRY);
+  if (!key) return null;
+  const def = TEMPLATE_REGISTRY[key];
+  const ov = overrides?.get(key);
+  const content = { subject: ov?.subject ?? def.subject, body: ov?.body ?? def.body };
+  const { subject, html } = renderTemplate(content, {}); // empty vars → tokens stay literal
+  return { subject, html, label: def.label };
 }
 
 export interface AgendaItem {

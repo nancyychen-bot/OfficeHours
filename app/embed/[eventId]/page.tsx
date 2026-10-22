@@ -1,14 +1,15 @@
-import { listBookings, listFeedback, listEvents } from "@/lib/hub/queries";
+import { listDashboardData } from "@/lib/hub/queries";
 import { computeResults } from "@/lib/hub/results";
 import { ResultCard } from "@/components/hub/ResultCard";
 
 // Public (no auth) per-event results — embeddable in Notion. Comments are shown
-// anonymized (no attendee names). Always fresh.
+// anonymized (no attendee names). Always fresh. Hidden / non-Build-Bar events are
+// excluded (via listDashboardData), so their embed shows "no results".
 export const dynamic = "force-dynamic";
 
 export default async function EmbedEventPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const [bookings, feedback, events] = await Promise.all([listBookings(), listFeedback(), listEvents()]);
+  const { events, bookings, feedback } = await listDashboardData();
   const { perEvent } = computeResults(bookings, feedback, events);
   const r = perEvent.find((e) => e.key === eventId);
 

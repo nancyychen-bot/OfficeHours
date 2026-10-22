@@ -216,3 +216,10 @@ describe("cowork_only status mapping", () => {
     expect(labelToStatus("Cowork only")).toBe("cowork_only");
   });
 });
+
+describe("invited luma-status mapping", () => {
+  it("round-trips invited <-> \"Invited\" both directions", () => {
+    expect(lumaStatusToLabel("invited")).toBe("Invited");
+    expect(labelToLumaStatus("Invited")).toBe("invited");
+  });
+});

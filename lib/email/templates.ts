@@ -1,4 +1,12 @@
-export type CommsKind = "assigned" | "checked_in" | "no_show" | "cancelled" | "expert_unavailable" | "declined" | "waitlisted" | "event_cancelled" | "arrived_after_no_show" | "double_booked" | "feedback_request" | "feedback_reminder" | "prep_reminder" | "rematch_pending" | "unmatched_notice" | "reassigned_off" | "already_claimed" | "day_of_agenda" | "day_of_guest" | "unclaim_denied" | "slot_changed" | "prep_reminder_day_before" | "cowork_only" | "cowork_only_accept" | "guest_cancelled" | "prep_reminder_day_before_paid" | "reapproved";
+export const COMMS_KINDS = [
+  "assigned", "checked_in", "no_show", "cancelled", "expert_unavailable", "declined",
+  "waitlisted", "event_cancelled", "arrived_after_no_show", "double_booked",
+  "feedback_request", "feedback_reminder", "prep_reminder", "rematch_pending",
+  "unmatched_notice", "reassigned_off", "already_claimed", "day_of_agenda", "day_of_guest",
+  "unclaim_denied", "slot_changed", "prep_reminder_day_before", "cowork_only",
+  "cowork_only_accept", "guest_cancelled", "prep_reminder_day_before_paid", "reapproved",
+] as const;
+export type CommsKind = (typeof COMMS_KINDS)[number];
 export type Recipient = "helper" | "guest";
 
 /** The Ambassador feedback form (linked from the post-event feedback email). */

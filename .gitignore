@@ -35,3 +35,6 @@ next-env.d.ts
 # Local DB snapshots (contain PII — never commit). Anchored to repo root so it
 # doesn't also ignore app routes like app/settings/backups or app/api/hub/backups.
 /backups/
+
+# Superpowers brainstorming scratch (visual companion mockups)
+.superpowers/
